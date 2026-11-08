@@ -1,0 +1,26 @@
+name: Feature request
+description: Something wemock should be able to do and cannot.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the problem, not the solution. "I need X to happen when Y" is more useful than
+        "add a flag for Z" — there may already be a way, or a better shape than the one you
+        have in mind.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The task you are stuck on, not the API or option you imagine solving it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What are you doing instead today?
+      description: If nothing, say so.
+    validations:
+      required: false

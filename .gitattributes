@@ -1,0 +1,24 @@
+# Normalise line endings for text, but never touch binaries.
+#
+# `eol=lf` is not redundant with `text=auto`. text=auto normalises to LF in the
+# OBJECT STORE; checkout still follows core.eol, which defaults to native -- so
+# a Windows clone gets CRLF working files against LF blobs, and `git status`
+# shows nothing because it compares normalised. That drift is invisible until a
+# tool writes LF into a CRLF file.
+*                text=auto eol=lf
+
+*.png            binary
+*.jpg            binary
+*.jpeg           binary
+*.webp           binary
+*.gif            binary
+*.pdf            binary
+*.zip            binary
+*.ttf            binary
+*.otf            binary
+
+# The two exceptions that genuinely need CRLF: Windows batch files break without it.
+*.bat            text eol=crlf
+*.cmd            text eol=crlf
+
+*.sh             text eol=lf

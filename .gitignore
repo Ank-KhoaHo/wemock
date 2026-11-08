@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+
+# Agent and SDD scratch.
+.superpowers/
+
+# --------------------------------------------------------------------------
+# This repository is public. The rules below keep a maintainer's working
+# material out of it.
+#
+# WHY, and only why. A .gitignore is published like anything else, so a
+# comment that inventories what a hidden file CONTAINS tells a reader exactly
+# what was withheld -- it converts a silent absence into a described one.
+# Say that a rule exists because the material is for whoever develops this
+# project rather than for whoever uses it. Never say what is in it.
+#
+# Nothing here is secret. It is working material, and a consumer has no use
+# for it. PUBLIC.md says that much, and deliberately no more.
+#
+# Each pattern below is anchored to the repository root with a leading "/".
+# Unanchored, a pattern with no interior slash matches at ANY depth -- which
+# would also swallow template/seed/'s own copies of these same names, the
+# tracked payload a bootstrap installs from. Anchoring keeps the rule aimed
+# at the installed, maintainer-only copies only.
+# --------------------------------------------------------------------------
+/docs/
+/CLAUDE.md
+/DEVELOPMENT-CHECKLIST.md
+/BACKLOG.html

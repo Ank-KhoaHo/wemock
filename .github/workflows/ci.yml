@@ -1,0 +1,78 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    name: docs guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: python -m pip install --upgrade pip pytest
+
+      # The skip check is the point of this step, not decoration. A test that
+      # skips reports success having asserted nothing, which is the exact
+      # silent-success shape tests/test_docs_integrity.py exists to catch.
+      # Nothing in the guard has a legitimate reason to skip, so any skip is
+      # a failure.
+      #
+      # This runs in CI MODE: the maintainer's working half is gitignored, so
+      # the runner cannot see docs/, CLAUDE.md or BACKLOG.html. The guard knows,
+      # and inverts -- instead of checking the page's contents it checks the
+      # page is absent and that git confirms that is deliberate. Do not "fix" a
+      # [CI] line in the output; it is the guard reporting which half it saw.
+      - name: Docs guard
+        shell: bash
+        run: |
+          # Both, explicitly. GitHub runs `shell: bash` steps with -eo pipefail
+          # already, and this script RELIES on the -e: a genuine test failure
+          # must abort at the pipe. Without it the `if` below evaluates false
+          # and the step exits 0, masking the failure. Stated here so copying
+          # this step somewhere with a different shell cannot resurrect that.
+          #
+          # The path is explicit, not bare `pytest`: this job guards the docs
+          # and must not collect the project's own tests. Once a project adds
+          # tests/test_*.py, a bare `pytest -v -rs` here would run them too --
+          # without the project's dependencies installed, and failing this job
+          # on any legitimate project-test skip while blaming the docs guard
+          # for it. The project's suite gets its own job below, with its own
+          # dependencies.
+          set -eo pipefail
+          pytest -v -rs tests/test_docs_integrity.py | tee pytest.out
+          if grep -qE '[0-9]+ skipped' pytest.out; then
+            echo "::error::Tests were skipped — the suite may be vacuous."
+            exit 1
+          fi
+
+  # ---------------------------------------------------------------------
+  # YOUR PROJECT'S TESTS GO HERE.
+  #
+  # The template is language-agnostic, so it cannot know your test command.
+  # Add a job here, then close ticket D3, which tracks exactly this.
+  #
+  #  project:
+  #    name: test
+  #    runs-on: ubuntu-latest
+  #    steps:
+  #      - uses: actions/checkout@v4
+  #      - run: <your build>
+  #      - run: <your tests>
+  # ---------------------------------------------------------------------
