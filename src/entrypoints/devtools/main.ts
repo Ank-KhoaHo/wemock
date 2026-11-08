@@ -1,1 +1,1 @@
-browser.devtools.panels.create('wemock', '', 'panel.html');
+browser.devtools.panels.create('wemock', 'icon/32.png', 'panel.html');

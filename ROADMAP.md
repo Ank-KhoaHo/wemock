@@ -5,24 +5,31 @@ tasks is a maintainer's working material and is not published (see [PUBLIC.md](P
 This file is the only forward-looking view a reader outside the project gets, so keep it
 honest: an empty milestone is more useful than a stale one.
 
-## M0 — Bootstrap
+## M0 — Bootstrap (done)
 
-The repository exists, the licence in [LICENSE](LICENSE) has been chosen, and the basics work.
+The repository, the MIT licence, the build, and CI.
 
-## M1 — First usable version
+## M1 — First usable version (done in source, 1.0.0)
 
-Record real API calls in Chrome DevTools, then replay them as switchable mock scenarios., working end to end for the simplest case that matters.
+Record calls in a DevTools panel, replay them as mocks, group mocks into scenarios, edit them,
+and import or export projects, including Mokku's files.
 
 ## M2 — Hardening
 
-The rough edges found by actually using M1 are closed, and the things it deliberately does not
-do yet are written down here rather than discovered by surprise.
+The rough edges found by daily use of 1.0.0, closed one at a time.
 
-## M3 — Public release
+## M3 — Chrome Web Store
 
-Ready for someone outside the project to pick up, use, and report a problem against.
+The first Store release.
+
+## Later, if people ask
+
+- Firefox and Edge builds.
+- Matching on query strings and request bodies.
+- Rewriting headers on real calls.
 
 ## Things deliberately not coming
 
-Nothing yet — there is nothing to rule out until there is enough of the project to rule things
-out against.
+- **Running user JavaScript to build responses.** It needs `eval`, which Store policy and
+  wemock's own safety rule both forbid.
+- **Intercepting through `chrome.debugger`.** It shows a warning bar on every tab.

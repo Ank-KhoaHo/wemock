@@ -39,7 +39,8 @@ spaces.
 
 ## Reporting
 
-Report unacceptable behaviour to **59190902+Ank-KhoaHo@users.noreply.github.com**. All reports will be reviewed and
+Report unacceptable behaviour through a [private report](https://github.com/Ank-KhoaHo/wemock/security/advisories/new) on the repository.
+**There is deliberately no contact email**, for the same reason [SECURITY.md](SECURITY.md) gives. All reports will be reviewed and
 investigated promptly and fairly, and the identity of the reporter will be kept confidential.
 
 ## Enforcement

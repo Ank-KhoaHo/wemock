@@ -2,7 +2,10 @@
 
 ## Reporting a vulnerability
 
-**Report privately, to 59190902+Ank-KhoaHo@users.noreply.github.com.** Please do not open a public issue for a suspected
+**Report privately**, through GitHub's private advisory form:
+<https://github.com/Ank-KhoaHo/wemock/security/advisories/new>, or use *Security → Report a vulnerability* on the repository page.
+There is no security email address, deliberately — an unmonitored inbox is worse than no inbox.
+Please do not open a public issue for a suspected
 vulnerability — that discloses it to everyone at once, before there is a fix to give them.
 
 Include the version you're on, the shortest input or steps that reproduce it, and what you

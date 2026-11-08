@@ -8,10 +8,21 @@ just the mechanics of building and testing it.
 
 ## Building and testing
 
-This template ships with no build system, so there is nothing to run yet. Once a language and a
-build system are chosen, the real build and test commands belong in this section — it is the
-first place a contributor looks, so keep it current rather than letting it drift from whatever
-actually runs in CI.
+You need Node 22 or newer.
+
+```
+npm ci
+npx playwright install chromium
+bash scripts/check.sh
+```
+
+`scripts/check.sh` runs the typecheck, the build, the unit tests (Vitest), the browser tests
+(Playwright, real Chromium with the unpacked build) and the docs guard. It fails on any
+skipped test. CI runs the same steps.
+
+One rule above all: **the page patch must never break the page.** Code that runs inside a
+web page (`src/patch/`) catches every error and falls back to the browser's own `fetch` or
+`XMLHttpRequest`. A change that can throw into a page is rejected.
 
 ## Branching and pull requests
 

@@ -39,3 +39,25 @@ describe('built manifest', () => {
     expect(m.action?.default_popup).toBe('popup.html');
   });
 });
+
+describe('release manifest (task 10)', () => {
+  const m = existsSync(`${OUT}/manifest.json`)
+    ? JSON.parse(readFileSync(`${OUT}/manifest.json`, 'utf8'))
+    : {};
+
+  it('is version 1.0.0', () => {
+    expect(m.version).toBe('1.0.0');
+  });
+
+  it('has icons at 16, 32, 48 and 128, and every file exists', () => {
+    expect(Object.keys(m.icons ?? {}).sort()).toEqual(['128', '16', '32', '48']);
+    for (const file of Object.values(m.icons ?? {}) as string[]) {
+      expect(existsSync(`${OUT}/${file}`)).toBe(true);
+    }
+  });
+
+  it('has a Store-sized description (at most 132 characters)', () => {
+    expect(typeof m.description).toBe('string');
+    expect(m.description.length).toBeLessThanOrEqual(132);
+  });
+});
