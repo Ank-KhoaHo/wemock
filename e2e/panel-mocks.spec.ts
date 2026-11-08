@@ -42,6 +42,8 @@ test('a new manual mock is served after save', async () => {
 
     await panelPage.getByTestId('tab-mocks').click();
     await panelPage.getByTestId('mock-new').click();
+    // The editor switches to the new mock once storage reports it; typing before that is lost.
+    await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
 
     await panelPage.getByTestId('field-pattern').fill('/api/goals');
     await panelPage.locator('.cm-content').fill('{"source":"mock"}');
@@ -65,6 +67,8 @@ test('an invalid pattern shows pattern-error and the call stays real', async () 
 
     await panelPage.getByTestId('tab-mocks').click();
     await panelPage.getByTestId('mock-new').click();
+    // The editor switches to the new mock once storage reports it; typing before that is lost.
+    await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
 
     await panelPage.getByTestId('field-pattern').fill('/api/(');
     await expect(panelPage.getByTestId('pattern-error')).toBeVisible();
@@ -88,6 +92,8 @@ test('invalid JSON shows json-warning and is still served as text', async () => 
 
     await panelPage.getByTestId('tab-mocks').click();
     await panelPage.getByTestId('mock-new').click();
+    // The editor switches to the new mock once storage reports it; typing before that is lost.
+    await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
 
     await panelPage.getByTestId('field-pattern').fill('/api/goals');
 
@@ -126,12 +132,16 @@ test('mock-up reorders and the first match wins', async () => {
 
     // First mock: body "first"
     await panelPage.getByTestId('mock-new').click();
+    // The editor switches to the new mock once storage reports it; typing before that is lost.
+    await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
     await panelPage.getByTestId('field-pattern').fill('/api/goals');
     await panelPage.locator('.cm-content').fill('first');
     await panelPage.getByTestId('mock-save').click();
 
     // Second mock: body "second"
     await panelPage.getByTestId('mock-new').click();
+    // The editor switches to the new mock once storage reports it; typing before that is lost.
+    await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
     await panelPage.getByTestId('field-pattern').fill('/api/goals');
     await panelPage.locator('.cm-content').fill('second');
     await panelPage.getByTestId('mock-save').click();
@@ -176,6 +186,8 @@ test('a disabled mock is not served', async () => {
 
     await panelPage.getByTestId('tab-mocks').click();
     await panelPage.getByTestId('mock-new').click();
+    // The editor switches to the new mock once storage reports it; typing before that is lost.
+    await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
     await panelPage.getByTestId('field-pattern').fill('/api/goals');
     await panelPage.locator('.cm-content').fill('mocked');
     await panelPage.getByTestId('mock-save').click();
@@ -207,6 +219,8 @@ test('export then import makes a second project with the same mocks', async () =
 
     await panelPage.getByTestId('tab-mocks').click();
     await panelPage.getByTestId('mock-new').click();
+    // The editor switches to the new mock once storage reports it; typing before that is lost.
+    await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
     await panelPage.getByTestId('field-pattern').fill('/api/goals');
     await panelPage.locator('.cm-content').fill('exported-body');
     await panelPage.getByTestId('mock-save').click();
@@ -360,6 +374,8 @@ test('status 418 typed by hand is served; 150 and 600 show status-error', async 
 
     await panelPage.getByTestId('tab-mocks').click();
     await panelPage.getByTestId('mock-new').click();
+    // The editor switches to the new mock once storage reports it; typing before that is lost.
+    await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
     await panelPage.getByTestId('field-pattern').fill('/api/goals');
 
     // Test 150 -> status-error, save disabled
@@ -401,6 +417,8 @@ test('Load file with a PNG makes a base64 mock with content-type image/png, serv
 
     await panelPage.getByTestId('tab-mocks').click();
     await panelPage.getByTestId('mock-new').click();
+    // The editor switches to the new mock once storage reports it; typing before that is lost.
+    await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
     await panelPage.getByTestId('field-pattern').fill('/api/logo.png');
 
     // Create 16-byte dummy PNG buffer
@@ -441,6 +459,8 @@ test('a binary body shows body-size, body-preview for images, and body-download'
 
     await panelPage.getByTestId('tab-mocks').click();
     await panelPage.getByTestId('mock-new').click();
+    // The editor switches to the new mock once storage reports it; typing before that is lost.
+    await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
 
     const pngBuffer = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
     await panelPage.getByTestId('load-file').setInputFiles({
