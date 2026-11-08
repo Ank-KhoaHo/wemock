@@ -145,6 +145,17 @@ test('mock-up reorders and the first match wins', async () => {
     await expect(mockRows).toHaveCount(2);
     await mockRows.nth(1).getByTestId('mock-up').click();
 
+    // The reorder is saved asynchronously; reload only once storage has it.
+    await expect
+      .poll(() =>
+        session.worker.evaluate(async () => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const s = (await (globalThis as any).chrome.storage.local.get('wemock.state'))['wemock.state'];
+          return s.projects[0].scenarios[0].mocks[0].response.body;
+        }),
+      )
+      .toBe('second');
+
     // Now second mock wins
     await page.reload();
     await page.click('#btn-fetch');
