@@ -10,6 +10,10 @@ export function originToMatch(origin: string): string {
   }
 }
 
+function sameList(a: string[], b: string[]): boolean {
+  return a.length === b.length && [...a].sort().every((v, i) => v === [...b].sort()[i]);
+}
+
 let syncQueue: Promise<void> = Promise.resolve();
 
 export function syncRegistrations(enabledOrigins: string[]): Promise<void> {
@@ -35,30 +39,31 @@ export function syncRegistrations(enabledOrigins: string[]): Promise<void> {
       }
     }
 
-    try {
-      await browser.scripting.unregisterContentScripts({
-        ids: ['wemock-page', 'wemock-bridge'],
-      });
-    } catch {
-      // Ignore if not previously registered
-    }
+    const wanted = [
+      { id: 'wemock-page', matches, runAt: 'document_start' as const, world: 'MAIN' as const,
+        js: ['content-scripts/page.js'] },
+      { id: 'wemock-bridge', matches, runAt: 'document_start' as const, world: 'ISOLATED' as const,
+        js: ['content-scripts/bridge.js'] },
+    ];
+    const ids = wanted.map((s) => s.id);
 
-    await browser.scripting.registerContentScripts([
-      {
-        id: 'wemock-page',
-        matches,
-        runAt: 'document_start',
-        world: 'MAIN',
-        js: ['content-scripts/page.js'],
-      },
-      {
-        id: 'wemock-bridge',
-        matches,
-        runAt: 'document_start',
-        world: 'ISOLATED',
-        js: ['content-scripts/bridge.js'],
-      },
-    ]);
+    // Never unregister when both scripts exist: a page that loads in that gap gets no mocks.
+    // Chrome keeps registrations across worker restarts, so a restart usually changes nothing.
+    const existing = await browser.scripting.getRegisteredContentScripts({ ids });
+    if (existing.length === wanted.length) {
+      const same = wanted.every((w) => {
+        const e = existing.find((x) => x.id === w.id);
+        return e !== undefined && sameList(e.matches ?? [], w.matches);
+      });
+      if (!same) {
+        await browser.scripting.updateContentScripts(wanted);
+      }
+      return;
+    }
+    if (existing.length > 0) {
+      await browser.scripting.unregisterContentScripts({ ids: existing.map((s) => s.id) });
+    }
+    await browser.scripting.registerContentScripts(wanted);
   };
 
   const next = syncQueue.then(run, run);

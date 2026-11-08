@@ -45,111 +45,92 @@ describe('sites', () => {
   });
 
   describe('syncRegistrations', () => {
-    it('unregisters ids wemock-page and wemock-bridge, then registers both with matches, runAt, worlds, and js', async () => {
+    // A small working registry, so tests see the real end state, not only the calls.
+    let registered: Map<string, RegisteredScript>;
+    const calls: string[] = [];
+
+    beforeEach(() => {
+      registered = new Map();
+      calls.length = 0;
+      const slow = () => new Promise((r) => setTimeout(r, 5));
+      (fakeBrowser as unknown as Record<string, unknown>).scripting = {
+        getRegisteredContentScripts: vi.fn(async (filter?: { ids?: string[] }) => {
+          calls.push('get');
+          return [...registered.values()].filter((s) => !filter?.ids || filter.ids.includes(s.id));
+        }),
+        registerContentScripts: vi.fn(async (scripts: RegisteredScript[]) => {
+          calls.push('register');
+          await slow();
+          for (const s of scripts) {
+            if (registered.has(s.id)) throw new Error(`Duplicate script ID: ${s.id}`);
+            registered.set(s.id, s);
+          }
+        }),
+        updateContentScripts: vi.fn(async (scripts: RegisteredScript[]) => {
+          calls.push('update');
+          await slow();
+          for (const s of scripts) {
+            if (!registered.has(s.id)) throw new Error(`No script with ID: ${s.id}`);
+            registered.set(s.id, { ...registered.get(s.id)!, ...s });
+          }
+        }),
+        unregisterContentScripts: vi.fn(async (filter?: { ids?: string[] }) => {
+          calls.push('unregister');
+          await slow();
+          for (const id of filter?.ids ?? []) registered.delete(id);
+        }),
+      };
+    });
+
+    const page = (matches: string[]) => ({
+      id: 'wemock-page', matches, runAt: 'document_start', world: 'MAIN', js: ['content-scripts/page.js'],
+    });
+    const bridge = (matches: string[]) => ({
+      id: 'wemock-bridge', matches, runAt: 'document_start', world: 'ISOLATED', js: ['content-scripts/bridge.js'],
+    });
+
+    it('registers both scripts for localhost plus each permitted origin', async () => {
       await syncRegistrations(['https://a.com']);
-
-      expect(browser.scripting.unregisterContentScripts).toHaveBeenCalledWith({
-        ids: ['wemock-page', 'wemock-bridge'],
-      });
-
-      expect(browser.scripting.registerContentScripts).toHaveBeenCalledWith([
-        {
-          id: 'wemock-page',
-          matches: [...LOCALHOST_MATCHES, 'https://a.com/*'],
-          runAt: 'document_start',
-          world: 'MAIN',
-          js: ['content-scripts/page.js'],
-        },
-        {
-          id: 'wemock-bridge',
-          matches: [...LOCALHOST_MATCHES, 'https://a.com/*'],
-          runAt: 'document_start',
-          world: 'ISOLATED',
-          js: ['content-scripts/bridge.js'],
-        },
-      ]);
+      const m = [...LOCALHOST_MATCHES, 'https://a.com/*'];
+      expect(registered.get('wemock-page')).toEqual(page(m));
+      expect(registered.get('wemock-bridge')).toEqual(bridge(m));
     });
 
     it('ignores origins it has no permission for', async () => {
-      vi.mocked(browser.permissions.contains).mockImplementation(
-        async (permissions) => {
-          return Boolean(permissions?.origins?.includes('https://allowed.com/*'));
-        },
-      );
-
+      vi.mocked(browser.permissions.contains).mockImplementation(async (perm) =>
+        Boolean(perm?.origins?.includes('https://allowed.com/*')));
       await syncRegistrations(['https://allowed.com', 'https://denied.com']);
-
-      expect(browser.permissions.contains).toHaveBeenCalledWith({
-        origins: ['https://allowed.com/*'],
-      });
-      expect(browser.permissions.contains).toHaveBeenCalledWith({
-        origins: ['https://denied.com/*'],
-      });
-
-      expect(browser.scripting.registerContentScripts).toHaveBeenCalledWith([
-        {
-          id: 'wemock-page',
-          matches: [...LOCALHOST_MATCHES, 'https://allowed.com/*'],
-          runAt: 'document_start',
-          world: 'MAIN',
-          js: ['content-scripts/page.js'],
-        },
-        {
-          id: 'wemock-bridge',
-          matches: [...LOCALHOST_MATCHES, 'https://allowed.com/*'],
-          runAt: 'document_start',
-          world: 'ISOLATED',
-          js: ['content-scripts/bridge.js'],
-        },
-      ]);
+      expect(registered.get('wemock-page')?.matches).toEqual([...LOCALHOST_MATCHES, 'https://allowed.com/*']);
     });
 
-    it('ignores unregister errors when scripts were not previously registered', async () => {
-      vi.mocked(browser.scripting.unregisterContentScripts).mockRejectedValueOnce(
-        new Error('No script registered with id'),
-      );
-
-      await expect(syncRegistrations(['https://a.com'])).resolves.toBeUndefined();
-      expect(browser.scripting.registerContentScripts).toHaveBeenCalledTimes(1);
+    it('does nothing when the same scripts are already registered (worker restart)', async () => {
+      await syncRegistrations(['https://a.com']);
+      calls.length = 0;
+      await syncRegistrations(['https://a.com']);
+      expect(calls).toEqual(['get']);
     });
 
-    it('serializes overlapping calls so they end with exactly one registration of each id', async () => {
-      const registered = new Map<string, RegisteredScript>();
+    it('updates in place, never unregistering, when the site list changes', async () => {
+      await syncRegistrations(['https://a.com']);
+      calls.length = 0;
+      await syncRegistrations(['https://a.com', 'https://b.com']);
+      expect(calls).not.toContain('unregister');
+      expect(calls).toContain('update');
+      expect(registered.get('wemock-bridge')?.matches).toEqual(
+        [...LOCALHOST_MATCHES, 'https://a.com/*', 'https://b.com/*']);
+    });
 
-      vi.mocked(browser.scripting.unregisterContentScripts).mockImplementation(
-        async (filter) => {
-          await new Promise((r) => setTimeout(r, 15));
-          for (const id of filter?.ids ?? []) {
-            registered.delete(id);
-          }
-        },
-      );
-
-      // Cast needed as browser.scripting.registerContentScripts mock parameter type is generic
-      vi.mocked(browser.scripting.registerContentScripts).mockImplementation(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        async (scripts: any) => {
-          await new Promise((r) => setTimeout(r, 15));
-          for (const s of (scripts as RegisteredScript[]) ?? []) {
-            if (registered.has(s.id)) {
-              throw new Error(`Duplicate script ID registration: ${s.id}`);
-            }
-            registered.set(s.id, s);
-          }
-        },
-      );
-
-      const p1 = syncRegistrations(['https://site1.com']);
-      const p2 = syncRegistrations(['https://site2.com']);
-
-      await Promise.all([p1, p2]);
-
+    it('replaces a half registration (only one of the two ids present)', async () => {
+      registered.set('wemock-page', page(LOCALHOST_MATCHES) as RegisteredScript);
+      await syncRegistrations([]);
       expect(registered.size).toBe(2);
-      expect(registered.has('wemock-page')).toBe(true);
-      expect(registered.has('wemock-bridge')).toBe(true);
+      expect(registered.get('wemock-bridge')).toEqual(bridge(LOCALHOST_MATCHES));
+    });
 
-      const pageScript = registered.get('wemock-page');
-      expect(pageScript?.matches).toEqual([...LOCALHOST_MATCHES, 'https://site2.com/*']);
+    it('serializes overlapping calls: the last one wins, one registration per id', async () => {
+      await Promise.all([syncRegistrations(['https://site1.com']), syncRegistrations(['https://site2.com'])]);
+      expect(registered.size).toBe(2);
+      expect(registered.get('wemock-page')?.matches).toEqual([...LOCALHOST_MATCHES, 'https://site2.com/*']);
     });
   });
 });

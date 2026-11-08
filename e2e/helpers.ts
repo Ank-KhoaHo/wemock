@@ -11,6 +11,9 @@ declare const chrome: {
   tabs: {
     query(queryInfo: Record<string, unknown>): Promise<Array<{ id?: number; url?: string }>>;
   };
+  scripting: {
+    getRegisteredContentScripts(): Promise<Array<{ id: string }>>;
+  };
 };
 
 export const EXTENSION_PATH = path.resolve('.output/chrome-mv3');
@@ -47,6 +50,18 @@ export interface WemockSession {
 
 export async function launchWemock(fixtureUrl = ''): Promise<WemockSession> {
   const { context, worker, extensionId } = await launchExtension();
+
+  // A fresh install registers the page scripts asynchronously; a page loaded before that
+  // gets no patch at all. Wait for both registrations, as a real user would by never
+  // being this fast.
+  await worker.evaluate(async () => {
+    for (let i = 0; i < 100; i++) {
+      const ids = (await chrome.scripting.getRegisteredContentScripts()).map((s) => s.id);
+      if (ids.includes('wemock-page') && ids.includes('wemock-bridge')) return;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    throw new Error('wemock content scripts were never registered');
+  });
 
   return {
     context,
