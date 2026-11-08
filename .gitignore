@@ -5,6 +5,13 @@ __pycache__/
 .venv/
 venv/
 
+# Node / WXT / Playwright
+node_modules/
+.output/
+.wxt/
+test-results/
+playwright-report/
+
 # OS / editors
 .DS_Store
 Thumbs.db
@@ -37,3 +44,4 @@ Thumbs.db
 /CLAUDE.md
 /DEVELOPMENT-CHECKLIST.md
 /BACKLOG.html
+/AGENTS.md

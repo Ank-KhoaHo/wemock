@@ -21,5 +21,4 @@ letting it describe an earlier version.
 
 ## Status
 
-wemock is new. This file, and everything it links to, will grow with it — starting with
-the licence, which has not been chosen yet. See [LICENSE](LICENSE).
+wemock is new and under construction. It is licensed under MIT; see [LICENSE](LICENSE).

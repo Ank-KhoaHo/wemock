@@ -1,27 +1,21 @@
-<LICENCE_NOT_CHOSEN>
+MIT License
 
-This project has not chosen a licence yet, and CI is red until it does.
+Copyright (c) 2026 WillowAnk Solution
 
-That is deliberate. An unlicensed public repository grants no rights at all --
-more restrictive than almost anyone intends -- and choosing is the one decision
-a bootstrap script cannot make for you. Replace this entire file with the full
-text of your chosen licence.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-Common choices:
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-  MIT           Shortest permissive licence in common use. Use, modify and
-                redistribute, including commercially, provided the notice is
-                kept. No patent grant.
-
-  Apache-2.0    Permissive, plus an explicit patent grant and a NOTICE
-                mechanism, and requires stating changes. Preferred where
-                patents or corporate consumers matter.
-
-  GPL-3.0       Copyleft: derivative works must also be GPL-3.0. Choose it to
-                require that downstream stays open.
-
-  Proprietary   All rights reserved. Say so explicitly rather than leaving the
-                repository unlicensed, so the intent is stated rather than
-                inferred.
-
-Ticket D5 explains this; https://choosealicense.com/ compares them properly.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
