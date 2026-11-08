@@ -1,0 +1,38 @@
+{
+  "name": "wemock",
+  "description": "Record real API calls in Chrome DevTools, then replay them as switchable mock scenarios.",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "zip": "wxt zip",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "e2e": "playwright test",
+    "postinstall": "wxt prepare"
+  },
+  "dependencies": {
+    "@codemirror/lang-json": "6.0.2",
+    "@uiw/react-codemirror": "4.25.12",
+    "path-to-regexp": "8.4.2",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0",
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@wxt-dev/module-react": "1.2.2",
+    "axios": "1.21.0",
+    "typescript": "5.9.3",
+    "vitest": "5.1.0",
+    "wxt": "0.21.5"
+  }
+}

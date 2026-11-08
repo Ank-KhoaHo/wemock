@@ -62,17 +62,47 @@ jobs:
             exit 1
           fi
 
-  # ---------------------------------------------------------------------
-  # YOUR PROJECT'S TESTS GO HERE.
-  #
-  # The template is language-agnostic, so it cannot know your test command.
-  # Add a job here, then close ticket D3, which tracks exactly this.
-  #
-  #  project:
-  #    name: test
-  #    runs-on: ubuntu-latest
-  #    steps:
-  #      - uses: actions/checkout@v4
-  #      - run: <your build>
-  #      - run: <your tests>
-  # ---------------------------------------------------------------------
+  extension:
+    name: extension (typecheck, unit, build, end to end)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Build before unit tests: src/manifest.test.ts reads the built manifest.
+      - name: Build
+        run: npm run build
+
+      # Same skip rule as the docs guard: a skip is an assertion that did not run.
+      - name: Unit tests
+        shell: bash
+        run: |
+          set -eo pipefail
+          npx vitest run | tee vitest.out
+          if grep -qiE '[0-9]+ (skipped|todo)' vitest.out; then
+            echo "::error::Unit tests were skipped."
+            exit 1
+          fi
+
+      - name: End-to-end tests
+        shell: bash
+        run: |
+          set -eo pipefail
+          npx playwright test | tee e2e.out
+          if grep -qiE '[0-9]+ skipped' e2e.out; then
+            echo "::error::End-to-end tests were skipped."
+            exit 1
+          fi
