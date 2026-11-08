@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "name": "Static REST Mock",
+  "type": "rest",
+  "method": "GET",
+  "url_pattern": "https://a.com/api/goals?x=1",
+  "enabled": true,
+  "dynamic": false,
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "items": []
+    },
+    "delay_ms": 0
+  },
+  "response_body_type": "json"
+}

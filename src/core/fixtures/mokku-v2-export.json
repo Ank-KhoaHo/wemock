@@ -1,0 +1,160 @@
+{
+  "projects": [
+    {
+      "localId": 1,
+      "name": "My app",
+      "slug": "my-app"
+    }
+  ],
+  "mocks": [
+    {
+      "localId": 1,
+      "projectLocalId": 1,
+      "name": "Static REST Mock",
+      "description": "Static REST description",
+      "active": true,
+      "dynamic": false,
+      "requestType": "REST",
+      "method": "GET",
+      "url": "https://a.com/api/goals?x=1",
+      "operationName": "",
+      "responseType": "STATIC",
+      "responseBodyType": "json",
+      "response": "{\"items\":[]}",
+      "status": 200,
+      "headers": [
+        { "name": "content-type", "value": "application/json" }
+      ],
+      "delay": 0,
+      "function": ""
+    },
+    {
+      "localId": 2,
+      "projectLocalId": 1,
+      "name": "Goals",
+      "description": "Goals with ID",
+      "active": true,
+      "dynamic": true,
+      "requestType": "REST",
+      "method": "GET",
+      "url": "localhost:3000/api/goals/:id",
+      "operationName": "",
+      "responseType": "STATIC",
+      "responseBodyType": "json",
+      "response": "{\"items\":[]}",
+      "status": 200,
+      "headers": [
+        { "name": "content-type", "value": "application/json" }
+      ],
+      "delay": 500,
+      "function": ""
+    },
+    {
+      "localId": 3,
+      "projectLocalId": 1,
+      "name": "Wildcard Mock",
+      "description": "Wildcard files",
+      "active": true,
+      "dynamic": true,
+      "requestType": "REST",
+      "method": "GET",
+      "url": "/api/files/(.*)",
+      "operationName": "",
+      "responseType": "STATIC",
+      "responseBodyType": "text",
+      "response": "file content",
+      "status": 200,
+      "headers": [
+        { "name": "content-type", "value": "text/plain" }
+      ],
+      "delay": 0,
+      "function": ""
+    },
+    {
+      "localId": 4,
+      "projectLocalId": 1,
+      "name": "GraphQL Mock",
+      "description": "GraphQL mock with missing method",
+      "active": true,
+      "dynamic": false,
+      "requestType": "GRAPHQL",
+      "method": "",
+      "url": "/graphql",
+      "operationName": "GetUsers",
+      "responseType": "STATIC",
+      "responseBodyType": "json",
+      "response": "{\"data\":{\"users\":[]}}",
+      "status": 200,
+      "headers": [
+        { "name": "content-type", "value": "application/json" }
+      ],
+      "delay": 0,
+      "function": ""
+    },
+    {
+      "localId": 5,
+      "projectLocalId": 1,
+      "name": "Function Mock",
+      "description": "JS function mock",
+      "active": true,
+      "dynamic": false,
+      "requestType": "REST",
+      "method": "GET",
+      "url": "/api/function",
+      "operationName": "",
+      "responseType": "FUNCTION",
+      "responseBodyType": "json",
+      "response": "{\"ok\":true}",
+      "status": 200,
+      "headers": [
+        { "name": "content-type", "value": "application/json" }
+      ],
+      "delay": 0,
+      "function": "function(req) { return { status: 200 }; }"
+    },
+    {
+      "localId": 6,
+      "projectLocalId": 1,
+      "name": "404 Mock",
+      "description": "Not found with delay",
+      "active": true,
+      "dynamic": false,
+      "requestType": "REST",
+      "method": "GET",
+      "url": "/api/missing",
+      "operationName": "",
+      "responseType": "STATIC",
+      "responseBodyType": "json",
+      "response": "{\"error\":\"not found\"}",
+      "status": 404,
+      "headers": [
+        { "name": "x-reason", "value": "missing" }
+      ],
+      "delay": 300,
+      "function": ""
+    },
+    {
+      "localId": 7,
+      "projectLocalId": 1,
+      "name": "Invalid Mock",
+      "description": "Invalid status 0",
+      "active": true,
+      "dynamic": false,
+      "requestType": "REST",
+      "method": "GET",
+      "url": "/api/invalid",
+      "operationName": "",
+      "responseType": "STATIC",
+      "responseBodyType": "json",
+      "response": "",
+      "status": 0,
+      "headers": [],
+      "delay": 0,
+      "function": ""
+    }
+  ],
+  "headers": [
+    { "name": "x-debug", "value": "1", "active": true },
+    { "name": "x-feature-flag", "value": "on", "active": true }
+  ]
+}

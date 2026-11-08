@@ -1,0 +1,112 @@
+{
+  "totalMocksCreated": 7,
+  "collections": [],
+  "mocks": [
+    {
+      "id": "v1-1",
+      "name": "Static REST Mock",
+      "method": "GET",
+      "url": "https://a.com/api/goals?x=1",
+      "status": 200,
+      "response": "{\"items\":[]}",
+      "delay": 0,
+      "active": true,
+      "dynamic": false,
+      "description": "Static REST",
+      "headers": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "id": "v1-2",
+      "name": "Dynamic ID Mock",
+      "method": "GET",
+      "url": "localhost:3000/api/goals/:id",
+      "status": 200,
+      "response": "{\"items\":[]}",
+      "delay": 0,
+      "active": true,
+      "dynamic": true,
+      "description": "Dynamic ID",
+      "headers": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "id": "v1-3",
+      "name": "Wildcard Mock",
+      "method": "GET",
+      "url": "/api/files/(.*)",
+      "status": 200,
+      "response": "file content",
+      "delay": 0,
+      "active": true,
+      "dynamic": true,
+      "description": "Wildcard",
+      "headers": {
+        "content-type": "text/plain"
+      }
+    },
+    {
+      "id": "v1-4",
+      "name": "GraphQL Mock",
+      "method": "",
+      "url": "/graphql",
+      "operationName": "GetUsers",
+      "status": 200,
+      "response": "{\"data\":{\"users\":[]}}",
+      "delay": 0,
+      "active": true,
+      "dynamic": false,
+      "description": "GraphQL",
+      "headers": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "id": "v1-5",
+      "name": "Function Mock",
+      "method": "GET",
+      "url": "/api/function",
+      "status": 200,
+      "response": "{\"ok\":true}",
+      "delay": 0,
+      "active": true,
+      "dynamic": false,
+      "description": "Function",
+      "responseType": "FUNCTION",
+      "function": "function(req) { return { status: 200 }; }",
+      "headers": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "id": "v1-6",
+      "name": "404 Mock",
+      "method": "GET",
+      "url": "/api/missing",
+      "status": 404,
+      "response": "{\"error\":\"not found\"}",
+      "delay": 300,
+      "active": true,
+      "dynamic": false,
+      "description": "404 with delay",
+      "headers": {
+        "x-reason": "missing"
+      }
+    },
+    {
+      "id": "v1-7",
+      "name": "Invalid Mock",
+      "method": "GET",
+      "url": "/api/invalid",
+      "status": 0,
+      "response": "",
+      "delay": 0,
+      "active": true,
+      "dynamic": false,
+      "description": "Invalid status 0",
+      "headers": {}
+    }
+  ]
+}

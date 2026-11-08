@@ -1,0 +1,130 @@
+[
+  {
+    "schema_version": 1,
+    "name": "Static REST Mock",
+    "type": "rest",
+    "method": "GET",
+    "url_pattern": "https://a.com/api/goals?x=1",
+    "enabled": true,
+    "dynamic": false,
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": {
+        "items": []
+      },
+      "delay_ms": 0
+    },
+    "response_body_type": "json"
+  },
+  {
+    "schema_version": 1,
+    "name": "Dynamic ID Mock",
+    "type": "rest",
+    "method": "GET",
+    "url_pattern": "localhost:3000/api/goals/:id",
+    "enabled": true,
+    "dynamic": true,
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{\"id\":1}",
+      "delay_ms": 0
+    },
+    "response_body_type": "json"
+  },
+  {
+    "schema_version": 1,
+    "name": "Wildcard Binary Mock",
+    "type": "rest",
+    "method": "GET",
+    "url_pattern": "/api/files/(.*)",
+    "enabled": true,
+    "dynamic": true,
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/octet-stream"
+      },
+      "body": "AQIDBA==",
+      "delay_ms": 0
+    },
+    "response_body_type": "binary"
+  },
+  {
+    "schema_version": 1,
+    "name": "GraphQL Mock",
+    "type": "graphql",
+    "method": "",
+    "endpoint": "/graphql",
+    "operation_name": "GetUsers",
+    "enabled": true,
+    "dynamic": false,
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{\"data\":{\"users\":[]}}",
+      "delay_ms": 0
+    },
+    "response_body_type": "json"
+  },
+  {
+    "schema_version": 1,
+    "name": "Function Mock",
+    "type": "rest",
+    "method": "GET",
+    "url_pattern": "/api/function",
+    "enabled": true,
+    "dynamic": false,
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "body": "{\"ok\":true}",
+      "delay_ms": 0
+    },
+    "response_body_type": "json",
+    "function_source": "function(req) { return { status: 200 }; }"
+  },
+  {
+    "schema_version": 1,
+    "name": "404 Mock",
+    "type": "rest",
+    "method": "GET",
+    "url_pattern": "/api/missing",
+    "enabled": true,
+    "dynamic": false,
+    "response": {
+      "status": 404,
+      "headers": {
+        "x-reason": "missing"
+      },
+      "body": "{\"error\":\"not found\"}",
+      "delay_ms": 300
+    },
+    "response_body_type": "json"
+  },
+  {
+    "schema_version": 1,
+    "name": "Invalid Mock",
+    "type": "rest",
+    "method": "GET",
+    "url_pattern": "/api/invalid",
+    "enabled": true,
+    "dynamic": false,
+    "response": {
+      "status": 0,
+      "headers": {},
+      "body": "",
+      "delay_ms": 0
+    },
+    "response_body_type": "text"
+  }
+]
