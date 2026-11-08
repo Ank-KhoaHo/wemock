@@ -105,6 +105,8 @@ export function startFixtureServer(host = '127.0.0.1'): Promise<FixtureServer> {
         close() {
           return new Promise((res, rej) => {
             server.close((err) => (err ? rej(err) : res()));
+            // Keep-alive sockets would hold close() open until they time out.
+            server.closeAllConnections();
           });
         },
       });
