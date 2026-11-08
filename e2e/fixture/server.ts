@@ -48,7 +48,7 @@ export function startFixtureServer(host = '127.0.0.1'): Promise<FixtureServer> {
       return;
     }
 
-    if (req.method === 'GET' && pathname === '/axios.min.js') {
+    if (req.method === 'GET' && (pathname === '/axios.js' || pathname === '/axios.min.js')) {
       res.writeHead(200, { 'content-type': 'application/javascript; charset=utf-8' });
       res.end(axiosJs);
       return;

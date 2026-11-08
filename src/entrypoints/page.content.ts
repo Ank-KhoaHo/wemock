@@ -2,6 +2,7 @@ import { isBridgeToPage, PAGE_SOURCE, type PageToBridge } from '../core/messages
 import type { LogDraft } from '../core/types';
 import { installFetchPatch } from '../patch/fetchPatch';
 import { createGate } from '../patch/gate';
+import { installXhrPatch } from '../patch/xhrPatch';
 
 // Runs in the page's MAIN world at document_start. Registered at runtime by
 // the background worker for enabled sites only, never through the manifest.
@@ -14,7 +15,7 @@ export default defineContentScript({
     try {
       const gate = createGate();
 
-      installFetchPatch(window, {
+      const deps = {
         gate,
         report(entry: LogDraft) {
           try {
@@ -29,7 +30,10 @@ export default defineContentScript({
           }
         },
         now: () => Date.now(),
-      });
+      };
+
+      installFetchPatch(window, deps);
+      installXhrPatch(window, deps);
 
       window.addEventListener('message', (event) => {
         try {
