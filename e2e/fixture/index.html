@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>wemock fixture</title>
+</head>
+<body>
+  <h1>wemock test fixture</h1>
+  <div id="out"></div>
+
+  <button id="btn-fetch" type="button">Fetch Goals</button>
+  <button id="btn-echo" type="button">Fetch Echo</button>
+  <button id="btn-xhr" type="button">XHR Goals</button>
+  <button id="btn-axios" type="button">Axios Goals</button>
+
+  <script src="/axios.min.js"></script>
+  <script>
+    const out = document.getElementById('out');
+
+    document.getElementById('btn-fetch').addEventListener('click', async () => {
+      try {
+        const res = await fetch('/api/goals');
+        const text = await res.text();
+        out.textContent = text;
+      } catch (err) {
+        out.textContent = 'ERR: ' + (err && err.message ? err.message : String(err));
+      }
+    });
+
+    document.getElementById('btn-echo').addEventListener('click', async () => {
+      try {
+        const res = await fetch('/api/echo', {
+          method: 'POST',
+          headers: { 'content-type': 'text/plain' },
+          body: 'hello',
+        });
+        const text = await res.text();
+        out.textContent = 'echo:' + text;
+      } catch (err) {
+        out.textContent = 'ERR: ' + (err && err.message ? err.message : String(err));
+      }
+    });
+
+    document.getElementById('btn-xhr').addEventListener('click', () => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', '/api/goals');
+      xhr.onload = () => {
+        out.textContent = xhr.responseText;
+      };
+      xhr.onerror = () => {
+        out.textContent = 'XHR ERR';
+      };
+      xhr.send();
+    });
+
+    document.getElementById('btn-axios').addEventListener('click', async () => {
+      try {
+        if (typeof window.axios !== 'undefined') {
+          const res = await window.axios.get('/api/goals');
+          out.textContent = typeof res.data === 'string' ? res.data : JSON.stringify(res.data);
+        } else {
+          out.textContent = 'axios not loaded';
+        }
+      } catch (err) {
+        out.textContent = 'AXIOS ERR: ' + (err && err.message ? err.message : String(err));
+      }
+    });
+  </script>
+</body>
+</html>
