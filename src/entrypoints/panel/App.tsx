@@ -4,13 +4,14 @@ import { exportProject, parseProjectFile } from '../../core/exportFile';
 import { importMokku } from '../../core/mokkuImport';
 import { ensureProject, mockFromLog, scenarioFromLogs } from '../../core/record';
 import { projectForOrigin } from '../../core/scenario';
-import type { LogEntry, Mock, Project, Scenario } from '../../core/types';
+import type { LogEntry, Mock, Project, Scenario, SocketMock } from '../../core/types';
 import { newId } from '../../shared/ids';
 import { getInspectedTabId } from '../../shared/inspectedTab';
 import { LogDetail } from '../../ui/LogDetail';
 import { LogTable } from '../../ui/LogTable';
 import { MockEditor } from '../../ui/MockEditor';
 import { MockList } from '../../ui/MockList';
+import { SocketEditor } from '../../ui/SocketEditor';
 import { TestBar } from '../../ui/TestBar';
 import { TopBar } from '../../ui/TopBar';
 import { useTabLog, useWemockState } from '../../ui/useWemockState';
@@ -58,6 +59,7 @@ export default function App() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedScenarioId, setSelectedScenarioId] = useState<string>('default');
   const [selectedMockId, setSelectedMockId] = useState<string | null>(null);
+  const [selectedSocketId, setSelectedSocketId] = useState<string | null>(null);
   const [importSummary, setImportSummary] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   // applyTheme() (panel/main.tsx) sets the class; this follows it.
@@ -325,6 +327,7 @@ export default function App() {
       setSelectedProjectId(projectToInsert.id);
       setSelectedScenarioId(projectToInsert.scenarios[0]?.id ?? 'default');
       setSelectedMockId(null);
+      setSelectedSocketId(null);
       setImportSummary(summaryText);
     } catch (err) {
       setImportError(err instanceof Error ? err.message : 'Import failed');
@@ -385,6 +388,7 @@ export default function App() {
     })).catch(() => {});
     setSelectedScenarioId(project.scenarios[0]?.id ?? 'default');
     setSelectedMockId(null);
+    setSelectedSocketId(null);
   };
 
   const handleAddMock = (scenarioId: string, newMock: Mock) => {
@@ -402,6 +406,7 @@ export default function App() {
       }),
     })).catch(() => {});
     setSelectedMockId(newMock.id);
+    setSelectedSocketId(null);
   };
 
   const handleSaveMock = (savedMock: Mock) => {
@@ -414,7 +419,8 @@ export default function App() {
           ...p,
           scenarios: p.scenarios.map((sc) => ({
             ...sc,
-            mocks: sc.mocks.map((m) => (m.id === savedMock.id ? savedMock : m)),
+            // The row checkbox owns `enabled`; an editor draft opened earlier must not undo it.
+            mocks: sc.mocks.map((m) => (m.id === savedMock.id ? { ...savedMock, enabled: m.enabled } : m)),
           })),
         };
       }),
@@ -455,6 +461,80 @@ export default function App() {
     })).catch(() => {});
   };
 
+  const handleAddSocket = (scenarioId: string, newSocket: SocketMock) => {
+    if (!project) return;
+    update((s) => ({
+      ...s,
+      projects: s.projects.map((p) => {
+        if (p.id !== project.id) return p;
+        return {
+          ...p,
+          scenarios: p.scenarios.map((sc) =>
+            sc.id === scenarioId
+              ? { ...sc, sockets: [...(sc.sockets ?? []), newSocket] }
+              : sc,
+          ),
+        };
+      }),
+    })).catch(() => {});
+    setSelectedSocketId(newSocket.id);
+    setSelectedMockId(null);
+  };
+
+  const handleSaveSocket = (savedSocket: SocketMock) => {
+    if (!project) return;
+    update((s) => ({
+      ...s,
+      projects: s.projects.map((p) => {
+        if (p.id !== project.id) return p;
+        return {
+          ...p,
+          scenarios: p.scenarios.map((sc) => ({
+            ...sc,
+            // The row checkbox owns `enabled`; an editor draft opened earlier must not undo it.
+            sockets: (sc.sockets ?? []).map((s) =>
+              s.id === savedSocket.id ? { ...savedSocket, enabled: s.enabled } : s,
+            ),
+          })),
+        };
+      }),
+    })).catch(() => {});
+  };
+
+  const handleDeleteSocket = (socketId: string) => {
+    if (!project) return;
+    update((s) => ({
+      ...s,
+      projects: s.projects.map((p) => {
+        if (p.id !== project.id) return p;
+        return {
+          ...p,
+          scenarios: p.scenarios.map((sc) => ({
+            ...sc,
+            sockets: (sc.sockets ?? []).filter((s) => s.id !== socketId),
+          })),
+        };
+      }),
+    })).catch(() => {});
+    setSelectedSocketId(null);
+  };
+
+  const handleUpdateScenarioSockets = (scenarioId: string, nextSockets: SocketMock[]) => {
+    if (!project) return;
+    update((s) => ({
+      ...s,
+      projects: s.projects.map((p) => {
+        if (p.id !== project.id) return p;
+        return {
+          ...p,
+          scenarios: p.scenarios.map((sc) =>
+            sc.id === scenarioId ? { ...sc, sockets: nextSockets } : sc,
+          ),
+        };
+      }),
+    })).catch(() => {});
+  };
+
   // Find currently selected mock across all scenarios in project
   let selectedMock: Mock | null = null;
   if (project && selectedMockId) {
@@ -462,6 +542,18 @@ export default function App() {
       const found = sc.mocks.find((m) => m.id === selectedMockId);
       if (found) {
         selectedMock = found;
+        break;
+      }
+    }
+  }
+
+  // Find currently selected socket across all scenarios in project
+  let selectedSocket: SocketMock | null = null;
+  if (project && selectedSocketId) {
+    for (const sc of project.scenarios) {
+      const found = sc.sockets?.find((s) => s.id === selectedSocketId);
+      if (found) {
+        selectedSocket = found;
         break;
       }
     }
@@ -479,6 +571,7 @@ export default function App() {
           if (p && p.scenarios.length > 0) {
             setSelectedScenarioId(p.scenarios[0]!.id);
             setSelectedMockId(null);
+            setSelectedSocketId(null);
           }
         }}
         onPickScenario={handlePickScenario}
@@ -621,6 +714,7 @@ export default function App() {
             onOpenMock={(scenarioId, mockId) => {
               setSelectedScenarioId(scenarioId);
               setSelectedMockId(mockId);
+              setSelectedSocketId(null);
             }}
           />
 
@@ -631,22 +725,41 @@ export default function App() {
                   project={project}
                   selectedScenarioId={selectedScenarioId}
                   selectedMockId={selectedMockId}
+                  selectedSocketId={selectedSocketId}
                   onSelectScenario={(scId) => setSelectedScenarioId(scId)}
-                  onSelectMock={(mockId) => setSelectedMockId(mockId)}
+                  onSelectMock={(mockId) => {
+                    setSelectedMockId(mockId);
+                    if (mockId !== null) setSelectedSocketId(null);
+                  }}
+                  onSelectSocket={(socketId) => {
+                    setSelectedSocketId(socketId);
+                    if (socketId !== null) setSelectedMockId(null);
+                  }}
                   onUpdateScenarioMocks={handleUpdateScenarioMocks}
+                  onUpdateScenarioSockets={handleUpdateScenarioSockets}
                   onAddScenario={handleAddScenario}
                   onRenameScenario={handleRenameScenario}
                   onDeleteScenario={handleDeleteScenario}
                   onAddMock={handleAddMock}
+                  onAddSocket={handleAddSocket}
                 />
               </div>
               <div className="panel-split-right">
-                <MockEditor
-                  mock={selectedMock}
-                  isDark={isDark}
-                  onSave={handleSaveMock}
-                  onDelete={handleDeleteMock}
-                />
+                {selectedSocketId ? (
+                  <SocketEditor
+                    socket={selectedSocket}
+                    isDark={isDark}
+                    onSave={handleSaveSocket}
+                    onDelete={handleDeleteSocket}
+                  />
+                ) : (
+                  <MockEditor
+                    mock={selectedMock}
+                    isDark={isDark}
+                    onSave={handleSaveMock}
+                    onDelete={handleDeleteMock}
+                  />
+                )}
               </div>
             </div>
           ) : (

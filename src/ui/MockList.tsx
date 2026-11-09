@@ -1,31 +1,39 @@
 import { useEffect, useState } from 'react';
-import type { Mock, Project } from '../core/types';
+import type { Mock, Project, SocketMock } from '../core/types';
 import { newId } from '../shared/ids';
 
 export interface MockListProps {
   project: Project;
   selectedScenarioId: string;
   selectedMockId: string | null;
+  selectedSocketId: string | null;
   onSelectScenario: (scenarioId: string) => void;
   onSelectMock: (mockId: string | null) => void;
+  onSelectSocket: (socketId: string | null) => void;
   onUpdateScenarioMocks: (scenarioId: string, mocks: Mock[]) => void;
+  onUpdateScenarioSockets: (scenarioId: string, sockets: SocketMock[]) => void;
   onAddScenario: (name: string) => void;
   onRenameScenario: (scenarioId: string, newName: string) => void;
   onDeleteScenario: (scenarioId: string) => void;
   onAddMock: (scenarioId: string, mock: Mock) => void;
+  onAddSocket: (scenarioId: string, socket: SocketMock) => void;
 }
 
 export function MockList({
   project,
   selectedScenarioId,
   selectedMockId,
+  selectedSocketId,
   onSelectScenario,
   onSelectMock,
+  onSelectSocket,
   onUpdateScenarioMocks,
+  onUpdateScenarioSockets,
   onAddScenario,
   onRenameScenario,
   onDeleteScenario,
   onAddMock,
+  onAddSocket,
 }: MockListProps) {
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameText, setRenameText] = useState('');
@@ -86,6 +94,32 @@ export function MockList({
       createdAt: Date.now(),
     };
     onAddMock(selectedScenario.id, manualMock);
+  };
+
+  const handleNewSocketClick = () => {
+    if (!selectedScenario) return;
+    const socket: SocketMock = {
+      id: newId(),
+      enabled: true,
+      kind: 'signalr',
+      urlPattern: '/hub',
+      onConnect: [],
+      replies: [],
+      createdAt: Date.now(),
+    };
+    onAddSocket(selectedScenario.id, socket);
+  };
+
+  const handleToggleSocketEnabled = (scenarioId: string, socketId: string, enabled?: boolean) => {
+    const sc = scenarios.find((s) => s.id === scenarioId);
+    if (!sc) return;
+    const nextSockets = (sc.sockets ?? []).map((s) =>
+      s.id === socketId ? { ...s, enabled: enabled !== undefined ? enabled : !s.enabled } : s,
+    );
+    setScenarios((prev) =>
+      prev.map((s) => (s.id === scenarioId ? { ...s, sockets: nextSockets } : s)),
+    );
+    onUpdateScenarioSockets(scenarioId, nextSockets);
   };
 
   const handleMoveMock = (scenarioId: string, fromIndex: number, delta: number) => {
@@ -176,14 +210,24 @@ export function MockList({
           </button>
         </div>
 
-        <button
-          type="button"
-          data-testid="mock-new"
-          className="btn-primary"
-          onClick={handleNewMockClick}
-        >
-          + New mock
-        </button>
+        <div className="mock-btn-group">
+          <button
+            type="button"
+            data-testid="mock-new"
+            className="btn-primary"
+            onClick={handleNewMockClick}
+          >
+            + New mock
+          </button>
+          <button
+            type="button"
+            data-testid="socket-new"
+            className="btn-primary"
+            onClick={handleNewSocketClick}
+          >
+            + New socket
+          </button>
+        </div>
       </div>
 
       {isRenaming && (
@@ -230,7 +274,7 @@ export function MockList({
             >
               <div className="scenario-group-header">
                 <span className="scenario-name-badge">{sc.name}</span>
-                <span className="scenario-count">({sc.mocks.length})</span>
+                <span className="scenario-count">({sc.mocks.length + (sc.sockets?.length ?? 0)})</span>
               </div>
 
               <div className="mock-rows-container">
@@ -247,6 +291,7 @@ export function MockList({
                       e.stopPropagation();
                       onSelectScenario(sc.id);
                       onSelectMock(mock.id);
+                      onSelectSocket(null);
                     }}
                   >
                     <div className="mock-row-main">
@@ -308,7 +353,39 @@ export function MockList({
                     </div>
                   </div>
                 ))}
-                {sc.mocks.length === 0 && (
+                {(sc.sockets ?? []).map((socket) => (
+                  <div
+                    key={socket.id}
+                    data-testid="socket-row"
+                    className={`mock-row socket-row ${socket.id === selectedSocketId ? 'selected' : ''} ${!socket.enabled ? 'disabled' : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectScenario(sc.id);
+                      onSelectSocket(socket.id);
+                      onSelectMock(null);
+                    }}
+                  >
+                    <div className="mock-row-main">
+                      <input
+                        type="checkbox"
+                        data-testid="socket-enabled"
+                        className="mock-enabled-checkbox"
+                        checked={socket.enabled}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          handleToggleSocketEnabled(sc.id, socket.id, e.target.checked);
+                        }}
+                      />
+                      <span className={`method-tag method-${socket.kind === 'signalr' ? 'signalr' : 'ws'}`}>
+                        {socket.kind === 'signalr' ? 'SignalR' : 'WS'}
+                      </span>
+                      <span className="mock-name-or-pattern" title={socket.urlPattern}>
+                        {socket.name || socket.urlPattern}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                {sc.mocks.length === 0 && (!sc.sockets || sc.sockets.length === 0) && (
                   <div className="scenario-empty-hint">No mocks</div>
                 )}
               </div>

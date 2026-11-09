@@ -176,8 +176,20 @@ test('bad SignalR arguments or a bad pattern block Save', async () => {
     await panel.getByTestId('push-row').first().getByTestId('push-data').fill('not json');
     await expect(panel.getByTestId('push-data-error')).toHaveText('Arguments must be a JSON array');
     await expect(panel.getByTestId('socket-save')).toBeDisabled();
+    await panel.getByTestId('push-row').first().getByTestId('push-data').fill('{"a":1}');
+    await expect(panel.getByTestId('push-data-error')).toHaveText('Arguments must be a JSON array');
     await panel.getByTestId('push-row').first().getByTestId('push-data').fill('["ok"]');
     await expect(panel.getByTestId('push-data-error')).toHaveCount(0);
+    await expect(panel.getByTestId('socket-save')).toBeEnabled();
+
+    // A bad message inside a reply blocks Save too.
+    await panel.getByTestId('reply-add').click();
+    const reply = panel.getByTestId('reply-row').first();
+    await reply.getByTestId('reply-push-add').click();
+    await reply.getByTestId('push-row').first().getByTestId('push-data').fill('oops');
+    await expect(reply.getByTestId('push-data-error')).toBeVisible();
+    await expect(panel.getByTestId('socket-save')).toBeDisabled();
+    await reply.getByTestId('push-row').first().getByTestId('push-remove').click();
     await expect(panel.getByTestId('socket-save')).toBeEnabled();
 
     await panel.getByTestId('socket-pattern').fill('/hubs/(');
