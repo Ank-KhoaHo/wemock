@@ -16,8 +16,16 @@ you can test the states your backend rarely gives you.
   (`https://api.example.com/x`), and GraphQL operation names.
 - **Any status from 200 to 599**, headers, a delay, and text or **binary** bodies (images,
   PDFs, downloads).
+- **Code replies.** A mock can answer with a few lines of JavaScript that read the call's
+  URL parameters, query, body and headers, and set the status. `/doc/:id` with
+  `return { id: params.id }` answers each document by its id.
+- **Test bar.** Type a URL in the Mocks tab to see which mock answers and what it returns,
+  without reloading the page.
+- **Console line.** Each mocked call writes one line to the page's Console, such as
+  `[wemock] GET /doc/1 → 200 mock "Doc one" (12 ms)`. A switch in the panel turns it off.
 - **`fetch`, `XMLHttpRequest` and libraries built on them** (axios included).
-- **Import from Mokku.** Its 2.x export, 1.x storage and mock-file formats all import.
+- **Import from Mokku.** Its 2.x export, 1.x storage and mock-file formats all import,
+  function mocks included.
 
 Your data stays in your browser (`chrome.storage.local`). wemock sends nothing anywhere.
 
@@ -44,9 +52,12 @@ pick `.output/chrome-mv3`.
 ## Limits
 
 - Calls made by Service Workers, WebSockets and Server-Sent Events are not seen.
+- Mocked calls do not appear in DevTools' Network tab: they never leave the page. Use the
+  wemock log or the Console line.
+- Code replies run in a sandboxed extension page with no access to the page or to wemock,
+  and stop after 1 second. Code that fails answers status 500 with its error message.
 - A call made before wemock has loaded its mocks waits up to 200 ms, then goes through and is
   marked `LATE`.
-- Mokku's JavaScript (function) mocks import **disabled**: wemock runs no user code.
 - Only Chrome (and Chromium browsers) for now.
 
 ## Where things live
@@ -61,4 +72,4 @@ pick `.output/chrome-mv3`.
 
 ## Status
 
-Version 1.0.0, before its first Store release. Licensed under MIT; see [LICENSE](LICENSE).
+Version 1.1.0, before its first Store release. Licensed under MIT; see [LICENSE](LICENSE).

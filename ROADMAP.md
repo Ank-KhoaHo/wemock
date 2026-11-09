@@ -14,6 +14,11 @@ The repository, the MIT licence, the build, and CI.
 Record calls in a DevTools panel, replay them as mocks, group mocks into scenarios, edit them,
 and import or export projects, including Mokku's files.
 
+## M1.1 — Code replies, Test bar, Console line (done in source, 1.1.0)
+
+Mocks can answer with code, a Test bar shows which mock answers a URL, and each mocked call
+writes a Console line.
+
 ## M2 — Hardening
 
 The rough edges found by daily use of 1.0.0, closed one at a time.
@@ -30,6 +35,4 @@ The first Store release.
 
 ## Things deliberately not coming
 
-- **Running user JavaScript to build responses.** It needs `eval`, which Store policy and
-  wemock's own safety rule both forbid.
 - **Intercepting through `chrome.debugger`.** It shows a warning bar on every tab.
