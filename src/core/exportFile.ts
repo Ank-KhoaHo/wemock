@@ -1,5 +1,5 @@
 import { isValidStatus } from './statusText';
-import type { HttpMethod, Mock, MockMatch, MockResponse, Project, Scenario, SocketMock, SocketPush, SocketReply, WemockState } from './types';
+import type { HttpMethod, Mock, MockMatch, MockResponse, MockSequence, Project, Scenario, SocketMock, SocketPush, SocketReply, WemockState } from './types';
 
 const VALID_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'ANY']);
 
@@ -96,6 +96,31 @@ function validateMockResponse(
   };
 }
 
+function validateSequence(v: unknown): Check<MockSequence> {
+  if (!isObj(v)) {
+    return { ok: false, error: 'Mock sequence must be an object' };
+  }
+  if (v.after !== 'stay' && v.after !== 'loop') {
+    return { ok: false, error: `Invalid sequence after: ${String(v.after)}` };
+  }
+  if (!Array.isArray(v.steps)) {
+    return { ok: false, error: 'Sequence steps must be an array' };
+  }
+  const steps: MockResponse[] = [];
+  for (const s of v.steps) {
+    const res = validateMockResponse(s);
+    if (!res.ok) return res;
+    steps.push(res.response);
+  }
+  return {
+    ok: true,
+    value: {
+      steps,
+      after: v.after,
+    },
+  };
+}
+
 function validateMock(mock: unknown): { ok: true; mock: Mock } | { ok: false; error: string } {
   if (!mock || typeof mock !== 'object' || Array.isArray(mock)) {
     return { ok: false, error: 'Mock must be an object' };
@@ -119,7 +144,7 @@ function validateMock(mock: unknown): { ok: true; mock: Mock } | { ok: false; er
   if (m.graphqlOperation !== undefined && typeof m.graphqlOperation !== 'string') {
     return { ok: false, error: 'Mock graphqlOperation must be a string if defined' };
   }
-  if (m.reply !== undefined && m.reply !== 'fixed' && m.reply !== 'code') {
+  if (m.reply !== undefined && m.reply !== 'fixed' && m.reply !== 'code' && m.reply !== 'sequence') {
     return { ok: false, error: `Invalid mock reply: ${String(m.reply)}` };
   }
   if (m.code !== undefined && typeof m.code !== 'string') {
@@ -138,6 +163,13 @@ function validateMock(mock: unknown): { ok: true; mock: Mock } | { ok: false; er
     match = matchRes.value;
   }
 
+  let sequence: MockSequence | undefined;
+  if (m.sequence !== undefined) {
+    const seqValid = validateSequence(m.sequence);
+    if (!seqValid.ok) return seqValid;
+    sequence = seqValid.value;
+  }
+
   const resValid = validateMockResponse(m.response);
   if (!resValid.ok) return resValid;
 
@@ -152,8 +184,9 @@ function validateMock(mock: unknown): { ok: true; mock: Mock } | { ok: false; er
       graphqlOperation: m.graphqlOperation as string | undefined,
       ...(match !== undefined ? { match } : {}),
       response: resValid.response,
-      ...(m.reply !== undefined ? { reply: m.reply as 'fixed' | 'code' } : {}),
+      ...(m.reply !== undefined ? { reply: m.reply as 'fixed' | 'code' | 'sequence' } : {}),
       ...(typeof m.code === 'string' ? { code: m.code } : {}),
+      ...(sequence !== undefined ? { sequence } : {}),
       source: m.source,
       createdAt: m.createdAt,
     },

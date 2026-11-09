@@ -3,6 +3,7 @@ import { findAnyMock } from '../core/sockets';
 import { statusTextFor } from '../core/statusText';
 import type { Badge, LogDraft, Mock, RequestFacts, Settings } from '../core/types';
 import { announce, type PageConsole } from './announce';
+import type { CallCounter } from './callCounter';
 import { resolveReply, type RunHandler } from './reply';
 import type { Gate, GateResult } from './gate';
 
@@ -14,6 +15,8 @@ export interface PatchDeps {
   console?: PageConsole;
   /** A2: runs a code mock; absent outside a real page (code mocks then answer the error reply). */
   runHandler?: RunHandler;
+  /** A12: call counter for sequence and code mocks. */
+  callCounter?: CallCounter;
 }
 
 declare global {
@@ -129,7 +132,13 @@ export function installFetchPatch(win: Window, deps: PatchDeps): () => void {
     }
 
     if (mock) {
-      const reply = await resolveReply(deps.runHandler, mock, reqFacts);
+      const isSocket = !gateRes.mocks.includes(mock);
+      let callCount = 1;
+      if (!isSocket && deps.callCounter) {
+        const listKey = gateRes.mocks.map((m) => m.id).join(',');
+        callCount = deps.callCounter.next(mock, listKey);
+      }
+      const reply = await resolveReply(deps.runHandler, mock, reqFacts, callCount);
       if (signal?.aborted) {
         throw createAbortError(signal.reason);
       }

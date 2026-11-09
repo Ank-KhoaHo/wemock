@@ -9,7 +9,7 @@ export const HANDLER_TIMEOUT_MS = 1000;
 export const HANDLER_WAIT_MS = 3000;
 
 export const DEFAULT_CODE = `// Runs for every call this mock matches. Return the body.
-// req: method, url, path, params, query, headers, body.  res: status, headers, delayMs.
+// req: method, url, path, params, query, headers, body, callCount.  res: status, headers, delayMs.
 return { id: params.id };
 `;
 
@@ -19,6 +19,7 @@ export interface HandlerRequest {
   url: string;
   headers: Record<string, string>;
   body?: string;
+  callCount?: number;
 }
 
 export interface HandlerInput {
@@ -31,6 +32,7 @@ export interface HandlerInput {
     headers: Record<string, string>;
     body: unknown;
     bodyText: string | undefined;
+    callCount: number;
   };
   res: { status: number; headers: Record<string, string>; delayMs: number };
 }
@@ -100,6 +102,7 @@ export function buildInput(mock: Mock, request: HandlerRequest): HandlerInput {
       headers: { ...request.headers },
       body,
       bodyText: request.body,
+      callCount: request.callCount ?? 1,
     },
     res: {
       status: mock.response.status,

@@ -10,6 +10,12 @@ export interface MockResponse {
   delayMs: number;
 }
 
+/** A12: a sequence of responses served in order across calls. */
+export interface MockSequence {
+  steps: MockResponse[];
+  after: 'stay' | 'loop';
+}
+
 /** A11: optional conditions that must hold for this mock to match. */
 export interface MockMatch {
   query?: Record<string, string>;
@@ -32,10 +38,12 @@ export interface Mock {
    */
   fromDefault?: true;
   response: MockResponse;
-  /** A2: 'code' runs `code` in the sandbox; absent or 'fixed' serves `response`. */
-  reply?: 'fixed' | 'code';
+  /** A2: 'code' runs `code` in the sandbox; absent or 'fixed' serves `response`; 'sequence' serves `sequence`. */
+  reply?: 'fixed' | 'code' | 'sequence';
   /** A2: the body of an async function. See core/handler.ts. */
   code?: string;
+  /** A12: the sequence of responses when reply === 'sequence'. */
+  sequence?: MockSequence;
   /** A13: fill {{...}} in a text body. */
   templates?: boolean;
   source: 'recorded' | 'manual';

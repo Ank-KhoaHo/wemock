@@ -1530,6 +1530,102 @@ body.panel-root {
   border: 1px solid var(--border-color);
 }
 
+/* A12: call sequences */
+.sequence-reply-view {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.seq-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.seq-step {
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.seq-step-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.seq-step-number {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.seq-step-remove-btn {
+  background: none;
+  border: none;
+  color: #de350b;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.seq-step-remove-btn:hover {
+  text-decoration: underline;
+}
+
+.dark .seq-step-remove-btn {
+  color: #ff8f73;
+}
+
+.seq-step-row {
+  display: flex;
+  gap: 12px;
+}
+
+.seq-body-textarea {
+  font-family: ui-monospace, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  resize: vertical;
+}
+
+.seq-actions-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.seq-step-add-btn {
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.seq-step-add-btn:hover {
+  background: var(--bg-hover);
+}
+
+.seq-after-group {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.seq-after-group select {
+  max-width: 100%;
+}
+
 .log-error {
   margin: 0 0 8px;
   padding: 6px 8px;

@@ -1,5 +1,6 @@
 import { isBridgeToPage, PAGE_SOURCE, type PageToBridge } from '../core/messages';
 import type { LogDraft } from '../core/types';
+import { createCallCounter } from '../patch/callCounter';
 import { installFetchPatch } from '../patch/fetchPatch';
 import { createGate } from '../patch/gate';
 import { createRunHandler } from '../patch/reply';
@@ -16,6 +17,7 @@ export default defineContentScript({
   main() {
     try {
       const gate = createGate();
+      const callCounter = createCallCounter();
 
       const deps = {
         gate,
@@ -35,6 +37,7 @@ export default defineContentScript({
         // Captured now, so a page that replaces console later still gets our lines.
         console: { info: console.info.bind(console), warn: console.warn.bind(console) },
         runHandler: createRunHandler(window),
+        callCounter,
       };
 
       installFetchPatch(window, deps);

@@ -229,7 +229,7 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
       }
 
       try {
-        await this._serveMock(mock, reqFacts, startedAt, gateRes.settings);
+        await this._serveMock(mock, reqFacts, startedAt, gateRes);
       } catch {
         this._passThroughReal(body, startedAt, gateRes.late);
       }
@@ -355,12 +355,18 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
       mock: Mock,
       reqFacts: RequestFacts,
       startedAt: number,
-      settings: Settings,
+      gateRes: GateResult,
     ): Promise<void> {
       this._isMock = true;
       this._defineMockGetters();
 
-      const reply = await resolveReply(deps.runHandler, mock, reqFacts);
+      const isSocket = !gateRes.mocks.includes(mock);
+      let callCount = 1;
+      if (!isSocket && deps.callCounter) {
+        const listKey = gateRes.mocks.map((m) => m.id).join(',');
+        callCount = deps.callCounter.next(mock, listKey);
+      }
+      const reply = await resolveReply(deps.runHandler, mock, reqFacts, callCount);
       if (this._aborted) {
         return;
       }
@@ -496,7 +502,7 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
       });
       announce(
         deps.console,
-        settings,
+        gateRes.settings,
         { method: reqFacts.method, url: reqFacts.url, status: response.status, mock, durationMs, error: reply.error },
         pageOriginOf(win),
       );

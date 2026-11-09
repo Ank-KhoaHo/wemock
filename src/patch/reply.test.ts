@@ -24,7 +24,7 @@ describe('resolveReply', () => {
   it('a code mock sends only the id and the request facts', async () => {
     const run = vi.fn(async () => ({ response: { ...fixed.response, status: 299 } }));
     const r = await resolveReply(run, code, facts);
-    expect(run).toHaveBeenCalledWith('m2', { method: 'GET', url: 'https://a.test/a', headers: { h: '1' }, body: 'b' });
+    expect(run).toHaveBeenCalledWith('m2', { method: 'GET', url: 'https://a.test/a', headers: { h: '1' }, body: 'b', callCount: 1 });
     expect(r.response.status).toBe(299);
   });
   it('no runner or a throwing runner gives the error reply', async () => {

@@ -3,7 +3,7 @@ import { hasConditions } from '../core/conditions';
 import { DEFAULT_CODE } from '../core/handler';
 import { compilePattern } from '../core/match';
 import { isValidStatus, STATUS_TEXT } from '../core/statusText';
-import type { BodyEncoding, HttpMethod, Mock, MockMatch } from '../core/types';
+import type { BodyEncoding, HttpMethod, Mock, MockMatch, MockResponse, MockSequence } from '../core/types';
 import { BodyEditor } from './BodyEditor';
 import { HeadersTable } from './HeadersTable';
 
@@ -24,10 +24,32 @@ interface KeyValueRow {
   value: string;
 }
 
+interface StepDraft {
+  status: string;
+  delayMs: string;
+  body: string;
+}
+
 export function MockEditor({ mock, onSave, onDelete, isDark = false }: MockEditorProps) {
   const [draft, setDraft] = useState<Mock | null>(mock);
   const [statusInput, setStatusInput] = useState<string>(mock ? String(mock.response.status) : '200');
   const [delayInput, setDelayInput] = useState<string>(mock ? String(mock.response.delayMs) : '0');
+  const [seqDraft, setSeqDraft] = useState<{
+    steps: StepDraft[];
+    after: 'stay' | 'loop';
+  } | null>(() => {
+    if (mock?.sequence?.steps?.length) {
+      return {
+        steps: mock.sequence.steps.map((s) => ({
+          status: String(s.status),
+          delayMs: String(s.delayMs),
+          body: s.body,
+        })),
+        after: mock.sequence.after,
+      };
+    }
+    return null;
+  });
   const [matchExpanded, setMatchExpanded] = useState<boolean>(mock ? hasConditions(mock) : false);
   const [queryRows, setQueryRows] = useState<KeyValueRow[]>(() => {
     if (!mock?.match?.query) return [];
@@ -72,6 +94,18 @@ export function MockEditor({ mock, onSave, onDelete, isDark = false }: MockEdito
           : [],
       );
       setMatchBody(mock.match?.body ?? '');
+      if (mock.sequence?.steps?.length) {
+        setSeqDraft({
+          steps: mock.sequence.steps.map((s) => ({
+            status: String(s.status),
+            delayMs: String(s.delayMs),
+            body: s.body,
+          })),
+          after: mock.sequence.after,
+        });
+      } else {
+        setSeqDraft(null);
+      }
     }
   }, [mock?.id]);
 
@@ -84,8 +118,26 @@ export function MockEditor({ mock, onSave, onDelete, isDark = false }: MockEdito
   }
 
   const patternResult = compilePattern(draft.urlPattern);
+  const isCode = draft.reply === 'code';
+  const isSequence = draft.reply === 'sequence';
+  const isFixed = !isCode && !isSequence;
+
   const isStatusValid = isValidStatus(Number(statusInput));
-  const canSave = patternResult.ok && isStatusValid;
+  const isDelayValid = !Number.isNaN(Number(delayInput)) && Number(delayInput) >= 0;
+  const isFixedValid = isStatusValid && isDelayValid;
+
+  const isSequenceValid = Boolean(
+    seqDraft &&
+      seqDraft.steps.length > 0 &&
+      seqDraft.steps.every(
+        (s) =>
+          isValidStatus(Number(s.status)) &&
+          !Number.isNaN(Number(s.delayMs)) &&
+          Number(s.delayMs) >= 0,
+      ),
+  );
+
+  const canSave = patternResult.ok && (isSequence ? isSequenceValid : isFixedValid);
 
   const getContentType = (): string => {
     const entry = Object.entries(draft.response.headers).find(
@@ -157,12 +209,25 @@ export function MockEditor({ mock, onSave, onDelete, isDark = false }: MockEdito
     });
   };
 
-  const isCode = draft.reply === 'code';
-
-  const setReply = (reply: 'fixed' | 'code') => {
+  const setReply = (reply: 'fixed' | 'code' | 'sequence') => {
+    if (reply === 'sequence') {
+      if (!seqDraft || seqDraft.steps.length === 0) {
+        setSeqDraft({
+          steps: [
+            {
+              status: statusInput || String(draft.response.status || 200),
+              delayMs: delayInput || String(draft.response.delayMs || 0),
+              body: draft.response.body,
+            },
+          ],
+          after: 'stay',
+        });
+      }
+    }
     setDraft((prev) => {
       if (!prev) return prev;
       if (reply === 'fixed') return { ...prev, reply: 'fixed' };
+      if (reply === 'sequence') return { ...prev, reply: 'sequence' };
       return { ...prev, reply: 'code', code: prev.code && prev.code.trim() ? prev.code : DEFAULT_CODE };
     });
   };
@@ -200,6 +265,42 @@ export function MockEditor({ mock, onSave, onDelete, isDark = false }: MockEdito
       Boolean(matchObj.query && Object.keys(matchObj.query).length > 0) ||
       Boolean(matchObj.headers && Object.keys(matchObj.headers).length > 0) ||
       Boolean(typeof matchObj.body === 'string' && matchObj.body.trim().length > 0);
+
+    if (draft.reply === 'sequence') {
+      if (!seqDraft || seqDraft.steps.length === 0) return;
+      const sequence: MockSequence = {
+        steps: seqDraft.steps.map((s) => ({
+          status: Number(s.status),
+          headers: { ...draft.response.headers },
+          body: s.body,
+          bodyEncoding: 'text',
+          delayMs: Math.max(0, Number(s.delayMs) || 0),
+        })),
+        after: seqDraft.after,
+      };
+
+      const saved: Mock = {
+        ...draft,
+        reply: 'sequence',
+        sequence,
+        response: {
+          ...draft.response,
+          status: sequence.steps[0]?.status ?? 200,
+          delayMs: sequence.steps[0]?.delayMs ?? 0,
+          body: sequence.steps[0]?.body ?? '',
+          headers: { ...draft.response.headers },
+          bodyEncoding: 'text',
+        },
+        ...(hasAnyConditions ? { match: matchObj } : {}),
+      };
+
+      if (!hasAnyConditions) {
+        delete saved.match;
+      }
+
+      onSave(saved);
+      return;
+    }
 
     const saved: Mock = {
       ...draft,
@@ -470,44 +571,46 @@ export function MockEditor({ mock, onSave, onDelete, isDark = false }: MockEdito
         )}
 
         {/* Status & Delay */}
-        <div className="form-row">
-          <div className="form-group status-group">
-            <label className="field-label">Status</label>
-            <input
-              type="number"
-              data-testid="field-status"
-              list="status-datalist"
-              className={`text-input ${!isStatusValid ? 'input-error' : ''}`}
-              value={statusInput}
-              onChange={(e) => setStatusInput(e.target.value)}
-            />
-            <datalist id="status-datalist">
-              {Object.entries(STATUS_TEXT).map(([code, reason]) => (
-                <option key={code} value={code}>
-                  {code} {reason}
-                </option>
-              ))}
-            </datalist>
-            {!isStatusValid && (
-              <div data-testid="status-error" className="error-message">
-                Invalid status code (must be 200–599)
-              </div>
-            )}
-          </div>
+        {!isSequence && (
+          <div className="form-row">
+            <div className="form-group status-group">
+              <label className="field-label">Status</label>
+              <input
+                type="number"
+                data-testid="field-status"
+                list="status-datalist"
+                className={`text-input ${!isStatusValid ? 'input-error' : ''}`}
+                value={statusInput}
+                onChange={(e) => setStatusInput(e.target.value)}
+              />
+              <datalist id="status-datalist">
+                {Object.entries(STATUS_TEXT).map(([code, reason]) => (
+                  <option key={code} value={code}>
+                    {code} {reason}
+                  </option>
+                ))}
+              </datalist>
+              {!isStatusValid && (
+                <div data-testid="status-error" className="error-message">
+                  Invalid status code (must be 200–599)
+                </div>
+              )}
+            </div>
 
-          <div className="form-group delay-group">
-            <label className="field-label">Delay (ms)</label>
-            <input
-              type="number"
-              data-testid="field-delay"
-              min="0"
-              max="60000"
-              className="text-input"
-              value={delayInput}
-              onChange={(e) => setDelayInput(e.target.value)}
-            />
+            <div className="form-group delay-group">
+              <label className="field-label">Delay (ms)</label>
+              <input
+                type="number"
+                data-testid="field-delay"
+                min="0"
+                max="60000"
+                className="text-input"
+                value={delayInput}
+                onChange={(e) => setDelayInput(e.target.value)}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Headers Table */}
         <HeadersTable headers={draft.response.headers} onChange={handleHeadersChange} />
@@ -519,8 +622,8 @@ export function MockEditor({ mock, onSave, onDelete, isDark = false }: MockEdito
             <button
               type="button"
               data-testid="reply-fixed"
-              className={`reply-btn ${!isCode ? 'active' : ''}`}
-              aria-pressed={!isCode ? 'true' : 'false'}
+              className={`reply-btn ${isFixed ? 'active' : ''}`}
+              aria-pressed={isFixed ? 'true' : 'false'}
               onClick={() => setReply('fixed')}
             >
               Fixed body
@@ -533,6 +636,15 @@ export function MockEditor({ mock, onSave, onDelete, isDark = false }: MockEdito
               onClick={() => setReply('code')}
             >
               Code
+            </button>
+            <button
+              type="button"
+              data-testid="reply-sequence"
+              className={`reply-btn ${isSequence ? 'active' : ''}`}
+              aria-pressed={isSequence ? 'true' : 'false'}
+              onClick={() => setReply('sequence')}
+            >
+              Sequence
             </button>
           </div>
         </div>
@@ -552,6 +664,148 @@ export function MockEditor({ mock, onSave, onDelete, isDark = false }: MockEdito
                 onChange={(val) => setDraft((prev) => (prev ? { ...prev, code: val } : prev))}
               />
             </Suspense>
+          </div>
+        ) : isSequence ? (
+          <div className="sequence-reply-view" data-testid="sequence-view">
+            <p className="field-help">
+              Each call to this mock gets the next step. The count restarts when the page reloads, the mock is saved, or the scenario changes.
+            </p>
+
+            {seqDraft && (
+              <div className="seq-steps-list">
+                {seqDraft.steps.map((step, idx) => (
+                  <div key={idx} className="seq-step" data-testid="seq-step">
+                    <div className="seq-step-header">
+                      <span className="seq-step-number">Call {idx + 1}</span>
+                      {seqDraft.steps.length > 1 && (
+                        <button
+                          type="button"
+                          data-testid="seq-step-remove"
+                          className="btn-link btn-danger-link seq-step-remove-btn"
+                          onClick={() => {
+                            setSeqDraft({
+                              ...seqDraft,
+                              steps: seqDraft.steps.filter((_, i) => i !== idx),
+                            });
+                          }}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="form-row seq-step-row">
+                      <div className="form-group status-group">
+                        <label className="field-label">Status</label>
+                        <input
+                          type="number"
+                          data-testid="seq-status"
+                          className={`text-input ${!isValidStatus(Number(step.status)) ? 'input-error' : ''}`}
+                          value={step.status}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setSeqDraft({
+                              ...seqDraft,
+                              steps: seqDraft.steps.map((s, i) => (i === idx ? { ...s, status: val } : s)),
+                            });
+                          }}
+                        />
+                      </div>
+
+                      <div className="form-group delay-group">
+                        <label className="field-label">Delay (ms)</label>
+                        <input
+                          type="number"
+                          data-testid="seq-delay"
+                          min="0"
+                          className="text-input"
+                          value={step.delayMs}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setSeqDraft({
+                              ...seqDraft,
+                              steps: seqDraft.steps.map((s, i) => (i === idx ? { ...s, delayMs: val } : s)),
+                            });
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="field-label">Body</label>
+                      <textarea
+                        data-testid="seq-body"
+                        className="text-input seq-body-textarea"
+                        rows={4}
+                        value={step.body}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSeqDraft({
+                            ...seqDraft,
+                            steps: seqDraft.steps.map((s, i) => (i === idx ? { ...s, body: val } : s)),
+                          });
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="seq-actions-row">
+              <button
+                type="button"
+                data-testid="seq-step-add"
+                className="btn-secondary seq-step-add-btn"
+                onClick={() => {
+                  if (seqDraft) {
+                    const last = seqDraft.steps[seqDraft.steps.length - 1];
+                    if (last) {
+                      setSeqDraft({
+                        ...seqDraft,
+                        steps: [...seqDraft.steps, { ...last }],
+                      });
+                    }
+                  }
+                }}
+              >
+                + Add call
+              </button>
+
+              {seqDraft && (
+                <div className="form-group seq-after-group">
+                  <select
+                    data-testid="seq-after"
+                    className="select-input"
+                    value={seqDraft.after}
+                    onChange={(e) => {
+                      setSeqDraft({
+                        ...seqDraft,
+                        after: e.target.value as 'stay' | 'loop',
+                      });
+                    }}
+                  >
+                    <option value="stay">After the last call: keep answering the last</option>
+                    <option value="loop">After the last call: start over</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <div className="form-group templates-group">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  data-testid="field-templates"
+                  checked={Boolean(draft.templates)}
+                  onChange={(e) => setDraft({ ...draft, templates: e.target.checked })}
+                />
+                Fill {'{{templates}}'}
+              </label>
+              <div className="field-help">
+                tags: params.id, query.page, headers.name, body.path, uuid, now, timestamp
+              </div>
+            </div>
           </div>
         ) : (
           <>

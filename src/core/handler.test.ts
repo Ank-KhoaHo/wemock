@@ -51,6 +51,7 @@ describe('buildInput', () => {
       headers: { authorization: 'x' },
       body: { name: 'n' },
       bodyText: '{"name":"n"}',
+      callCount: 1,
     });
     expect(input.res).toEqual({ status: 201, headers: { 'x-a': '1' }, delayMs: 30 });
   });

@@ -1,5 +1,6 @@
 import { buildInput, errorReply, HANDLER_WAIT_MS, isCodeMock, type HandlerReply, type HandlerRequest } from '../core/handler';
 import { isBridgeHandlerResult, PAGE_SOURCE, type PageRunHandler } from '../core/messages';
+import { pickStep } from '../core/sequence';
 import { fillTemplate } from '../core/template';
 import type { Mock, RequestFacts } from '../core/types';
 
@@ -11,7 +12,34 @@ export async function resolveReply(
   runHandler: RunHandler | undefined,
   mock: Mock,
   facts: RequestFacts,
+  callCount: number = 1,
 ): Promise<HandlerReply> {
+  if (mock.reply === 'sequence') {
+    const response =
+      !mock.sequence || !mock.sequence.steps || mock.sequence.steps.length === 0
+        ? mock.response
+        : pickStep(mock.sequence, callCount);
+
+    if (mock.templates === true && response.bodyEncoding === 'text') {
+      const request: HandlerRequest = {
+        method: facts.method,
+        url: facts.url,
+        headers: { ...(facts.headers ?? {}) },
+        body: facts.body,
+        callCount,
+      };
+      const req = buildInput(mock, request).req;
+      const filledBody = fillTemplate(response.body, req);
+      return {
+        response: {
+          ...response,
+          body: filledBody,
+        },
+      };
+    }
+    return { response };
+  }
+
   if (!isCodeMock(mock)) {
     if (mock.templates === true && mock.response.bodyEncoding === 'text') {
       const request: HandlerRequest = {
@@ -19,6 +47,7 @@ export async function resolveReply(
         url: facts.url,
         headers: { ...(facts.headers ?? {}) },
         body: facts.body,
+        callCount,
       };
       const req = buildInput(mock, request).req;
       const filledBody = fillTemplate(mock.response.body, req);
@@ -38,6 +67,7 @@ export async function resolveReply(
       url: facts.url,
       headers: { ...(facts.headers ?? {}) },
       body: facts.body,
+      callCount,
     });
   } catch (err) {
     return errorReply(`wemock could not run the code: ${err instanceof Error ? err.message : String(err)}`);
