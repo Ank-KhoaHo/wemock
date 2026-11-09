@@ -74,8 +74,13 @@ export function LogTable({ entries, selectedEntryId, onSelectEntry }: LogTablePr
                   <td className="log-col-path monospace" title={entry.url}>
                     {path}
                   </td>
-                  <td className={`log-col-status ${entry.status >= 400 || entry.status === 0 ? 'status-error' : ''}`}>
-                    {entry.status}
+                  {/* A6: a socket message has no status; 0 there is not a failure. */}
+                  <td
+                    className={`log-col-status ${
+                      entry.method.startsWith('WS ') ? '' : entry.status >= 400 || entry.status === 0 ? 'status-error' : ''
+                    }`}
+                  >
+                    {entry.method.startsWith('WS ') && entry.status === 0 ? '—' : entry.status}
                   </td>
                   <td className="log-col-duration">{Math.round(entry.durationMs)} ms</td>
                   <td className="log-col-badge">

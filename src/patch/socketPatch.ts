@@ -11,9 +11,10 @@ import {
   PING_INTERVAL_MS,
   PING_MESSAGE,
   splitMessages,
+  withoutPings,
 } from '../core/signalr';
 import { findSocket } from '../core/sockets';
-import type { LogDraft, Settings, SocketMock, SocketPush, SocketReply } from '../core/types';
+import { SOCKET_LOG_CAP, type LogDraft, type Settings, type SocketMock, type SocketPush, type SocketReply } from '../core/types';
 import { announce } from './announce';
 import { pageOriginOf, type PatchDeps } from './fetchPatch';
 
@@ -38,6 +39,22 @@ interface Answer {
   has: boolean;
   value?: unknown;
   error?: string;
+}
+
+let connections = 0;
+/** No crypto.randomUUID here: plain-http pages are not secure contexts. */
+function newConnectionId(): string {
+  connections += 1;
+  return `c${connections}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function frameText(data: unknown): string {
+  if (typeof data === 'string') return data;
+  let size = 0;
+  if (data instanceof ArrayBuffer) size = data.byteLength;
+  else if (ArrayBuffer.isView(data)) size = data.byteLength;
+  else if (data && typeof data === 'object' && 'size' in data) size = Number((data as Blob).size) || 0;
+  return `[binary ${size} bytes]`;
 }
 
 function firstProtocol(protocols?: string | string[]): string {
@@ -97,6 +114,7 @@ export function installSocketPatch(win: Window, deps: PatchDeps): () => void {
     private readonly _timers = new Set<ReturnType<typeof setTimeout>>();
     private _ping: ReturnType<typeof setInterval> | null = null;
     private _handshakeDone = false;
+    private readonly _connectionId = newConnectionId();
 
     constructor(url: string, protocol: string, mock: SocketMock, settings: Settings) {
       super();
@@ -315,8 +333,65 @@ export function installSocketPatch(win: Window, deps: PatchDeps): () => void {
         badge: 'MOCK',
         mockId: this._mock.id,
         ...(part.error ? { error: part.error } : {}),
+        connectionId: this._connectionId,
         startedAt: deps.now(),
       });
+    }
+  }
+
+  /** A6: log a real socket's open and messages, so "Mock this socket" can rebuild it. */
+  function watchReal(ws: WebSocket): void {
+    try {
+      const connectionId = newConnectionId();
+      let count = 0;
+      let capped = false;
+      const log = (method: string, part: { status?: number; requestBody?: string; responseBody?: string | null }) => {
+        if (method !== 'WS') {
+          if (count >= SOCKET_LOG_CAP) {
+            if (!capped) {
+              capped = true;
+              log('WS', { responseBody: `Further messages on this socket are not logged (${SOCKET_LOG_CAP} at most)` });
+            }
+            return;
+          }
+          count += 1;
+        }
+        report({
+          method,
+          url: ws.url,
+          ...(part.requestBody !== undefined ? { requestBody: part.requestBody } : {}),
+          status: part.status ?? 0,
+          responseHeaders: {},
+          responseBody: part.responseBody ?? null,
+          responseEncoding: 'text',
+          truncated: false,
+          durationMs: 0,
+          badge: 'real',
+          connectionId,
+          startedAt: deps.now(),
+        });
+      };
+      ws.addEventListener('open', () => log('WS', { status: 101 }));
+      ws.addEventListener('message', (e: MessageEvent) => {
+        const text = withoutPings(frameText(e.data));
+        if (text) log('WS ↓', { responseBody: text });
+      });
+      const nativeSend = Native.prototype.send;
+      Object.defineProperty(ws, 'send', {
+        configurable: true,
+        writable: true,
+        value: function send(this: WebSocket, data: string | ArrayBufferLike | Blob | ArrayBufferView) {
+          nativeSend.call(this, data); // throws like the native one when not open
+          try {
+            const text = withoutPings(frameText(data));
+            if (text) log('WS ↑', { requestBody: text });
+          } catch {
+            // logging never changes what the page sees
+          }
+        },
+      });
+    } catch {
+      // a real socket must work even when watching it fails
     }
   }
 
@@ -337,7 +412,9 @@ export function installSocketPatch(win: Window, deps: PatchDeps): () => void {
       fake = null;
     }
     if (fake) return fake as unknown as WebSocket;
-    return protocols === undefined ? new Native(url) : new Native(url, protocols);
+    const ws = protocols === undefined ? new Native(url) : new Native(url, protocols);
+    watchReal(ws);
+    return ws;
   } as unknown as typeof WebSocket;
 
   Object.defineProperty(Patched, 'prototype', { value: Native.prototype });

@@ -1,6 +1,8 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
+import type { Duplex } from 'node:stream';
+import { attachWsServer } from './wsServer';
 
 export interface FixtureServer {
   server: http.Server;
@@ -77,7 +79,8 @@ export function startFixtureServer(host = '127.0.0.1'): Promise<FixtureServer> {
     }
 
     if (req.method === 'GET' && pathname === '/api/goals') {
-      res.writeHead(200, { 'content-type': 'application/json' });
+      // CORS open, so a page on 127.0.0.1 can call it as localhost: another origin (A7).
+      res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
       res.end(JSON.stringify({ source: 'server' }));
       return;
     }
@@ -110,6 +113,9 @@ export function startFixtureServer(host = '127.0.0.1'): Promise<FixtureServer> {
     res.end('Not found');
   });
 
+  const wsSockets = new Set<Duplex>();
+  attachWsServer(server, wsSockets);
+
   return new Promise((resolve, reject) => {
     server.listen(0, host, () => {
       const addr = server.address();
@@ -129,6 +135,8 @@ export function startFixtureServer(host = '127.0.0.1'): Promise<FixtureServer> {
             server.close((err) => (err ? rej(err) : res()));
             // Keep-alive sockets would hold close() open until they time out.
             server.closeAllConnections();
+            // Upgraded WebSocket connections are not in closeAllConnections().
+            for (const s of wsSockets) s.destroy();
           });
         },
       });

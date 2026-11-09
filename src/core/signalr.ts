@@ -100,3 +100,10 @@ export function parseMessage(message: string): ParsedMessage | null {
     return null;
   }
 }
+
+/** A6: a logged frame without its ping messages ('' when only pings). Non-SignalR text is kept. */
+export function withoutPings(text: string): string {
+  if (!text.includes(RS)) return text;
+  const kept = splitMessages(text).filter((m) => parseMessage(m)?.type !== MessageType.Ping);
+  return kept.length === 0 ? '' : kept.join(RS) + RS;
+}

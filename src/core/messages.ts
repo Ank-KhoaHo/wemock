@@ -69,6 +69,7 @@ export function isPageToBridge(data: unknown): data is PageToBridge {
   if (entry.badge !== 'MOCK' && entry.badge !== 'real' && entry.badge !== 'LATE') return false;
   if (entry.mockId !== undefined && typeof entry.mockId !== 'string') return false;
   if (entry.error !== undefined && typeof entry.error !== 'string') return false;
+  if (entry.connectionId !== undefined && typeof entry.connectionId !== 'string') return false;
   if (typeof entry.startedAt !== 'number' || Number.isNaN(entry.startedAt)) return false;
 
   return true;

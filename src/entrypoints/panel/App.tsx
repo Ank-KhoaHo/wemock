@@ -4,6 +4,7 @@ import { exportProject, parseProjectFile } from '../../core/exportFile';
 import { importMokku } from '../../core/mokkuImport';
 import { ensureProject, mockFromLog, scenarioFromLogs } from '../../core/record';
 import { projectForOrigin } from '../../core/scenario';
+import { socketFromLogs } from '../../core/socketRecord';
 import type { LogEntry, Mock, Project, Scenario, SocketMock } from '../../core/types';
 import { newId } from '../../shared/ids';
 import { getInspectedTabId } from '../../shared/inspectedTab';
@@ -177,7 +178,7 @@ export default function App() {
       if (!originToUse) return s;
 
       const { state: nextState, project: targetProject } = ensureProject(s, originToUse, newId);
-      const mock = mockFromLog(entry, newId(), Date.now());
+      const mock = mockFromLog(entry, newId(), Date.now(), originToUse);
 
       const updatedProjects = nextState.projects.map((p) => {
         if (p.id !== targetProject.id) return p;
@@ -202,6 +203,38 @@ export default function App() {
     }).catch(() => {});
   };
 
+  const handleMockSocket = (entry: LogEntry) => {
+    if (!entry.connectionId) return;
+    const connectionId = entry.connectionId;
+    update((s) => {
+      let originToUse = tabOrigin;
+      if (!originToUse) {
+        try {
+          originToUse = new URL(entry.url.replace(/^ws/, 'http')).origin;
+        } catch {
+          originToUse = '';
+        }
+      }
+      if (!originToUse) return s;
+      const socket = socketFromLogs(entries, connectionId, originToUse, newId, Date.now());
+      if (!socket) return s;
+      const { state: nextState, project: targetProject } = ensureProject(s, originToUse, newId);
+      return {
+        ...nextState,
+        projects: nextState.projects.map((p) => {
+          if (p.id !== targetProject.id) return p;
+          const activeScenarioId = p.activeScenarioId || p.scenarios[0]?.id;
+          return {
+            ...p,
+            scenarios: p.scenarios.map((sc) =>
+              sc.id === activeScenarioId ? { ...sc, sockets: [...(sc.sockets ?? []), socket] } : sc,
+            ),
+          };
+        }),
+      };
+    }).catch(() => {});
+  };
+
   const handleSaveScenarioSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = scenarioName.trim();
@@ -219,7 +252,7 @@ export default function App() {
       if (!originToUse) return s;
 
       const { state: nextState, project: targetProject } = ensureProject(s, originToUse, newId);
-      const newScenario = scenarioFromLogs(filteredEntries, trimmed, newId, Date.now());
+      const newScenario = scenarioFromLogs(filteredEntries, trimmed, newId, Date.now(), originToUse);
 
       const updatedProjects = nextState.projects.map((p) => {
         if (p.id !== targetProject.id) return p;
@@ -662,6 +695,7 @@ export default function App() {
               <LogDetail
                 entry={selectedEntry}
                 onMockThis={handleMockThis}
+                onMockSocket={handleMockSocket}
                 onClose={() => setSelectedEntryId(null)}
               />
             </div>

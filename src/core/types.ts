@@ -117,8 +117,13 @@ export interface LogEntry {
   mockId?: string;
   /** A2: a code mock failed and the call got the error reply. */
   error?: string;
+  /** A6: ties the rows of one WebSocket connection together. */
+  connectionId?: string;
   startedAt: number;
 }
+
+/** A6: message rows logged per socket connection, then one "not logged" row. */
+export const SOCKET_LOG_CAP = 200;
 
 export type LogDraft = Omit<LogEntry, 'id'>;
 

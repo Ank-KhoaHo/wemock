@@ -5,6 +5,8 @@ import type { LogEntry } from '../core/types';
 export interface LogDetailProps {
   entry: LogEntry | null;
   onMockThis: (entry: LogEntry) => void;
+  /** A6: turn the real socket connection this row opened into a socket mock. */
+  onMockSocket?: (entry: LogEntry) => void;
   onClose?: () => void;
 }
 
@@ -43,7 +45,7 @@ function getMockDisabledReason(entry: LogEntry): string | undefined {
   return undefined;
 }
 
-export function LogDetail({ entry, onMockThis, onClose }: LogDetailProps) {
+export function LogDetail({ entry, onMockThis, onMockSocket, onClose }: LogDetailProps) {
   if (!entry) {
     return (
       <div className="log-detail empty">
@@ -73,6 +75,17 @@ export function LogDetail({ entry, onMockThis, onClose }: LogDetailProps) {
           </span>
         </div>
         <div className="detail-header-actions">
+          {onMockSocket && entry.method === 'WS' && entry.status === 101 && entry.badge !== 'MOCK' && entry.connectionId && (
+            <button
+              type="button"
+              data-testid="mock-socket"
+              className="mock-this-button"
+              title="Make a socket mock from this connection's messages"
+              onClick={() => onMockSocket(entry)}
+            >
+              Mock this socket
+            </button>
+          )}
           <button
             type="button"
             data-testid="mock-this"

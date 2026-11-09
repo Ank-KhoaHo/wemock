@@ -134,3 +134,70 @@ describe('socketPatch', () => {
     expect(deps.console!.info).toHaveBeenCalledWith('[wemock] WS ws://a.test/hub → 101 mock "Hub" (0 ms)');
   });
 });
+
+describe('socketPatch: real sockets are logged (A6)', () => {
+  class RealStub extends EventTarget {
+    static sent: unknown[] = [];
+    static fail = false;
+    url: string;
+    constructor(url: string) {
+      super();
+      this.url = url;
+    }
+    send(data: unknown): void {
+      if (RealStub.fail) throw new DOMException('not open', 'InvalidStateError');
+      RealStub.sent.push(data);
+    }
+  }
+
+  function setupReal() {
+    RealStub.sent = [];
+    const win = { WebSocket: RealStub, EventTarget, MessageEvent, location: { href: 'http://a.test/page' } } as unknown as Window;
+    const reported: LogDraft[] = [];
+    const gate: Gate = { open: vi.fn(), wait: vi.fn(), current: () => on };
+    installSocketPatch(win, { gate, report: (d) => reported.push(d), now: () => 7 });
+    const WS = (win as unknown as { WebSocket: new (u: string) => RealStub }).WebSocket;
+    return { WS, reported };
+  }
+
+  it('logs open, messages both ways (pings dropped), and one connection id', () => {
+    const { WS, reported } = setupReal();
+    const ws = new WS('ws://a.test/real');
+    ws.dispatchEvent(new Event('open'));
+    ws.dispatchEvent(new MessageEvent('message', { data: 'hi' }));
+    ws.dispatchEvent(new MessageEvent('message', { data: `{"type":6}${RS}` }));
+    ws.dispatchEvent(new MessageEvent('message', { data: new Uint8Array(3).buffer }));
+    ws.send('up');
+    expect(RealStub.sent).toEqual(['up']);
+    expect(reported.map((r) => [r.method, r.status, r.requestBody ?? r.responseBody, r.badge])).toEqual([
+      ['WS', 101, null, 'real'],
+      ['WS ↓', 0, 'hi', 'real'],
+      ['WS ↓', 0, '[binary 3 bytes]', 'real'],
+      ['WS ↑', 0, 'up', 'real'],
+    ]);
+    expect(new Set(reported.map((r) => r.connectionId)).size).toBe(1);
+    expect(reported[0]!.connectionId).toMatch(/^c\d+-/);
+  });
+
+  it('logs at most 200 messages per connection, then one note', () => {
+    const { WS, reported } = setupReal();
+    const ws = new WS('ws://a.test/real');
+    for (let i = 0; i < 250; i++) ws.dispatchEvent(new MessageEvent('message', { data: `m${i}` }));
+    expect(reported.filter((r) => r.method === 'WS ↓')).toHaveLength(200);
+    const notes = reported.filter((r) => r.method === 'WS');
+    expect(notes).toHaveLength(1);
+    expect(notes[0]!.responseBody).toMatch(/not logged \(200 at most\)/);
+  });
+
+  it('a send that throws is not logged', () => {
+    const { WS, reported } = setupReal();
+    const ws = new WS('ws://a.test/real');
+    RealStub.fail = true;
+    try {
+      expect(() => ws.send('x')).toThrow('not open');
+      expect(reported).toEqual([]);
+    } finally {
+      RealStub.fail = false;
+    }
+  });
+});
