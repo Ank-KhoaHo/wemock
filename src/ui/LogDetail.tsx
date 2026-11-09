@@ -8,6 +8,8 @@ export interface LogDetailProps {
   /** A6: turn the real socket connection this row opened into a socket mock. */
   onMockSocket?: (entry: LogEntry) => void;
   onClose?: () => void;
+  answeredBy?: { label: string; scenarioName: string } | 'deleted' | null;
+  onOpenMock?: () => void;
 }
 
 function formatResponseBody(entry: LogEntry): string {
@@ -45,7 +47,14 @@ function getMockDisabledReason(entry: LogEntry): string | undefined {
   return undefined;
 }
 
-export function LogDetail({ entry, onMockThis, onMockSocket, onClose }: LogDetailProps) {
+export function LogDetail({
+  entry,
+  onMockThis,
+  onMockSocket,
+  onClose,
+  answeredBy,
+  onOpenMock,
+}: LogDetailProps) {
   if (!entry) {
     return (
       <div className="log-detail empty">
@@ -54,10 +63,12 @@ export function LogDetail({ entry, onMockThis, onMockSocket, onClose }: LogDetai
     );
   }
 
+  const isSocket = entry.method.startsWith('WS');
   const disabledReason = getMockDisabledReason(entry);
   const isMockDisabled = Boolean(disabledReason);
   const formattedBody = formatResponseBody(entry);
   const statusText = statusTextFor(entry.status);
+  const socketMessage = entry.method === 'WS ↑' ? entry.requestBody : entry.responseBody;
 
   return (
     <div className="log-detail">
@@ -86,16 +97,18 @@ export function LogDetail({ entry, onMockThis, onMockSocket, onClose }: LogDetai
               Mock this socket
             </button>
           )}
-          <button
-            type="button"
-            data-testid="mock-this"
-            className="mock-this-button"
-            disabled={isMockDisabled}
-            title={disabledReason || 'Create a mock from this call'}
-            onClick={() => onMockThis(entry)}
-          >
-            Mock this
-          </button>
+          {!isSocket && (
+            <button
+              type="button"
+              data-testid="mock-this"
+              className="mock-this-button"
+              disabled={isMockDisabled}
+              title={disabledReason || 'Create a mock from this call'}
+              onClick={() => onMockThis(entry)}
+            >
+              Mock this
+            </button>
+          )}
           {onClose && (
             <button
               type="button"
@@ -110,6 +123,27 @@ export function LogDetail({ entry, onMockThis, onMockSocket, onClose }: LogDetai
       </div>
 
       <div className="detail-content">
+        {entry.badge === 'MOCK' && answeredBy && (
+          <div data-testid="answered-by" className="detail-answered-by">
+            {answeredBy === 'deleted' ? (
+              'Answered by a mock that was deleted'
+            ) : (
+              <>
+                Answered by:{' '}
+                <button
+                  type="button"
+                  data-testid="answered-by-link"
+                  className="answered-by-link"
+                  onClick={onOpenMock}
+                >
+                  {answeredBy.label}
+                </button>
+                {' · '}
+                {answeredBy.scenarioName}
+              </>
+            )}
+          </div>
+        )}
         {entry.error && (
           <p data-testid="detail-error" className="log-error">
             Code failed: {entry.error}
@@ -137,37 +171,52 @@ export function LogDetail({ entry, onMockThis, onMockSocket, onClose }: LogDetai
           </div>
         </section>
 
-        {entry.requestBody ? (
-          <section className="detail-section">
-            <h4 className="section-title">Request Body</h4>
-            <pre data-testid="request-body" className="detail-body-pre monospace">
-              {entry.requestBody}
-            </pre>
-          </section>
-        ) : null}
+        {isSocket ? (
+          socketMessage !== null && socketMessage !== undefined && socketMessage !== '' ? (
+            <section className="detail-section">
+              <h4 className="section-title">
+                {entry.method === 'WS ↑' ? 'Message sent' : 'Message received'}
+              </h4>
+              <pre data-testid="socket-message" className="detail-body-pre monospace">
+                {socketMessage}
+              </pre>
+            </section>
+          ) : null
+        ) : (
+          <>
+            {entry.requestBody ? (
+              <section className="detail-section">
+                <h4 className="section-title">Request Body</h4>
+                <pre data-testid="request-body" className="detail-body-pre monospace">
+                  {entry.requestBody}
+                </pre>
+              </section>
+            ) : null}
 
-        <section className="detail-section">
-          <h4 className="section-title">Response Headers</h4>
-          {Object.keys(entry.responseHeaders).length === 0 ? (
-            <p className="muted-text">No headers</p>
-          ) : (
-            <div className="headers-grid monospace">
-              {Object.entries(entry.responseHeaders).map(([key, value]) => (
-                <div key={key} className="header-entry">
-                  <span className="header-name">{key}:</span>{' '}
-                  <span className="header-value">{value}</span>
+            <section className="detail-section">
+              <h4 className="section-title">Response Headers</h4>
+              {Object.keys(entry.responseHeaders).length === 0 ? (
+                <p className="muted-text">No headers</p>
+              ) : (
+                <div className="headers-grid monospace">
+                  {Object.entries(entry.responseHeaders).map(([key, value]) => (
+                    <div key={key} className="header-entry">
+                      <span className="header-name">{key}:</span>{' '}
+                      <span className="header-value">{value}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
+              )}
+            </section>
 
-        <section className="detail-section">
-          <h4 className="section-title">Response Body</h4>
-          <pre data-testid="response-body" className="detail-body-pre monospace">
-            {formattedBody}
-          </pre>
-        </section>
+            <section className="detail-section">
+              <h4 className="section-title">Response Body</h4>
+              <pre data-testid="response-body" className="detail-body-pre monospace">
+                {formattedBody}
+              </pre>
+            </section>
+          </>
+        )}
       </div>
     </div>
   );

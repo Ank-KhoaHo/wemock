@@ -1454,6 +1454,29 @@ body.panel-root {
   border-color: #601e14;
 }
 
+.detail-answered-by {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.answered-by-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent-color);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  display: inline;
+}
+
+.answered-by-link:hover {
+  opacity: 0.8;
+}
+
 /* Test Bar (Spec A3) */
 .test-bar {
   flex-shrink: 0;

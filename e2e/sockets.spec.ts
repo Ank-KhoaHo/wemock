@@ -204,7 +204,7 @@ test('a URL with no socket mock, or wemock switched off, gets the native WebSock
   }
 });
 
-test('the log shows the socket and its messages, and Mock this is off for them', async () => {
+test('the log shows the socket and its messages, and offers no HTTP Mock this for them', async () => {
   await useSockets([echo]);
   const page = await openPage();
   const panel = await session.context.newPage();
@@ -221,7 +221,8 @@ test('the log shows the socket and its messages, and Mock this is off for them',
     await expect(rows.filter({ hasText: 'WS ↑' })).toHaveCount(1);
     await expect(rows.filter({ hasText: 'WS ↓' })).toHaveCount(2);
     await rows.filter({ hasText: '101' }).first().click();
-    await expect(panel.getByTestId('mock-this')).toBeDisabled();
+    // A9: a socket row has no HTTP Mock this at all.
+    await expect(panel.getByTestId('mock-this')).toHaveCount(0);
   } finally {
     await panel.close();
     await page.close();

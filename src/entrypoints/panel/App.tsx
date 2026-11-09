@@ -133,6 +133,56 @@ export default function App() {
 
   const selectedEntry = entries.find((e) => e.id === selectedEntryId) ?? null;
 
+  let answeredBy: { label: string; scenarioName: string } | 'deleted' | null = null;
+  let handleOpenMockFromLog: (() => void) | undefined = undefined;
+
+  if (selectedEntry?.badge === 'MOCK') {
+    let foundMock: Mock | null = null;
+    let foundSocket: SocketMock | null = null;
+    let foundScenario: Scenario | null = null;
+
+    if (project && selectedEntry.mockId) {
+      for (const sc of project.scenarios) {
+        const m = sc.mocks.find((item) => item.id === selectedEntry.mockId);
+        if (m) {
+          foundMock = m;
+          foundScenario = sc;
+          break;
+        }
+      }
+      if (!foundMock) {
+        for (const sc of project.scenarios) {
+          const s = (sc.sockets ?? []).find((item) => item.id === selectedEntry.mockId);
+          if (s) {
+            foundSocket = s;
+            foundScenario = sc;
+            break;
+          }
+        }
+      }
+    }
+
+    if (foundScenario && (foundMock || foundSocket)) {
+      const target = (foundMock ?? foundSocket)!;
+      const label = target.name?.trim() ? target.name : target.urlPattern;
+      answeredBy = {
+        label,
+        scenarioName: foundScenario.name,
+      };
+      const scId = foundScenario.id;
+      const mId = foundMock?.id ?? null;
+      const sId = foundSocket?.id ?? null;
+      handleOpenMockFromLog = () => {
+        setActiveTab('mocks');
+        setSelectedScenarioId(scId);
+        setSelectedMockId(mId);
+        setSelectedSocketId(sId);
+      };
+    } else {
+      answeredBy = 'deleted';
+    }
+  }
+
   const handleToggleRecording = () => {
     update((s) => ({
       ...s,
@@ -697,6 +747,8 @@ export default function App() {
                 onMockThis={handleMockThis}
                 onMockSocket={handleMockSocket}
                 onClose={() => setSelectedEntryId(null)}
+                answeredBy={answeredBy}
+                onOpenMock={handleOpenMockFromLog}
               />
             </div>
           </div>

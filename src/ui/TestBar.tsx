@@ -68,14 +68,23 @@ export function TestBar({ project, pageOrigin, onOpenMock }: TestBarProps) {
     | null
   >(null);
 
-  const prevProjectIdRef = useRef<string | null>(project?.id ?? null);
+  const contentKey = project
+    ? JSON.stringify({
+        id: project.id,
+        activeScenarioId: project.activeScenarioId,
+        scenarios: project.scenarios,
+      })
+    : null;
+
+  const prevContentKeyRef = useRef<string | null>(contentKey);
   useEffect(() => {
-    if (prevProjectIdRef.current !== (project?.id ?? null)) {
-      prevProjectIdRef.current = project?.id ?? null;
+    if (prevContentKeyRef.current !== contentKey) {
+      prevContentKeyRef.current = contentKey;
       setUrlError(null);
       setTestOutput(null);
+      setIsRunning(false);
     }
-  }, [project?.id]);
+  }, [contentKey]);
 
   const hasBody = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
   const isRunDisabled = !url.trim() || isRunning || !project;
