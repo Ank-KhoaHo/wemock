@@ -29,7 +29,27 @@ function extractPathname(url: string): string {
   }
 }
 
-export function mockFromLog(entry: LogEntry, id: string, now: number): Mock {
+/** path-to-regexp treats these as syntax; a recorded path must match itself. */
+function escapePattern(path: string): string {
+  return path.replace(/[:*?+(){}[\]!\\]/g, '\\$&');
+}
+
+/**
+ * The pattern for a recorded call (A7): the path, escaped, with the origin in front when the
+ * call went to another site than the page's. An empty pageOrigin keeps the path only.
+ */
+export function patternFromUrl(url: string, pageOrigin = ''): string {
+  const path = escapePattern(extractPathname(url));
+  if (!pageOrigin) return path;
+  try {
+    const origin = new URL(url).origin;
+    return origin !== pageOrigin && origin !== 'null' ? `${origin}${path}` : path;
+  } catch {
+    return path;
+  }
+}
+
+export function mockFromLog(entry: LogEntry, id: string, now: number, pageOrigin = ''): Mock {
   if (entry.truncated) {
     throw new Error('Cannot create mock from truncated log entry');
   }
@@ -37,7 +57,7 @@ export function mockFromLog(entry: LogEntry, id: string, now: number): Mock {
     throw new Error(`Cannot create mock from status ${entry.status}`);
   }
 
-  const urlPattern = extractPathname(entry.url);
+  const urlPattern = patternFromUrl(entry.url, pageOrigin);
 
   const headers: Record<string, string> = {};
   for (const [key, value] of Object.entries(entry.responseHeaders)) {
@@ -76,6 +96,7 @@ export function scenarioFromLogs(
   name: string,
   newId: () => string,
   now: number,
+  pageOrigin = '',
 ): Scenario {
   const latestByKey = new Map<string, LogEntry>();
   const keyOrder: string[] = [];
@@ -84,7 +105,7 @@ export function scenarioFromLogs(
     if (entry.truncated || entry.badge === 'MOCK' || !isValidStatus(entry.status)) continue;
 
     const op = operationName(entry.requestBody);
-    const pattern = extractPathname(entry.url);
+    const pattern = patternFromUrl(entry.url, pageOrigin);
     const key = `${entry.method.toUpperCase()}|${pattern}|${op ?? ''}`;
 
     const existing = latestByKey.get(key);
@@ -102,7 +123,7 @@ export function scenarioFromLogs(
     if (!entry) {
       throw new Error(`Missing entry for key ${key}`);
     }
-    return mockFromLog(entry, newId(), now);
+    return mockFromLog(entry, newId(), now, pageOrigin);
   });
 
   return {

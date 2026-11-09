@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { mockFromLog, scenarioFromLogs, ensureProject } from './record';
+import { findMock } from './match';
 import { emptyState, type LogEntry } from './types';
 
 function createLogEntry(overrides: Partial<LogEntry> = {}): LogEntry {
@@ -198,5 +199,48 @@ describe('record: rows that cannot become mocks (review)', () => {
       1,
     );
     expect(s.mocks.map((m) => m.urlPattern)).toEqual(['/good']);
+  });
+});
+
+describe('record: patterns keep the host of another site (A7)', () => {
+  it('a call to another origin keeps it; a same-origin call keeps the path only', () => {
+    const other = createLogEntry({ url: 'https://api.other.com/users/7?x=1' });
+    const same = createLogEntry({ url: 'https://a.com/api/goals?page=2' });
+    expect(mockFromLog(other, 'm', 0, 'https://a.com').urlPattern).toBe('https://api.other.com/users/7');
+    expect(mockFromLog(same, 'm', 0, 'https://a.com').urlPattern).toBe('/api/goals');
+  });
+
+  it('with no page origin, it keeps the path only, as before', () => {
+    expect(mockFromLog(createLogEntry({ url: 'https://api.other.com/u' }), 'm', 0).urlPattern).toBe('/u');
+  });
+
+  it('escapes pattern characters so the path matches itself', () => {
+    expect(mockFromLog(createLogEntry({ url: 'https://a.com/v1:batch' }), 'm', 0, 'https://a.com').urlPattern).toBe(
+      '/v1\\:batch',
+    );
+    expect(mockFromLog(createLogEntry({ url: 'https://a.com/a*b(1)' }), 'm', 0, 'https://a.com').urlPattern).toBe(
+      '/a\\*b\\(1\\)',
+    );
+    // ...and the escaped pattern matches the recorded URL, and only it.
+    const m = mockFromLog(createLogEntry({ url: 'https://a.com/v1:batch' }), 'm', 0, 'https://a.com');
+    expect(findMock([m], { method: 'GET', url: 'https://a.com/v1:batch' })?.id).toBe('m');
+    expect(findMock([m], { method: 'GET', url: 'https://a.com/v1' })).toBeNull();
+  });
+
+  it('Save as scenario keeps the host too, and keeps two hosts with one path apart', () => {
+    const sc = scenarioFromLogs(
+      [
+        createLogEntry({ id: '1', url: 'https://a.com/users' }),
+        createLogEntry({ id: '2', url: 'https://api.other.com/users' }),
+      ],
+      'S',
+      (() => {
+        let n = 0;
+        return () => `id${++n}`;
+      })(),
+      0,
+      'https://a.com',
+    );
+    expect(sc.mocks.map((m) => m.urlPattern)).toEqual(['/users', 'https://api.other.com/users']);
   });
 });
