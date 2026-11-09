@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useIsDark } from '../../ui/useIsDark';
 import { exportProject, parseProjectFile } from '../../core/exportFile';
+import { detectHar, harSummaryText, importHar } from '../../core/harImport';
 import { importMokku } from '../../core/mokkuImport';
 import { ensureProject, mockFromLog, scenarioFromLogs } from '../../core/record';
 import { projectForOrigin } from '../../core/scenario';
@@ -400,15 +401,29 @@ export default function App() {
           return;
         }
 
-        const mokkuResult = importMokku(parsedJson, tabOrigin, newId, Date.now());
-        if (mokkuResult.ok) {
-          importedProject = mokkuResult.result.project;
-          summaryText = formatImportSummary(mokkuResult.result.summary);
+        if (detectHar(parsedJson)) {
+          const originToUse = tabOrigin || project?.origins[0] || '';
+          const harResult = importHar(parsedJson, file.name, originToUse, newId, Date.now());
+          if (harResult.ok) {
+            importedProject = harResult.result.project;
+            summaryText = harSummaryText(harResult.result.summary);
+          } else {
+            setImportError(harResult.error);
+            setPendingImport(null);
+            e.target.value = '';
+            return;
+          }
         } else {
-          setImportError(mokkuResult.error || wemockResult.error);
-          setPendingImport(null);
-          e.target.value = '';
-          return;
+          const mokkuResult = importMokku(parsedJson, tabOrigin, newId, Date.now());
+          if (mokkuResult.ok) {
+            importedProject = mokkuResult.result.project;
+            summaryText = formatImportSummary(mokkuResult.result.summary);
+          } else {
+            setImportError(mokkuResult.error || wemockResult.error);
+            setPendingImport(null);
+            e.target.value = '';
+            return;
+          }
         }
       }
 
@@ -905,6 +920,7 @@ export default function App() {
                 </button>
                 <input
                   type="file"
+                  accept=".json,.har"
                   data-testid="import"
                   className="overlay-file-input"
                   onChange={handleImportFile}
