@@ -23,6 +23,10 @@ writes a Console line.
 
 Socket mocks with a timeline and replies, and SignalR's JSON hub protocol on top.
 
+## M1.3 — Record real sockets (done in source, 1.3.0)
+
+Real sockets in the log, "Mock this socket", and recorded calls to other sites keep their host.
+
 ## M2 — Hardening
 
 The rough edges found by daily use of 1.0.0, closed one at a time.

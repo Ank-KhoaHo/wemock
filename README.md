@@ -10,7 +10,8 @@ of them into a mock with one click, and serves those mocks back to the page. Gro
 you can test the states your backend rarely gives you.
 
 - **Record, then replay.** "Mock this" on a logged call, or "Save as scenario" on a whole
-  filtered list.
+  filtered list. A call to another site keeps its host in the mock, so it matches only that
+  site.
 - **Scenarios.** A project's Default scenario always applies; the active one overrides it.
 - **URL patterns.** `/api/goals/:id`, wildcards (`/files/*rest`), optional host
   (`https://api.example.com/x`), and GraphQL operation names.
@@ -23,6 +24,8 @@ you can test the states your backend rarely gives you.
   messages on a timeline after connecting, and replies to what the client sends, fixed or from
   code. For SignalR hubs (JSON protocol) wemock also answers `negotiate`, the handshake and the
   pings, so `HubConnection.start()`, `on(...)` and `invoke(...)` work as with a real hub.
+  Real sockets appear in the log with their messages; **Mock this socket** turns one
+  connection into a socket mock, with the server's messages and its timing.
 - **Test bar.** Type a URL in the Mocks tab to see which mock answers and what it returns,
   without reloading the page.
 - **Console line.** Each mocked call writes one line to the page's Console, such as
@@ -55,8 +58,9 @@ pick `.output/chrome-mv3`.
 
 ## Limits
 
-- Calls made by Service Workers and Server-Sent Events are not seen. Real (unmocked)
-  WebSockets work as usual but are not logged or recorded.
+- Calls made by Service Workers and Server-Sent Events are not seen.
+- A real socket logs at most 200 messages. "Mock this socket" replays a plain socket's
+  messages on a timeline; it cannot tell which message answered which.
 - SignalR mocks speak the JSON hub protocol only, not MessagePack, and do not mock streams.
 - Mocked calls do not appear in DevTools' Network tab: they never leave the page. Use the
   wemock log or the Console line.
@@ -78,4 +82,4 @@ pick `.output/chrome-mv3`.
 
 ## Status
 
-Version 1.2.0, before its first Store release. Licensed under MIT; see [LICENSE](LICENSE).
+Version 1.3.0, before its first Store release. Licensed under MIT; see [LICENSE](LICENSE).
