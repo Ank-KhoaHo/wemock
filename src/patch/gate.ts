@@ -1,30 +1,37 @@
-import { GATE_TIMEOUT_MS, type Mock, type Settings } from '../core/types';
+import { GATE_TIMEOUT_MS, type Mock, type Settings, type SocketMock } from '../core/types';
+
+/** What the bridge sends: the page's mocks, socket mocks (A5) and settings. */
+export interface GateConfig {
+  mocks: Mock[];
+  settings: Settings;
+  sockets?: SocketMock[];
+}
+
+export type GateResult = GateConfig & { late: boolean };
 
 export interface Gate {
-  open(cfg: { mocks: Mock[]; settings: Settings }): void;
-  wait(): Promise<{ mocks: Mock[]; settings: Settings; late: boolean }>;
+  open(cfg: GateConfig): void;
+  wait(): Promise<GateResult>;
+  /** A5: the config if the bridge has sent it, else null. A WebSocket constructor cannot wait. */
+  current(): GateConfig | null;
 }
 
 export function createGate(timeoutMs: number = GATE_TIMEOUT_MS): Gate {
   let isOpen = false;
   let isTimedOut = false;
-  let currentConfig: { mocks: Mock[]; settings: Settings } = {
+  let currentConfig: GateConfig = {
     mocks: [],
     settings: { enabled: true, recording: true },
   };
 
-  type Waiter = (res: { mocks: Mock[]; settings: Settings; late: boolean }) => void;
+  type Waiter = (res: GateResult) => void;
   const waiters: Waiter[] = [];
 
   const timer = setTimeout(() => {
     isTimedOut = true;
     while (waiters.length > 0) {
       const resolve = waiters.shift()!;
-      resolve({
-        mocks: currentConfig.mocks,
-        settings: currentConfig.settings,
-        late: true,
-      });
+      resolve({ ...currentConfig, late: true });
     }
   }, timeoutMs);
 
@@ -33,34 +40,25 @@ export function createGate(timeoutMs: number = GATE_TIMEOUT_MS): Gate {
   }
 
   return {
-    open(cfg: { mocks: Mock[]; settings: Settings }) {
+    open(cfg: GateConfig) {
       isOpen = true;
       isTimedOut = false;
       currentConfig = cfg;
       clearTimeout(timer);
       while (waiters.length > 0) {
         const resolve = waiters.shift()!;
-        resolve({
-          mocks: cfg.mocks,
-          settings: cfg.settings,
-          late: false,
-        });
+        resolve({ ...cfg, late: false });
       }
     },
-    wait(): Promise<{ mocks: Mock[]; settings: Settings; late: boolean }> {
+    current(): GateConfig | null {
+      return isOpen ? currentConfig : null;
+    },
+    wait(): Promise<GateResult> {
       if (isOpen) {
-        return Promise.resolve({
-          mocks: currentConfig.mocks,
-          settings: currentConfig.settings,
-          late: false,
-        });
+        return Promise.resolve({ ...currentConfig, late: false });
       }
       if (isTimedOut) {
-        return Promise.resolve({
-          mocks: currentConfig.mocks,
-          settings: currentConfig.settings,
-          late: true,
-        });
+        return Promise.resolve({ ...currentConfig, late: true });
       }
       return new Promise((resolve) => {
         waiters.push(resolve);

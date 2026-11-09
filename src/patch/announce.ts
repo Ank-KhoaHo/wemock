@@ -10,7 +10,7 @@ export interface MockedCall {
   method: string;
   url: string;
   status: number;
-  mock: Mock;
+  mock: Pick<Mock, 'name' | 'urlPattern'>;
   durationMs: number;
   /** Set when a code mock failed; the call was answered with the error reply. */
   error?: string;
@@ -26,7 +26,7 @@ export function shortUrl(url: string, pageOrigin: string): string {
   }
 }
 
-export function mockLabel(mock: Mock): string {
+export function mockLabel(mock: Pick<Mock, 'name' | 'urlPattern'>): string {
   const name = mock.name?.trim();
   return name ? `"${name}"` : mock.urlPattern;
 }

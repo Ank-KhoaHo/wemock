@@ -1,6 +1,7 @@
 import { buildInput, errorReply, HANDLER_TIMEOUT_MS, isCodeMock, toReply, type HandlerReply, type HandlerRequest, type WorkerOutcome } from '../core/handler';
 import { OFFSCREEN_TARGET, RUN_HANDLER } from '../core/messages';
 import { projectForOrigin } from '../core/scenario';
+import { normalizePattern } from '../core/sockets';
 import type { Mock, WemockState } from '../core/types';
 
 // Spec A2. Runs a code mock for a page (via the bridge) or for the panel's Test bar.
@@ -72,6 +73,24 @@ export function findCodeMock(state: WemockState, sender: SenderFacts, msg: RunHa
   for (const s of project.scenarios) {
     const m = s.mocks.find((x) => x.id === msg.mockId);
     if (m) return isCodeMock(m) ? m : null;
+    // A5: a socket reply rule with code runs the same way, as a mock-shaped stand-in.
+    for (const socket of s.sockets ?? []) {
+      const rule = socket.replies.find((r) => r.id === msg.mockId);
+      if (rule) {
+        if (rule.respond !== 'code') return null;
+        return {
+          id: rule.id,
+          enabled: true,
+          method: 'ANY',
+          urlPattern: normalizePattern(socket.urlPattern),
+          reply: 'code',
+          code: rule.code ?? '',
+          response: { status: 200, headers: {}, body: '', bodyEncoding: 'text', delayMs: 0 },
+          source: 'manual',
+          createdAt: socket.createdAt,
+        };
+      }
+    }
   }
   return null;
 }

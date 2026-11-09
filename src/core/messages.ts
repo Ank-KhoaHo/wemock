@@ -1,5 +1,5 @@
 import type { HandlerReply, HandlerRequest } from './handler';
-import type { LogDraft, Mock, Settings } from './types';
+import type { LogDraft, Mock, Settings, SocketMock } from './types';
 
 export const PAGE_SOURCE = 'wemock-page';
 export const BRIDGE_SOURCE = 'wemock-bridge';
@@ -36,6 +36,8 @@ export type BridgeToPage = {
   type: 'config';
   mocks: Mock[];
   settings: Settings;
+  /** A5: socket mocks in effect. */
+  sockets?: SocketMock[];
 };
 
 function isObject(val: unknown): val is Record<string, unknown> {
@@ -77,6 +79,7 @@ export function isBridgeToPage(data: unknown): data is BridgeToPage {
   if (data.source !== BRIDGE_SOURCE) return false;
   if (data.type !== 'config') return false;
   if (!Array.isArray(data.mocks)) return false;
+  if (data.sockets !== undefined && !Array.isArray(data.sockets)) return false;
 
   const settings = data.settings;
   if (!isObject(settings)) return false;

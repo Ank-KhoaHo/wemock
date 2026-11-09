@@ -9,6 +9,7 @@ import {
   type BridgeToPage,
 } from '../core/messages';
 import { activeMocks, projectForOrigin } from '../core/scenario';
+import { activeSockets } from '../core/sockets';
 import type { Settings, WemockState } from '../core/types';
 import { loadState, onStateChange } from '../shared/store';
 
@@ -25,10 +26,12 @@ export default defineContentScript({
       try {
         const project = projectForOrigin(state, window.location.origin);
         const mocks = project ? activeMocks(project) : [];
+        const sockets = project ? activeSockets(project) : [];
         const msg: BridgeToPage = {
           source: BRIDGE_SOURCE,
           type: 'config',
           mocks,
+          sockets,
           settings: state.settings,
         };
         window.postMessage(msg, '*');

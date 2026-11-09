@@ -1,10 +1,11 @@
 import { encodeBody, mockBodyBytes } from '../core/bodies';
-import { findMock } from '../core/match';
+import { findAnyMock } from '../core/sockets';
 import { statusTextFor } from '../core/statusText';
 import type { Badge, BodyEncoding, LogDraft, Mock, RequestFacts, Settings } from '../core/types';
 import { announce } from './announce';
 import { resolveReply } from './reply';
 import { pageOriginOf, type PatchDeps } from './fetchPatch';
+import type { GateResult } from './gate';
 
 declare global {
   interface Window {
@@ -181,7 +182,7 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
       body: Document | XMLHttpRequestBodyInit | null | undefined,
       startedAt: number,
     ): Promise<void> {
-      let gateRes: { mocks: Mock[]; settings: Settings; late: boolean };
+      let gateRes: GateResult;
       try {
         gateRes = await deps.gate.wait();
       } catch {
@@ -216,7 +217,7 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
       let mock: Mock | null = null;
       if (gateRes.settings.enabled) {
         try {
-          mock = findMock(gateRes.mocks, reqFacts);
+          mock = findAnyMock(gateRes.mocks, gateRes.sockets, reqFacts);
         } catch {
           mock = null;
         }

@@ -3,6 +3,7 @@ import type { LogDraft } from '../core/types';
 import { installFetchPatch } from '../patch/fetchPatch';
 import { createGate } from '../patch/gate';
 import { createRunHandler } from '../patch/reply';
+import { installSocketPatch } from '../patch/socketPatch';
 import { installXhrPatch } from '../patch/xhrPatch';
 
 // Runs in the page's MAIN world at document_start. Registered at runtime by
@@ -38,6 +39,7 @@ export default defineContentScript({
 
       installFetchPatch(window, deps);
       installXhrPatch(window, deps);
+      installSocketPatch(window, deps);
 
       window.addEventListener('message', (event) => {
         try {
@@ -46,6 +48,7 @@ export default defineContentScript({
             gate.open({
               mocks: event.data.mocks,
               settings: event.data.settings,
+              sockets: event.data.sockets ?? [],
             });
           }
         } catch {

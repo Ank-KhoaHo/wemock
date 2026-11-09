@@ -63,6 +63,13 @@ export function startFixtureServer(host = '127.0.0.1'): Promise<FixtureServer> {
       return;
     }
 
+    // A5: the real SignalR browser client, to test the fake hub against it.
+    if (req.method === 'GET' && pathname === '/signalr.js') {
+      res.writeHead(200, { 'content-type': 'application/javascript; charset=utf-8' });
+      res.end(fs.readFileSync(path.resolve('node_modules/@microsoft/signalr/dist/browser/signalr.min.js'), 'utf-8'));
+      return;
+    }
+
     if (req.method === 'GET' && (pathname === '/axios.js' || pathname === '/axios.min.js')) {
       res.writeHead(200, { 'content-type': 'application/javascript; charset=utf-8' });
       res.end(axiosJs);

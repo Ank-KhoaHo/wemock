@@ -1,10 +1,10 @@
 import { encodeBody, mockBodyBytes } from '../core/bodies';
-import { findMock } from '../core/match';
+import { findAnyMock } from '../core/sockets';
 import { statusTextFor } from '../core/statusText';
 import type { Badge, LogDraft, Mock, RequestFacts, Settings } from '../core/types';
 import { announce, type PageConsole } from './announce';
 import { resolveReply, type RunHandler } from './reply';
-import type { Gate } from './gate';
+import type { Gate, GateResult } from './gate';
 
 export interface PatchDeps {
   gate: Gate;
@@ -112,7 +112,7 @@ export function installFetchPatch(win: Window, deps: PatchDeps): () => void {
       return nativeFetch.call(win, input, init);
     }
 
-    let gateRes: { mocks: Mock[]; settings: Settings; late: boolean };
+    let gateRes: GateResult;
     try {
       gateRes = await deps.gate.wait();
     } catch {
@@ -122,7 +122,7 @@ export function installFetchPatch(win: Window, deps: PatchDeps): () => void {
     let mock: Mock | null = null;
     if (gateRes.settings.enabled) {
       try {
-        mock = findMock(gateRes.mocks, reqFacts);
+        mock = findAnyMock(gateRes.mocks, gateRes.sockets, reqFacts);
       } catch {
         mock = null;
       }

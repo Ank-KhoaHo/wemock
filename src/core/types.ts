@@ -26,10 +26,49 @@ export interface Mock {
   createdAt: number;
 }
 
+/** A5: one message the fake server sends. */
+export interface SocketPush {
+  id: string;
+  afterMs: number;
+  /** SignalR: the hub method the client receives. Plain sockets: unused. */
+  target: string;
+  /** SignalR: a JSON array of arguments. Plain sockets: the text frame. */
+  data: string;
+}
+
+/** A5: how the fake server answers a client message. */
+export interface SocketReply {
+  id: string;
+  /** SignalR: the hub method the client invokes. Plain: text the frame contains ('' = any). */
+  when: string;
+  respond: 'fixed' | 'code';
+  /** SignalR: JSON of the completion result ('' = none). Plain: text sent back ('' = none). */
+  result: string;
+  /** respond 'code': an async function body, run in the A2 sandbox. */
+  code?: string;
+  /** Sent after the reply, each `afterMs` after it. */
+  pushes: SocketPush[];
+}
+
+/** A5: a mocked WebSocket. */
+export interface SocketMock {
+  id: string;
+  name?: string;
+  enabled: boolean;
+  kind: 'signalr' | 'plain';
+  urlPattern: string;
+  /** Sent after the socket opens (SignalR: after the handshake). */
+  onConnect: SocketPush[];
+  replies: SocketReply[];
+  createdAt: number;
+}
+
 export interface Scenario {
   id: string;
   name: string;
   mocks: Mock[];
+  /** A5: socket mocks. Absent in files from before 1.2. */
+  sockets?: SocketMock[];
 }
 
 export interface Project {

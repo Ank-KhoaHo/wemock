@@ -28,6 +28,9 @@ function formatResponseBody(entry: LogEntry): string {
 }
 
 function getMockDisabledReason(entry: LogEntry): string | undefined {
+  if (entry.method.startsWith('WS')) {
+    return 'Socket messages are mocked in the Sockets editor, not as HTTP mocks';
+  }
   if (entry.truncated) {
     return 'Cannot mock truncated response (over 1 MB)';
   }

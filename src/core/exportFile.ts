@@ -1,5 +1,5 @@
 import { isValidStatus } from './statusText';
-import type { HttpMethod, Mock, MockResponse, Project, Scenario, WemockState } from './types';
+import type { HttpMethod, Mock, MockResponse, Project, Scenario, SocketMock, SocketPush, SocketReply, WemockState } from './types';
 
 const VALID_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'ANY']);
 
@@ -98,6 +98,72 @@ function validateMock(mock: unknown): { ok: true; mock: Mock } | { ok: false; er
   };
 }
 
+type Check<T> = { ok: true; value: T } | { ok: false; error: string };
+
+function isObj(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === 'object' && !Array.isArray(v);
+}
+
+function validatePushes(v: unknown, where: string): Check<SocketPush[]> {
+  if (!Array.isArray(v)) return { ok: false, error: `${where} must be an array` };
+  const out: SocketPush[] = [];
+  for (const p of v) {
+    if (!isObj(p) || typeof p.id !== 'string' || typeof p.target !== 'string' || typeof p.data !== 'string') {
+      return { ok: false, error: `${where}: each message needs a string id, target and data` };
+    }
+    if (typeof p.afterMs !== 'number' || !Number.isFinite(p.afterMs) || p.afterMs < 0) {
+      return { ok: false, error: `${where}: afterMs must be 0 or more` };
+    }
+    out.push({ id: p.id, afterMs: p.afterMs, target: p.target, data: p.data });
+  }
+  return { ok: true, value: out };
+}
+
+/** A5: a socket mock from a file. */
+function validateSocket(v: unknown): Check<SocketMock> {
+  if (!isObj(v)) return { ok: false, error: 'Socket must be an object' };
+  if (typeof v.id !== 'string' || !v.id) return { ok: false, error: 'Socket must have a string id' };
+  if (v.name !== undefined && typeof v.name !== 'string') return { ok: false, error: 'Socket name must be a string' };
+  if (typeof v.enabled !== 'boolean') return { ok: false, error: 'Socket enabled must be a boolean' };
+  if (v.kind !== 'signalr' && v.kind !== 'plain') return { ok: false, error: `Invalid socket kind: ${String(v.kind)}` };
+  if (typeof v.urlPattern !== 'string') return { ok: false, error: 'Socket urlPattern must be a string' };
+  if (typeof v.createdAt !== 'number') return { ok: false, error: 'Socket createdAt must be a number' };
+  const onConnect = validatePushes(v.onConnect, 'Socket onConnect');
+  if (!onConnect.ok) return onConnect;
+  if (!Array.isArray(v.replies)) return { ok: false, error: 'Socket replies must be an array' };
+  const replies: SocketReply[] = [];
+  for (const r of v.replies) {
+    if (!isObj(r) || typeof r.id !== 'string' || typeof r.when !== 'string' || typeof r.result !== 'string') {
+      return { ok: false, error: 'Socket reply needs a string id, when and result' };
+    }
+    if (r.respond !== 'fixed' && r.respond !== 'code') return { ok: false, error: `Invalid socket reply respond: ${String(r.respond)}` };
+    if (r.code !== undefined && typeof r.code !== 'string') return { ok: false, error: 'Socket reply code must be a string' };
+    const pushes = validatePushes(r.pushes, 'Socket reply pushes');
+    if (!pushes.ok) return pushes;
+    replies.push({
+      id: r.id,
+      when: r.when,
+      respond: r.respond,
+      result: r.result,
+      ...(typeof r.code === 'string' ? { code: r.code } : {}),
+      pushes: pushes.value,
+    });
+  }
+  return {
+    ok: true,
+    value: {
+      id: v.id,
+      ...(typeof v.name === 'string' ? { name: v.name } : {}),
+      enabled: v.enabled,
+      kind: v.kind,
+      urlPattern: v.urlPattern,
+      onConnect: onConnect.value,
+      replies,
+      createdAt: v.createdAt,
+    },
+  };
+}
+
 function validateScenario(
   scenario: unknown,
 ): { ok: true; scenario: Scenario } | { ok: false; error: string } {
@@ -120,12 +186,23 @@ function validateScenario(
     if (!valid.ok) return valid;
     mocks.push(valid.mock);
   }
+  let sockets: SocketMock[] | undefined;
+  if (s.sockets !== undefined) {
+    if (!Array.isArray(s.sockets)) return { ok: false, error: 'Scenario sockets must be an array' };
+    sockets = [];
+    for (const raw of s.sockets) {
+      const valid = validateSocket(raw);
+      if (!valid.ok) return valid;
+      sockets.push(valid.value);
+    }
+  }
   return {
     ok: true,
     scenario: {
       id: s.id,
       name: s.name,
       mocks,
+      ...(sockets ? { sockets } : {}),
     },
   };
 }

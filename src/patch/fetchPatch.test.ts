@@ -360,6 +360,7 @@ describe('fetchPatch', () => {
     const brokenGate: Gate = {
       open: vi.fn(),
       wait: vi.fn().mockRejectedValue(new Error('gate broken')),
+      current: vi.fn(() => null),
     };
 
     const { deps } = createTestDeps(brokenGate);

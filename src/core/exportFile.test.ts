@@ -68,6 +68,37 @@ describe('exportFile', () => {
       }
     });
 
+    it('keeps socket mocks through export and parse (A5)', () => {
+      const p = createSampleProject();
+      p.scenarios[0]!.sockets = [
+        {
+          id: 's1', name: 'Chat', enabled: true, kind: 'signalr', urlPattern: '/hubs/chat', createdAt: 5,
+          onConnect: [{ id: 'p1', afterMs: 100, target: 'Receive', data: '["bot","hi"]' }],
+          replies: [{ id: 'r1', when: 'Send', respond: 'code', result: '', code: 'return 1', pushes: [{ id: 'p2', afterMs: 0, target: 'Echo', data: '[]' }] }],
+        },
+      ];
+      const parsed = parseProjectFile(exportProject(p));
+      expect(parsed.ok).toBe(true);
+      if (parsed.ok) expect(parsed.project).toEqual(p);
+    });
+
+    it('rejects a bad socket (A5)', () => {
+      const bads: Array<(s: Record<string, unknown>) => void> = [
+        (s) => (s.kind = 'sse'),
+        (s) => (s.onConnect = [{ id: 'p', afterMs: -1, target: '', data: '' }]),
+        (s) => (s.replies = [{ id: 'r', when: '', respond: 'maybe', result: '', pushes: [] }]),
+        (s) => (s.replies = [{ id: 'r', when: '', respond: 'fixed', result: '', pushes: 'no' }]),
+        (s) => delete s.enabled,
+      ];
+      for (const bad of bads) {
+        const file = JSON.parse(exportProject(createSampleProject()));
+        const socket: Record<string, unknown> = { id: 's', enabled: true, kind: 'plain', urlPattern: '/ws', createdAt: 0, onConnect: [], replies: [] };
+        bad(socket);
+        file.scenarios[0].sockets = [socket];
+        expect(parseProjectFile(JSON.stringify(file)).ok).toBe(false);
+      }
+    });
+
     it('rejects invalid JSON', () => {
       const res = parseProjectFile('not json');
       expect(res.ok).toBe(false);
