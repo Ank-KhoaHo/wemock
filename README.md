@@ -19,6 +19,10 @@ you can test the states your backend rarely gives you.
 - **Code replies.** A mock can answer with a few lines of JavaScript that read the call's
   URL parameters, query, body and headers, and set the status. `/doc/:id` with
   `return { id: params.id }` answers each document by its id.
+- **WebSocket and SignalR mocks.** A socket mock answers a WebSocket URL with no server:
+  messages on a timeline after connecting, and replies to what the client sends, fixed or from
+  code. For SignalR hubs (JSON protocol) wemock also answers `negotiate`, the handshake and the
+  pings, so `HubConnection.start()`, `on(...)` and `invoke(...)` work as with a real hub.
 - **Test bar.** Type a URL in the Mocks tab to see which mock answers and what it returns,
   without reloading the page.
 - **Console line.** Each mocked call writes one line to the page's Console, such as
@@ -51,7 +55,9 @@ pick `.output/chrome-mv3`.
 
 ## Limits
 
-- Calls made by Service Workers, WebSockets and Server-Sent Events are not seen.
+- Calls made by Service Workers and Server-Sent Events are not seen. Real (unmocked)
+  WebSockets work as usual but are not logged or recorded.
+- SignalR mocks speak the JSON hub protocol only, not MessagePack, and do not mock streams.
 - Mocked calls do not appear in DevTools' Network tab: they never leave the page. Use the
   wemock log or the Console line.
 - Code replies run in a sandboxed extension page with no access to the page or to wemock,
@@ -72,4 +78,4 @@ pick `.output/chrome-mv3`.
 
 ## Status
 
-Version 1.1.0, before its first Store release. Licensed under MIT; see [LICENSE](LICENSE).
+Version 1.2.0, before its first Store release. Licensed under MIT; see [LICENSE](LICENSE).

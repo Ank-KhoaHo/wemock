@@ -19,6 +19,10 @@ and import or export projects, including Mokku's files.
 Mocks can answer with code, a Test bar shows which mock answers a URL, and each mocked call
 writes a Console line.
 
+## M1.2 — WebSocket and SignalR mocks (done in source, 1.2.0)
+
+Socket mocks with a timeline and replies, and SignalR's JSON hub protocol on top.
+
 ## M2 — Hardening
 
 The rough edges found by daily use of 1.0.0, closed one at a time.
