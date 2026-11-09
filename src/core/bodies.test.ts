@@ -5,8 +5,9 @@ import {
   base64ToBytes,
   encodeBody,
   mockBodyBytes,
+  capBody,
 } from './bodies';
-import type { MockResponse } from './types';
+import { BODY_CAP_BYTES, type MockResponse } from './types';
 
 describe('bodies', () => {
   describe('isTextual', () => {
@@ -97,6 +98,33 @@ describe('bodies', () => {
         encoding: 'base64',
         truncated: false,
       });
+    });
+
+    it('keeps textual body of exactly BODY_CAP_BYTES bytes and truncates at BODY_CAP_BYTES + 1', () => {
+      const exact = new Uint8Array(BODY_CAP_BYTES);
+      exact.fill(97);
+      const exactRes = encodeBody(exact, 'text/plain');
+      expect(exactRes.truncated).toBe(false);
+      expect(exactRes.body?.length).toBe(BODY_CAP_BYTES);
+
+      const oneMore = new Uint8Array(BODY_CAP_BYTES + 1);
+      oneMore.fill(97);
+      const oneMoreRes = encodeBody(oneMore, 'text/plain');
+      expect(oneMoreRes.truncated).toBe(true);
+      expect(oneMoreRes.body).toBeNull();
+    });
+  });
+
+  describe('capBody', () => {
+    it('keeps multi-byte UTF-8 character ending exactly at maxBytes and drops it when crossing', () => {
+      const input = new TextEncoder().encode('abéextra');
+      const kept = capBody(input, 4);
+      expect(kept).toEqual(new TextEncoder().encode('abé'));
+      expect(kept.byteLength).toBe(4);
+
+      const dropped = capBody(input, 3);
+      expect(dropped).toEqual(new TextEncoder().encode('ab'));
+      expect(dropped.byteLength).toBe(2);
     });
   });
 

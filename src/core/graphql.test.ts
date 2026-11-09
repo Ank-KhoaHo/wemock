@@ -29,4 +29,10 @@ describe('graphql operationName', () => {
     expect(operationName('')).toBeNull();
     expect(operationName(undefined)).toBeNull();
   });
+
+  it('falls back to query name when operationName is whitespace', () => {
+    expect(
+      operationName('{"operationName":"  ","query":"query GetUser { me }"}'),
+    ).toBe('GetUser');
+  });
 });

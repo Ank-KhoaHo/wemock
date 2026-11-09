@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { LogBuffer } from './logBuffer';
 import { type LogEntry, LOG_CAP } from './types';
 
@@ -59,5 +59,18 @@ describe('LogBuffer', () => {
 
     buffer.clear();
     expect(buffer.entries().length).toBe(0);
+  });
+
+  it('keeps nothing after push when cap is 0', () => {
+    const buffer = new LogBuffer(0);
+    const entry = createLogEntry('1');
+    const pushSpy = vi.spyOn(Array.prototype, 'push');
+    try {
+      buffer.push(entry);
+      expect(pushSpy).not.toHaveBeenCalled();
+    } finally {
+      pushSpy.mockRestore();
+    }
+    expect(buffer.entries()).toEqual([]);
   });
 });

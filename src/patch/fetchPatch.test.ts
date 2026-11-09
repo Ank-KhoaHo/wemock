@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { installFetchPatch, type PatchDeps } from './fetchPatch';
 import { createGate, type Gate } from './gate';
+import { createCallCounter } from './callCounter';
 import { bytesToBase64 } from '../core/bodies';
 import { statusTextFor } from '../core/statusText';
 import type { LogDraft, Mock, Settings } from '../core/types';
@@ -646,5 +647,88 @@ describe('fetchPatch', () => {
     const fetchFn = win.fetch;
     const res = await fetchFn.call(undefined, '/api/this-free');
     expect(await res.text()).toBe('ok-this-free');
+  });
+
+  it('rejects with AbortError without calling runHandler or advancing callCounter when signal is already aborted', async () => {
+    const { win } = createTestWindow();
+    const gate = createGate(200);
+
+    const codeMock: Mock = {
+      id: 'mock-code',
+      enabled: true,
+      method: 'GET',
+      urlPattern: '/api/code-mock',
+      reply: 'code',
+      code: 'return { status: 200, body: "from-code" };',
+      response: {
+        status: 200,
+        headers: {},
+        body: 'default',
+        bodyEncoding: 'text',
+        delayMs: 0,
+      },
+      source: 'manual',
+      createdAt: 100,
+    };
+
+    const seqMock: Mock = {
+      id: 'mock-seq',
+      enabled: true,
+      method: 'GET',
+      urlPattern: '/api/seq-mock',
+      reply: 'sequence',
+      sequence: {
+        steps: [
+          { status: 200, headers: {}, body: 'step-1', bodyEncoding: 'text', delayMs: 0 },
+          { status: 200, headers: {}, body: 'step-2', bodyEncoding: 'text', delayMs: 0 },
+        ],
+        after: 'stay',
+      },
+      response: {
+        status: 200,
+        headers: {},
+        body: 'fallback',
+        bodyEncoding: 'text',
+        delayMs: 0,
+      },
+      source: 'manual',
+      createdAt: 100,
+    };
+
+    gate.open({ mocks: [codeMock, seqMock], settings: defaultSettings });
+
+    const runHandler = vi.fn(async () => ({
+      response: {
+        status: 200,
+        headers: {},
+        body: 'handled',
+        bodyEncoding: 'text' as const,
+        delayMs: 0,
+      },
+    }));
+    const callCounter = createCallCounter();
+
+    const { deps } = createTestDeps(gate);
+    deps.runHandler = runHandler;
+    deps.callCounter = callCounter;
+    installFetchPatch(win, deps);
+
+    const codeController = new AbortController();
+    codeController.abort();
+    const codePromise = win.fetch('/api/code-mock', { signal: codeController.signal });
+    const codeErr = await codePromise.catch((err: unknown) => err);
+    expect(codeErr).toBeInstanceOf(DOMException);
+    expect((codeErr as DOMException).name).toBe('AbortError');
+    expect(runHandler).not.toHaveBeenCalled();
+
+    const seqController = new AbortController();
+    seqController.abort();
+    const seqPromise = win.fetch('/api/seq-mock', { signal: seqController.signal });
+    const seqErr = await seqPromise.catch((err: unknown) => err);
+    expect(seqErr).toBeInstanceOf(DOMException);
+    expect((seqErr as DOMException).name).toBe('AbortError');
+
+    const res = await win.fetch('/api/seq-mock');
+    expect(await res.text()).toBe('step-1');
   });
 });

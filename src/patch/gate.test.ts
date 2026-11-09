@@ -76,4 +76,16 @@ describe('gate', () => {
       late: false,
     });
   });
+
+  it('returns null from current() before open and after timeout, and returns config after open()', async () => {
+    const gate = createGate(200);
+    expect(gate.current()).toBeNull();
+
+    await vi.advanceTimersByTimeAsync(250);
+    expect(gate.current()).toBeNull();
+
+    const cfg = { mocks: dummyMocks, settings: dummySettings };
+    gate.open(cfg);
+    expect(gate.current()).toEqual(cfg);
+  });
 });
