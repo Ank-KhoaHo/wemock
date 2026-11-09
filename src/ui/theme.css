@@ -934,6 +934,40 @@ body.panel-root {
   border-radius: 4px;
 }
 
+.mocks-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.mocks-filter-input {
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.mocks-filter-input:focus {
+  outline: 2px solid var(--accent-color);
+  outline-offset: -1px;
+}
+
+.mocks-filter-input::placeholder {
+  color: var(--text-muted);
+}
+
+.mocks-filter-count {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  font-weight: 500;
+  padding: 0 4px;
+}
+
 .scenarios-list {
   display: flex;
   flex-direction: column;
@@ -950,6 +984,35 @@ body.panel-root {
 
 .scenario-group.selected {
   border-color: var(--accent-color);
+}
+
+.scenario-group.folded .scenario-group-header {
+  border-bottom: none;
+}
+
+.scenario-fold-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 3px;
+  flex-shrink: 0;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.scenario-fold-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.scenario-fold-icon {
+  display: block;
 }
 
 .scenario-group-header {

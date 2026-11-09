@@ -21,6 +21,46 @@ export interface MockListProps {
   onAddSocket: (scenarioId: string, socket: SocketMock) => void;
 }
 
+function loadFoldedIds(projectId: string): string[] {
+  try {
+    const raw = localStorage.getItem(`wemock.folded.${projectId}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((id): id is string => typeof id === 'string');
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+function saveFoldedIds(projectId: string, foldedIds: string[]): void {
+  try {
+    localStorage.setItem(`wemock.folded.${projectId}`, JSON.stringify(foldedIds));
+  } catch {
+    // ignore
+  }
+}
+
+function mockMatches(mock: Mock, query: string): boolean {
+  if (!query) return true;
+  return Boolean(
+    (mock.name && mock.name.toLowerCase().includes(query)) ||
+    (mock.urlPattern && mock.urlPattern.toLowerCase().includes(query)) ||
+    (mock.method && mock.method.toLowerCase().includes(query)),
+  );
+}
+
+function socketMatches(socket: SocketMock, query: string): boolean {
+  if (!query) return true;
+  return Boolean(
+    (socket.name && socket.name.toLowerCase().includes(query)) ||
+    (socket.urlPattern && socket.urlPattern.toLowerCase().includes(query)),
+  );
+}
+
 export function MockList({
   project,
   selectedScenarioId,
@@ -43,6 +83,8 @@ export function MockList({
   const [renameText, setRenameText] = useState('');
   const [scenarios, setScenarios] = useState(project.scenarios);
   const [selectedScenarioIds, setSelectedScenarioIds] = useState<string[]>([]);
+  const [filterText, setFilterText] = useState('');
+  const [foldedIds, setFoldedIds] = useState<string[]>(() => loadFoldedIds(project.id));
 
   useEffect(() => {
     setScenarios(project.scenarios);
@@ -51,6 +93,21 @@ export function MockList({
     );
   }, [project.scenarios]);
 
+  useEffect(() => {
+    setFoldedIds(loadFoldedIds(project.id));
+    setFilterText('');
+  }, [project.id]);
+
+  const handleToggleFold = (scenarioId: string) => {
+    setFoldedIds((prev) => {
+      const next = prev.includes(scenarioId)
+        ? prev.filter((id) => id !== scenarioId)
+        : [...prev, scenarioId];
+      saveFoldedIds(project.id, next);
+      return next;
+    });
+  };
+
   const selectedScenario =
     scenarios.find((s) => s.id === selectedScenarioId) ?? scenarios[0];
 
@@ -58,6 +115,22 @@ export function MockList({
     !selectedScenario ||
     selectedScenario.id === 'default' ||
     selectedScenario.id === scenarios[0]?.id;
+
+  const trimmedFilter = filterText.trim().toLowerCase();
+  const isFilterActive = trimmedFilter.length > 0;
+
+  const totalItems = scenarios.reduce(
+    (sum, sc) => sum + sc.mocks.length + (sc.sockets?.length ?? 0),
+    0,
+  );
+
+  const matchingCount = isFilterActive
+    ? scenarios.reduce((sum, sc) => {
+        const matchMocks = sc.mocks.filter((m) => mockMatches(m, trimmedFilter)).length;
+        const matchSockets = (sc.sockets ?? []).filter((s) => socketMatches(s, trimmedFilter)).length;
+        return sum + matchMocks + matchSockets;
+      }, 0)
+    : totalItems;
 
   const handleStartRename = () => {
     if (isDefault || !selectedScenario) return;
@@ -142,6 +215,7 @@ export function MockList({
   };
 
   const handleMoveMock = (scenarioId: string, fromIndex: number, delta: number) => {
+    if (isFilterActive) return;
     const sc = scenarios.find((s) => s.id === scenarioId);
     if (!sc) return;
     const toIndex = fromIndex + delta;
@@ -159,11 +233,13 @@ export function MockList({
   };
 
   const handleDragStart = (e: React.DragEvent, scenarioId: string, index: number) => {
+    if (isFilterActive) return;
     e.dataTransfer.setData('text/plain', JSON.stringify({ scenarioId, index }));
   };
 
   const handleDrop = (e: React.DragEvent, toScenarioId: string, toIndex: number) => {
     e.preventDefault();
+    if (isFilterActive) return;
     try {
       const raw = e.dataTransfer.getData('text/plain');
       const { scenarioId: fromScenarioId, index: fromIndex } = JSON.parse(raw);
@@ -299,19 +375,81 @@ export function MockList({
         </div>
       )}
 
+      {/* Filter box */}
+      <div className="mocks-filter-bar">
+        <input
+          type="text"
+          data-testid="mocks-filter"
+          className="mocks-filter-input"
+          placeholder="Filter mocks"
+          value={filterText}
+          onChange={(e) => setFilterText(e.target.value)}
+        />
+        {isFilterActive && (
+          <span data-testid="mocks-filter-count" className="mocks-filter-count">
+            {matchingCount} of {totalItems}
+          </span>
+        )}
+      </div>
+
       {/* Scenarios list with their mocks */}
       <div className="scenarios-list">
-        {scenarios.map((sc, idx) => {
+        {scenarios.map((sc) => {
           const isSelected = sc.id === (selectedScenario?.id ?? '');
-          const isScDefault = idx === 0;
+          const isScDefault = sc.id === scenarios[0]?.id;
+          const isFolded = foldedIds.includes(sc.id);
+
+          const displayMocks = isFilterActive
+            ? sc.mocks
+                .map((m, originalIndex) => ({ mock: m, originalIndex }))
+                .filter(({ mock }) => mockMatches(mock, trimmedFilter))
+            : sc.mocks.map((m, originalIndex) => ({ mock: m, originalIndex }));
+
+          const displaySockets = isFilterActive
+            ? (sc.sockets ?? []).filter((s) => socketMatches(s, trimmedFilter))
+            : (sc.sockets ?? []);
+
+          if (isFilterActive && displayMocks.length === 0 && displaySockets.length === 0) {
+            return null;
+          }
+
+          const showRows = !isFolded || isFilterActive;
+
           return (
             <div
               key={sc.id}
-              className={`scenario-group ${isSelected ? 'selected' : ''}`}
+              className={`scenario-group ${isSelected ? 'selected' : ''} ${!showRows ? 'folded' : ''}`}
               onClick={() => onSelectScenario(sc.id)}
             >
               <div className="scenario-group-header">
                 <div className="scenario-header-left">
+                  <button
+                    type="button"
+                    data-testid="scenario-fold"
+                    className="scenario-fold-btn"
+                    aria-expanded={isFolded ? 'false' : 'true'}
+                    aria-label={isFolded ? `Unfold ${sc.name}` : `Fold ${sc.name}`}
+                    title={isFolded ? `Unfold ${sc.name}` : `Fold ${sc.name}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleFold(sc.id);
+                    }}
+                  >
+                    <svg
+                      className="scenario-fold-icon"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d={isFolded ? 'M6 4l4 4-4 4' : 'M4 6l4 4 4-4'} />
+                    </svg>
+                  </button>
                   {!isScDefault && (
                     <input
                       type="checkbox"
@@ -333,118 +471,131 @@ export function MockList({
                 <span className="scenario-count">({sc.mocks.length + (sc.sockets?.length ?? 0)})</span>
               </div>
 
-              <div className="mock-rows-container">
-                {sc.mocks.map((mock, idx) => (
-                  <div
-                    key={mock.id}
-                    data-testid="mock-row"
-                    className={`mock-row ${mock.id === selectedMockId ? 'selected' : ''} ${!mock.enabled ? 'disabled' : ''}`}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, sc.id, idx)}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => handleDrop(e, sc.id, idx)}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelectScenario(sc.id);
-                      onSelectMock(mock.id);
-                      onSelectSocket(null);
-                    }}
-                  >
-                    <div className="mock-row-main">
-                      <input
-                        type="checkbox"
-                        data-testid="mock-enabled"
-                        className="mock-enabled-checkbox"
-                        checked={mock.enabled}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          handleToggleMockEnabled(sc.id, mock.id);
-                        }}
-                      />
-                      <span className={`method-tag method-${mock.method.toLowerCase()}`}>
-                        {mock.method}
-                      </span>
-                      <span className="mock-name-or-pattern" title={mock.urlPattern}>
-                        {mock.name || mock.urlPattern}
-                        {mock.reply === 'code' && (
-                          <span className="code-chip" data-testid="code-chip" title="Answers with code">
-                            code
-                          </span>
-                        )}
-                      </span>
-                    </div>
+              {showRows && (
+                <div className="mock-rows-container">
+                  {displayMocks.map(({ mock, originalIndex }) => (
+                    <div
+                      key={mock.id}
+                      data-testid="mock-row"
+                      className={`mock-row ${mock.id === selectedMockId ? 'selected' : ''} ${!mock.enabled ? 'disabled' : ''}`}
+                      draggable={!isFilterActive}
+                      onDragStart={(e) => {
+                        if (isFilterActive) return;
+                        handleDragStart(e, sc.id, originalIndex);
+                      }}
+                      onDragOver={(e) => {
+                        if (isFilterActive) return;
+                        e.preventDefault();
+                      }}
+                      onDrop={(e) => {
+                        if (isFilterActive) return;
+                        handleDrop(e, sc.id, originalIndex);
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectScenario(sc.id);
+                        onSelectMock(mock.id);
+                        onSelectSocket(null);
+                      }}
+                    >
+                      <div className="mock-row-main">
+                        <input
+                          type="checkbox"
+                          data-testid="mock-enabled"
+                          className="mock-enabled-checkbox"
+                          checked={mock.enabled}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            handleToggleMockEnabled(sc.id, mock.id);
+                          }}
+                        />
+                        <span className={`method-tag method-${mock.method.toLowerCase()}`}>
+                          {mock.method}
+                        </span>
+                        <span className="mock-name-or-pattern" title={mock.urlPattern}>
+                          {mock.name || mock.urlPattern}
+                          {mock.reply === 'code' && (
+                            <span className="code-chip" data-testid="code-chip" title="Answers with code">
+                              code
+                            </span>
+                          )}
+                        </span>
+                      </div>
 
-                    <div className="mock-row-side">
-                      <span className={`mock-status ${mock.response.status >= 400 ? 'status-error' : ''}`}>
-                        {mock.response.status}
-                      </span>
-                      <div className="mock-reorder-buttons">
-                        <button
-                          type="button"
-                          data-testid="mock-up"
-                          className="mock-up-btn"
-                          disabled={idx === 0}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleMoveMock(sc.id, idx, -1);
-                          }}
-                          title="Move up"
-                        >
-                          ▲
-                        </button>
-                        <button
-                          type="button"
-                          data-testid="mock-down"
-                          className="mock-down-btn"
-                          disabled={idx === sc.mocks.length - 1}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleMoveMock(sc.id, idx, 1);
-                          }}
-                          title="Move down"
-                        >
-                          ▼
-                        </button>
+                      <div className="mock-row-side">
+                        <span className={`mock-status ${mock.response.status >= 400 ? 'status-error' : ''}`}>
+                          {mock.response.status}
+                        </span>
+                        <div className="mock-reorder-buttons">
+                          <button
+                            type="button"
+                            data-testid="mock-up"
+                            className="mock-up-btn"
+                            disabled={isFilterActive || originalIndex === 0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (isFilterActive) return;
+                              handleMoveMock(sc.id, originalIndex, -1);
+                            }}
+                            title="Move up"
+                          >
+                            ▲
+                          </button>
+                          <button
+                            type="button"
+                            data-testid="mock-down"
+                            className="mock-down-btn"
+                            disabled={isFilterActive || originalIndex === sc.mocks.length - 1}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (isFilterActive) return;
+                              handleMoveMock(sc.id, originalIndex, 1);
+                            }}
+                            title="Move down"
+                          >
+                            ▼
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-                {(sc.sockets ?? []).map((socket) => (
-                  <div
-                    key={socket.id}
-                    data-testid="socket-row"
-                    className={`mock-row socket-row ${socket.id === selectedSocketId ? 'selected' : ''} ${!socket.enabled ? 'disabled' : ''}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelectScenario(sc.id);
-                      onSelectSocket(socket.id);
-                      onSelectMock(null);
-                    }}
-                  >
-                    <div className="mock-row-main">
-                      <input
-                        type="checkbox"
-                        data-testid="socket-enabled"
-                        className="mock-enabled-checkbox"
-                        checked={socket.enabled}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          handleToggleSocketEnabled(sc.id, socket.id, e.target.checked);
-                        }}
-                      />
-                      <span className={`method-tag method-${socket.kind === 'signalr' ? 'signalr' : 'ws'}`}>
-                        {socket.kind === 'signalr' ? 'SignalR' : 'WS'}
-                      </span>
-                      <span className="mock-name-or-pattern" title={socket.urlPattern}>
-                        {socket.name || socket.urlPattern}
-                      </span>
+                  ))}
+                  {displaySockets.map((socket) => (
+                    <div
+                      key={socket.id}
+                      data-testid="socket-row"
+                      className={`mock-row socket-row ${socket.id === selectedSocketId ? 'selected' : ''} ${!socket.enabled ? 'disabled' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectScenario(sc.id);
+                        onSelectSocket(socket.id);
+                        onSelectMock(null);
+                      }}
+                    >
+                      <div className="mock-row-main">
+                        <input
+                          type="checkbox"
+                          data-testid="socket-enabled"
+                          className="mock-enabled-checkbox"
+                          checked={socket.enabled}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            handleToggleSocketEnabled(sc.id, socket.id, e.target.checked);
+                          }}
+                        />
+                        <span className={`method-tag method-${socket.kind === 'signalr' ? 'signalr' : 'ws'}`}>
+                          {socket.kind === 'signalr' ? 'SignalR' : 'WS'}
+                        </span>
+                        <span className="mock-name-or-pattern" title={socket.urlPattern}>
+                          {socket.name || socket.urlPattern}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
-                {sc.mocks.length === 0 && (!sc.sockets || sc.sockets.length === 0) && (
-                  <div className="scenario-empty-hint">No mocks</div>
-                )}
-              </div>
+                  ))}
+                  {!isFilterActive && sc.mocks.length === 0 && (!sc.sockets || sc.sockets.length === 0) && (
+                    <div className="scenario-empty-hint">No mocks</div>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
