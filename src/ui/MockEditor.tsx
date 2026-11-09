@@ -441,7 +441,7 @@ export function MockEditor({ mock, onSave, onDelete, isDark = false }: MockEdito
                 <button
                   type="button"
                   data-testid="match-query-add"
-                  className="btn-link"
+                  className="header-add-btn"
                   onClick={() =>
                     setQueryRows((prev) => [
                       ...prev,
@@ -485,6 +485,7 @@ export function MockEditor({ mock, onSave, onDelete, isDark = false }: MockEdito
                     data-testid="match-query-remove"
                     className="match-remove-btn"
                     title="Remove query condition"
+                    aria-label="Remove this condition"
                     onClick={() => setQueryRows((prev) => prev.filter((item) => item.id !== r.id))}
                   >
                     ✕
@@ -496,11 +497,11 @@ export function MockEditor({ mock, onSave, onDelete, isDark = false }: MockEdito
             {/* Headers */}
             <div className="match-subset-group">
               <div className="match-subset-header">
-                <label className="field-label">Headers</label>
+                <label className="field-label">Request headers</label>
                 <button
                   type="button"
                   data-testid="match-header-add"
-                  className="btn-link"
+                  className="header-add-btn"
                   onClick={() =>
                     setHeaderRows((prev) => [
                       ...prev,
@@ -544,6 +545,7 @@ export function MockEditor({ mock, onSave, onDelete, isDark = false }: MockEdito
                     data-testid="match-header-remove"
                     className="match-remove-btn"
                     title="Remove header condition"
+                    aria-label="Remove this condition"
                     onClick={() => setHeaderRows((prev) => prev.filter((item) => item.id !== r.id))}
                   >
                     ✕
@@ -558,7 +560,7 @@ export function MockEditor({ mock, onSave, onDelete, isDark = false }: MockEdito
               <textarea
                 data-testid="match-body"
                 className="text-input match-body-textarea"
-                placeholder="JSON: these fields must be in the body. Other text: the body must contain it."
+                placeholder='e.g. {"user":"anna"}'
                 value={matchBody}
                 onChange={(e) => setMatchBody(e.target.value)}
                 rows={3}

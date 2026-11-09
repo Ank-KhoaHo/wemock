@@ -4,7 +4,7 @@
   --bg-hover: #e9ebef;
   --text-primary: #172b4d;
   --text-secondary: #5e6c84;
-  --text-muted: #8993a4;
+  --text-muted: #626f86; /* A18: 4.6:1 on the grey panels */
   --border-color: #dfe1e6;
   --accent-color: #0c66e4;
   --accent-text: #ffffff;
@@ -27,7 +27,7 @@
     --bg-hover: #3d3d3d;
     --text-primary: #e6e6e6;
     --text-secondary: #b0b0b0;
-    --text-muted: #808080;
+    --text-muted: #a3a3a3; /* A18: 5:1 on the dark panels */
     --border-color: #404040;
     --accent-color: #4c9aff;
     --accent-text: #ffffff;
@@ -51,7 +51,7 @@ body.dark {
   --bg-hover: #3d3d3d;
   --text-primary: #e6e6e6;
   --text-secondary: #b0b0b0;
-  --text-muted: #808080;
+  --text-muted: #a3a3a3; /* A18: 5:1 on the dark panels */
   --border-color: #404040;
   --accent-color: #4c9aff;
   --accent-text: #ffffff;
@@ -81,6 +81,16 @@ body {
   line-height: 1.4;
   color: var(--text-primary);
   background-color: var(--bg-primary);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 1px;
 }
 
 .popup-container {
@@ -1105,9 +1115,9 @@ body.panel-root {
 
 .method-get { color: #006644; background: #e3fcef; }
 .method-post { color: #0052cc; background: #deebff; }
-.method-put { color: #ff8b00; background: #fffae6; }
+.method-put { color: #a35200; background: #fffae6; } /* A18: was 2.2:1 */
 .method-patch { color: #403294; background: #eae6ff; }
-.method-delete { color: #de350b; background: #ffebe6; }
+.method-delete { color: #bf2600; background: #ffebe6; } /* A18: was 4.0:1 */
 .method-any { color: #42526e; background: #ebecf0; }
 .method-ws { color: #8250df; background: #fbefff; }
 .method-signalr { color: #bf3989; background: #fff0f5; }
@@ -1711,8 +1721,14 @@ body.panel-root {
 .test-method-select:focus,
 .test-headers-textarea:focus,
 .test-body-textarea:focus {
-  outline: none;
   border-color: var(--accent-color);
+}
+
+.test-headers-toggle-btn {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .test-run-btn {

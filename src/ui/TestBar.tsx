@@ -72,6 +72,7 @@ export function TestBar({ project, pageOrigin, onOpenMock }: TestBarProps) {
   const [method, setMethod] = useState<string>('GET');
   const [url, setUrl] = useState<string>('');
   const [reqHeaders, setReqHeaders] = useState<string>('');
+  const [showHeaders, setShowHeaders] = useState<boolean>(false);
   const [body, setBody] = useState<string>('');
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [urlError, setUrlError] = useState<string | null>(null);
@@ -202,6 +203,9 @@ export function TestBar({ project, pageOrigin, onOpenMock }: TestBarProps) {
     }
   };
 
+  const headerLinesCount = reqHeaders.split('\n').filter((l) => l.trim().length > 0).length;
+  const headerToggleText = headerLinesCount > 0 ? `Headers (${headerLinesCount})` : 'Headers';
+
   return (
     <div data-testid="test-bar" className="test-bar">
       <div className="test-bar-row">
@@ -235,6 +239,14 @@ export function TestBar({ project, pageOrigin, onOpenMock }: TestBarProps) {
         />
         <button
           type="button"
+          data-testid="test-headers-toggle"
+          className="btn-secondary test-headers-toggle-btn"
+          onClick={() => setShowHeaders((prev) => !prev)}
+        >
+          {headerToggleText}
+        </button>
+        <button
+          type="button"
           data-testid="test-run"
           className="btn-primary test-run-btn"
           disabled={isRunDisabled}
@@ -244,16 +256,18 @@ export function TestBar({ project, pageOrigin, onOpenMock }: TestBarProps) {
         </button>
       </div>
 
-      <div className="test-headers-row">
-        <textarea
-          data-testid="test-req-headers"
-          className="test-headers-textarea"
-          placeholder="Request headers, one per line: Name: value"
-          value={reqHeaders}
-          onChange={(e) => setReqHeaders(e.target.value)}
-          rows={2}
-        />
-      </div>
+      {showHeaders && (
+        <div className="test-headers-row">
+          <textarea
+            data-testid="test-req-headers"
+            className="test-headers-textarea"
+            placeholder="Request headers, one per line: Name: value"
+            value={reqHeaders}
+            onChange={(e) => setReqHeaders(e.target.value)}
+            rows={2}
+          />
+        </div>
+      )}
 
       {hasBody && (
         <div className="test-body-row">

@@ -115,6 +115,7 @@ export function LogDetail({
               className="detail-close-btn"
               onClick={onClose}
               title="Close details"
+              aria-label="Close details"
             >
               ×
             </button>

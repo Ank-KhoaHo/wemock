@@ -87,6 +87,7 @@ export function TopBar({
             data-testid="power-toggle"
             className={`power-toggle ${enabled ? 'active' : ''}`}
             aria-pressed={enabled ? 'true' : 'false'}
+            aria-label={enabled ? 'Turn mocking off' : 'Turn mocking on'}
             onClick={onToggleEnabled}
             title={enabled ? 'Disable mocks' : 'Enable mocks'}
           >

@@ -422,7 +422,19 @@ export function MockList({
               className={`scenario-group ${isSelected ? 'selected' : ''} ${!showRows ? 'folded' : ''}`}
               onClick={() => onSelectScenario(sc.id)}
             >
-              <div className="scenario-group-header">
+              <div
+                className="scenario-group-header"
+                tabIndex={0}
+                onClick={() => onSelectScenario(sc.id)}
+                onKeyDown={(e) => {
+                  const target = e.target as HTMLElement | null;
+                  if (target?.closest('input, select, textarea, button')) return;
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onSelectScenario(sc.id);
+                  }
+                }}
+              >
                 <div className="scenario-header-left">
                   <button
                     type="button"
@@ -478,6 +490,8 @@ export function MockList({
                     <div
                       key={mock.id}
                       data-testid="mock-row"
+                      tabIndex={0}
+                      aria-selected={mock.id === selectedMockId ? 'true' : undefined}
                       className={`mock-row ${mock.id === selectedMockId ? 'selected' : ''} ${!mock.enabled ? 'disabled' : ''}`}
                       draggable={!isFilterActive}
                       onDragStart={(e) => {
@@ -497,6 +511,16 @@ export function MockList({
                         onSelectScenario(sc.id);
                         onSelectMock(mock.id);
                         onSelectSocket(null);
+                      }}
+                      onKeyDown={(e) => {
+                        const target = e.target as HTMLElement | null;
+                        if (target?.closest('input, select, textarea, button')) return;
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onSelectScenario(sc.id);
+                          onSelectMock(mock.id);
+                          onSelectSocket(null);
+                        }
                       }}
                     >
                       <div className="mock-row-main">
@@ -539,6 +563,7 @@ export function MockList({
                               handleMoveMock(sc.id, originalIndex, -1);
                             }}
                             title="Move up"
+                            aria-label={`Move ${mock.name || mock.urlPattern} up`}
                           >
                             ▲
                           </button>
@@ -553,6 +578,7 @@ export function MockList({
                               handleMoveMock(sc.id, originalIndex, 1);
                             }}
                             title="Move down"
+                            aria-label={`Move ${mock.name || mock.urlPattern} down`}
                           >
                             ▼
                           </button>
@@ -564,12 +590,24 @@ export function MockList({
                     <div
                       key={socket.id}
                       data-testid="socket-row"
+                      tabIndex={0}
+                      aria-selected={socket.id === selectedSocketId ? 'true' : undefined}
                       className={`mock-row socket-row ${socket.id === selectedSocketId ? 'selected' : ''} ${!socket.enabled ? 'disabled' : ''}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         onSelectScenario(sc.id);
                         onSelectSocket(socket.id);
                         onSelectMock(null);
+                      }}
+                      onKeyDown={(e) => {
+                        const target = e.target as HTMLElement | null;
+                        if (target?.closest('input, select, textarea, button')) return;
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onSelectScenario(sc.id);
+                          onSelectSocket(socket.id);
+                          onSelectMock(null);
+                        }
                       }}
                     >
                       <div className="mock-row-main">

@@ -249,6 +249,7 @@ export default function App() {
   };
 
   const handleMockThis = (entry: LogEntry) => {
+    const mockId = newId();
     update((s) => {
       let originToUse = tabOrigin;
       if (!originToUse) {
@@ -261,7 +262,7 @@ export default function App() {
       if (!originToUse) return s;
 
       const { state: nextState, project: targetProject } = ensureProject(s, originToUse, newId);
-      const mock = mockFromLog(entry, newId(), Date.now(), originToUse);
+      const mock = mockFromLog(entry, mockId, Date.now(), originToUse);
 
       const updatedProjects = nextState.projects.map((p) => {
         if (p.id !== targetProject.id) return p;

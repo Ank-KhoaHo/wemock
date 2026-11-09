@@ -123,6 +123,7 @@ export function HeadersTable({ headers, onChange }: HeadersTableProps) {
               className="header-remove-btn"
               onClick={() => handleRemove(p.id)}
               title="Remove header"
+              aria-label="Remove this header"
             >
               ✕
             </button>

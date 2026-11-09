@@ -67,8 +67,18 @@ export function LogTable({ entries, selectedEntryId, onSelectEntry }: LogTablePr
                 <tr
                   key={entry.id}
                   data-testid="log-row"
+                  tabIndex={0}
+                  aria-selected={isSelected ? 'true' : undefined}
                   className={`log-row ${isSelected ? 'selected' : ''}`}
                   onClick={() => onSelectEntry(entry)}
+                  onKeyDown={(e) => {
+                    const target = e.target as HTMLElement | null;
+                    if (target?.closest('input, select, textarea, button')) return;
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onSelectEntry(entry);
+                    }
+                  }}
                 >
                   <td className="log-col-method">{entry.method}</td>
                   <td className="log-col-path monospace" title={entry.url}>
