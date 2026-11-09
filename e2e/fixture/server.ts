@@ -12,7 +12,7 @@ export interface FixtureServer {
   close(): Promise<void>;
 }
 
-export function startFixtureServer(host = '127.0.0.1'): Promise<FixtureServer> {
+export function startFixtureServer(host = '127.0.0.1', port = 0): Promise<FixtureServer> {
   const indexHtml = fs.readFileSync(new URL('index.html', import.meta.url), 'utf-8');
   const earlyHtml = fs.readFileSync(new URL('early.html', import.meta.url), 'utf-8');
 
@@ -117,7 +117,7 @@ export function startFixtureServer(host = '127.0.0.1'): Promise<FixtureServer> {
   attachWsServer(server, wsSockets);
 
   return new Promise((resolve, reject) => {
-    server.listen(0, host, () => {
+    server.listen(port, host, () => {
       const addr = server.address();
       if (!addr || typeof addr === 'string') {
         reject(new Error('Failed to obtain server address'));
