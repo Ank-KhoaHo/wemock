@@ -134,8 +134,14 @@ test('the active scenario wins, and clicking the match opens that mock', async (
     await expect(panel.getByTestId('test-scenario')).toHaveText('Errors');
     await expect(panel.getByTestId('test-status')).toHaveText('503 Service Unavailable');
 
+    // Select Default in the left list first, so opening must move it to Errors.
+    await panel.locator('.scenario-group-header', { hasText: 'Default' }).click();
+    await expect(panel.locator('.scenario-group.selected')).toContainText('Default');
     await panel.getByTestId('test-open').click();
     await expect(panel.getByTestId('field-name')).toHaveValue('Doc err');
+    // The left list also moves to that scenario, with the mock's row selected.
+    await expect(panel.locator('.scenario-group.selected')).toContainText('Errors');
+    await expect(panel.locator('.scenario-group.selected [data-testid="mock-row"].selected')).toContainText('Doc err');
   } finally {
     await panel.close();
     await page.close();

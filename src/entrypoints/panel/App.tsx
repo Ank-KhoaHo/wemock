@@ -11,6 +11,7 @@ import { LogDetail } from '../../ui/LogDetail';
 import { LogTable } from '../../ui/LogTable';
 import { MockEditor } from '../../ui/MockEditor';
 import { MockList } from '../../ui/MockList';
+import { TestBar } from '../../ui/TestBar';
 import { TopBar } from '../../ui/TopBar';
 import { useTabLog, useWemockState } from '../../ui/useWemockState';
 
@@ -613,6 +614,15 @@ export default function App() {
               )}
             </div>
           </div>
+
+          <TestBar
+            project={project}
+            pageOrigin={tabOrigin || project?.origins[0] || ''}
+            onOpenMock={(scenarioId, mockId) => {
+              setSelectedScenarioId(scenarioId);
+              setSelectedMockId(mockId);
+            }}
+          />
 
           {project ? (
             <div className="panel-split-view">
