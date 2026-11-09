@@ -816,6 +816,24 @@ body.panel-root {
   cursor: pointer;
 }
 
+.import-choice-bar,
+.undo-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.import-choice-text,
+.undo-bar-text {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
 /* Common button styles */
 .btn-primary {
   padding: 4px 10px;
@@ -948,6 +966,17 @@ body.panel-root {
 
 .scenario-name-badge {
   color: var(--text-primary);
+}
+
+.scenario-header-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.scenario-select-checkbox {
+  margin: 0;
+  cursor: pointer;
 }
 
 .scenario-count {

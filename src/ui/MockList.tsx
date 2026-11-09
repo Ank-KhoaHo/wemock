@@ -15,6 +15,8 @@ export interface MockListProps {
   onAddScenario: (name: string) => void;
   onRenameScenario: (scenarioId: string, newName: string) => void;
   onDeleteScenario: (scenarioId: string) => void;
+  onDeleteScenarios: (ids: string[]) => void;
+  onDeleteAll: () => void;
   onAddMock: (scenarioId: string, mock: Mock) => void;
   onAddSocket: (scenarioId: string, socket: SocketMock) => void;
 }
@@ -32,15 +34,21 @@ export function MockList({
   onAddScenario,
   onRenameScenario,
   onDeleteScenario,
+  onDeleteScenarios,
+  onDeleteAll,
   onAddMock,
   onAddSocket,
 }: MockListProps) {
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameText, setRenameText] = useState('');
   const [scenarios, setScenarios] = useState(project.scenarios);
+  const [selectedScenarioIds, setSelectedScenarioIds] = useState<string[]>([]);
 
   useEffect(() => {
     setScenarios(project.scenarios);
+    setSelectedScenarioIds((prev) =>
+      prev.filter((id) => project.scenarios.some((s) => s.id === id)),
+    );
   }, [project.scenarios]);
 
   const selectedScenario =
@@ -74,6 +82,17 @@ export function MockList({
   const handleDeleteScenarioClick = () => {
     if (isDefault || !selectedScenario) return;
     onDeleteScenario(selectedScenario.id);
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedScenarioIds.length === 0) return;
+    onDeleteScenarios(selectedScenarioIds);
+    setSelectedScenarioIds([]);
+  };
+
+  const handleDeleteAll = () => {
+    onDeleteAll();
+    setSelectedScenarioIds([]);
   };
 
   const handleNewMockClick = () => {
@@ -208,6 +227,24 @@ export function MockList({
           >
             Delete
           </button>
+          {selectedScenarioIds.length >= 1 && (
+            <button
+              type="button"
+              data-testid="scenarios-delete-selected"
+              className="btn-secondary"
+              onClick={handleDeleteSelected}
+            >
+              Delete selected ({selectedScenarioIds.length})
+            </button>
+          )}
+          <button
+            type="button"
+            data-testid="scenarios-delete-all"
+            className="btn-secondary"
+            onClick={handleDeleteAll}
+          >
+            Delete all
+          </button>
         </div>
 
         <div className="mock-btn-group">
@@ -264,8 +301,9 @@ export function MockList({
 
       {/* Scenarios list with their mocks */}
       <div className="scenarios-list">
-        {scenarios.map((sc) => {
+        {scenarios.map((sc, idx) => {
           const isSelected = sc.id === (selectedScenario?.id ?? '');
+          const isScDefault = idx === 0;
           return (
             <div
               key={sc.id}
@@ -273,7 +311,25 @@ export function MockList({
               onClick={() => onSelectScenario(sc.id)}
             >
               <div className="scenario-group-header">
-                <span className="scenario-name-badge">{sc.name}</span>
+                <div className="scenario-header-left">
+                  {!isScDefault && (
+                    <input
+                      type="checkbox"
+                      data-testid="scenario-select"
+                      className="scenario-select-checkbox"
+                      checked={selectedScenarioIds.includes(sc.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        const checked = e.target.checked;
+                        setSelectedScenarioIds((prev) =>
+                          checked ? [...prev, sc.id] : prev.filter((id) => id !== sc.id),
+                        );
+                      }}
+                    />
+                  )}
+                  <span className="scenario-name-badge">{sc.name}</span>
+                </div>
                 <span className="scenario-count">({sc.mocks.length + (sc.sockets?.length ?? 0)})</span>
               </div>
 

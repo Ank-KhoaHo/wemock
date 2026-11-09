@@ -209,7 +209,8 @@ test('a disabled mock is not served', async () => {
   }
 });
 
-test('export then import makes a second project with the same mocks', async () => {
+// A8: Import asks Add or Replace and keeps one project per site.
+test('export then import, Add to my mocks: one project with the mock twice', async () => {
   const page = await session.context.newPage();
   const panelPage = await session.context.newPage();
   try {
@@ -239,13 +240,15 @@ test('export then import makes a second project with the same mocks', async () =
       mimeType: 'application/json',
       buffer,
     });
+    await panelPage.getByTestId('import-add').click();
 
     await expect(panelPage.getByTestId('import-summary')).toBeVisible();
     await expect(panelPage.getByTestId('import-summary')).toContainText('1 mock imported');
 
-    // Project picker should now show 2 projects
+    // Still one project, with the mock added next to the one that was there.
     const options = panelPage.getByTestId('project-picker').locator('option');
-    await expect(options).toHaveCount(2);
+    await expect(options).toHaveCount(1);
+    await expect(panelPage.getByTestId('mock-row')).toHaveCount(2);
   } finally {
     await panelPage.close();
     await page.close();
@@ -303,6 +306,7 @@ test('importing the Mokku v2 fixture makes a project for this site and serves it
       mimeType: 'application/json',
       buffer,
     });
+    await panelPage.getByTestId('import-replace').click();
 
     await expect(panelPage.getByTestId('import-summary')).toBeVisible();
 
@@ -335,6 +339,7 @@ test('a Mokku import shows import-summary with the code mock count', async () =>
       mimeType: 'application/json',
       buffer,
     });
+    await panelPage.getByTestId('import-replace').click();
 
     const summary = panelPage.getByTestId('import-summary');
     await expect(summary).toBeVisible();

@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useIsDark } from '../../ui/useIsDark';
 import { exportProject, parseProjectFile } from '../../core/exportFile';
 import { importMokku } from '../../core/mokkuImport';
 import { ensureProject, mockFromLog, scenarioFromLogs } from '../../core/record';
 import { projectForOrigin } from '../../core/scenario';
+import { clearProject, deleteScenarios, mergeProject, replaceProject } from '../../core/scenarioOps';
 import { socketFromLogs } from '../../core/socketRecord';
 import type { LogEntry, Mock, Project, Scenario, SocketMock } from '../../core/types';
 import { newId } from '../../shared/ids';
@@ -63,6 +64,36 @@ export default function App() {
   const [selectedSocketId, setSelectedSocketId] = useState<string | null>(null);
   const [importSummary, setImportSummary] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [pendingImport, setPendingImport] = useState<{
+    fileName: string;
+    importedProject: Project;
+    summaryText: string;
+  } | null>(null);
+  const [undoInfo, setUndoInfo] = useState<{
+    project: Project;
+    message: string;
+  } | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const triggerUndo = (snapshot: Project, message: string) => {
+    if (undoTimerRef.current) {
+      clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = null;
+    }
+    setUndoInfo({ project: snapshot, message });
+    undoTimerRef.current = setTimeout(() => {
+      setUndoInfo(null);
+      undoTimerRef.current = null;
+    }, 10000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (undoTimerRef.current) {
+        clearTimeout(undoTimerRef.current);
+      }
+    };
+  }, []);
   // applyTheme() (panel/main.tsx) sets the class; this follows it.
   const isDark = useIsDark();
 
@@ -364,6 +395,7 @@ export default function App() {
           parsedJson = JSON.parse(text);
         } catch {
           setImportError(wemockResult.error);
+          setPendingImport(null);
           e.target.value = '';
           return;
         }
@@ -374,6 +406,7 @@ export default function App() {
           summaryText = formatImportSummary(mokkuResult.result.summary);
         } else {
           setImportError(mokkuResult.error || wemockResult.error);
+          setPendingImport(null);
           e.target.value = '';
           return;
         }
@@ -384,39 +417,143 @@ export default function App() {
         return;
       }
 
-      // When a Mokku or wemock import brings a project for an origin that already has one,
-      // the imported project replaces the origin on the old project: the old one stays in the list
-      // but loses this origin.
-      const originToClaim = tabOrigin;
-      const projectToInsert: Project = {
-        ...importedProject,
-        origins: originToClaim ? [originToClaim] : importedProject.origins,
-      };
+      if (!project) {
+        // When there is no current project at all, keep today's behaviour (create one) without asking.
+        const originToClaim = tabOrigin;
+        const projectToInsert: Project = {
+          ...importedProject,
+          origins: originToClaim ? [originToClaim] : importedProject.origins,
+        };
 
-      await update((s) => {
-        const updatedExisting = s.projects.map((p) => {
-          if (!originToClaim) return p;
+        await update((s) => {
+          const updatedExisting = s.projects.map((p) => {
+            if (!originToClaim) return p;
+            return {
+              ...p,
+              origins: p.origins.filter((o) => o !== originToClaim),
+            };
+          });
           return {
-            ...p,
-            origins: p.origins.filter((o) => o !== originToClaim),
+            ...s,
+            projects: [...updatedExisting, projectToInsert],
           };
         });
-        return {
-          ...s,
-          projects: [...updatedExisting, projectToInsert],
-        };
-      });
 
-      setSelectedProjectId(projectToInsert.id);
-      setSelectedScenarioId(projectToInsert.scenarios[0]?.id ?? 'default');
-      setSelectedMockId(null);
-      setSelectedSocketId(null);
-      setImportSummary(summaryText);
+        setSelectedProjectId(projectToInsert.id);
+        setSelectedScenarioId(projectToInsert.scenarios[0]?.id ?? 'default');
+        setSelectedMockId(null);
+        setSelectedSocketId(null);
+        setImportSummary(summaryText);
+        return;
+      }
+
+      // Success with existing project: store nothing yet, show import-choice bar
+      setPendingImport({
+        fileName: file.name,
+        importedProject,
+        summaryText,
+      });
     } catch (err) {
       setImportError(err instanceof Error ? err.message : 'Import failed');
+      setPendingImport(null);
     } finally {
       e.target.value = '';
     }
+  };
+
+  const handleImportAdd = async () => {
+    if (!project || !pendingImport) return;
+    const snapshot = structuredClone(project);
+    const merged = mergeProject(project, pendingImport.importedProject, newId);
+    const summary = pendingImport.summaryText;
+    setPendingImport(null);
+
+    await update((s) => ({
+      ...s,
+      projects: s.projects.map((p) => (p.id === project.id ? merged : p)),
+    }));
+
+    setImportSummary(summary);
+    triggerUndo(snapshot, 'Import added');
+  };
+
+  const handleImportReplace = async () => {
+    if (!project || !pendingImport) return;
+    const snapshot = structuredClone(project);
+    const replaced = replaceProject(project, pendingImport.importedProject);
+    const summary = pendingImport.summaryText;
+    setPendingImport(null);
+
+    await update((s) => ({
+      ...s,
+      projects: s.projects.map((p) => (p.id === project.id ? replaced : p)),
+    }));
+
+    setSelectedScenarioId(replaced.activeScenarioId || replaced.scenarios[0]?.id || 'default');
+    setSelectedMockId(null);
+    setSelectedSocketId(null);
+    setImportSummary(summary);
+    triggerUndo(snapshot, 'Import replaced your mocks');
+  };
+
+  const handleImportCancel = () => {
+    setPendingImport(null);
+  };
+
+  const handleUndo = async () => {
+    if (!undoInfo) return;
+    const projectToRestore = undoInfo.project;
+    if (undoTimerRef.current) {
+      clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = null;
+    }
+    setUndoInfo(null);
+    await update((s) => ({
+      ...s,
+      projects: s.projects.map((p) =>
+        p.id === projectToRestore.id ? projectToRestore : p,
+      ),
+    }));
+    setSelectedScenarioId(
+      projectToRestore.activeScenarioId || projectToRestore.scenarios[0]?.id || 'default',
+    );
+    setSelectedMockId(null);
+    setSelectedSocketId(null);
+  };
+
+  const handleClearAll = () => {
+    if (!project) return;
+    const snapshot = structuredClone(project);
+    const updatedProject = clearProject(project);
+    update((s) => ({
+      ...s,
+      projects: s.projects.map((p) => (p.id === project.id ? updatedProject : p)),
+    })).catch(() => {});
+
+    setSelectedScenarioId(updatedProject.scenarios[0]?.id ?? 'default');
+    setSelectedMockId(null);
+    setSelectedSocketId(null);
+    triggerUndo(snapshot, 'All scenarios cleared');
+  };
+
+  const handleDeleteScenarios = (ids: string[]) => {
+    if (!project) return;
+    const snapshot = structuredClone(project);
+    const updatedProject = deleteScenarios(project, ids);
+    update((s) => ({
+      ...s,
+      projects: s.projects.map((p) => (p.id === project.id ? updatedProject : p)),
+    })).catch(() => {});
+
+    if (!updatedProject.scenarios.some((sc) => sc.id === selectedScenarioId)) {
+      setSelectedScenarioId(updatedProject.scenarios[0]?.id ?? 'default');
+      setSelectedMockId(null);
+      setSelectedSocketId(null);
+    }
+    const count = ids.filter((id) =>
+      project.scenarios.some((sc) => sc.id === id && sc.id !== project.scenarios[0]?.id),
+    ).length;
+    triggerUndo(snapshot, `${count} scenario${count === 1 ? '' : 's'} deleted`);
   };
 
   const handleAddScenario = (name: string) => {
@@ -453,25 +590,20 @@ export default function App() {
 
   const handleDeleteScenario = (scenarioId: string) => {
     if (!project) return;
+    const snapshot = structuredClone(project);
+    const updatedProject = deleteScenarios(project, [scenarioId]);
+    if (updatedProject.scenarios.length !== project.scenarios.length) {
+      triggerUndo(snapshot, `Scenario "${project.scenarios.find((sc) => sc.id === scenarioId)?.name ?? ''}" deleted`);
+    }
     update((s) => ({
       ...s,
-      projects: s.projects.map((p) => {
-        if (p.id !== project.id) return p;
-        const remaining = p.scenarios.filter((sc) => sc.id !== scenarioId);
-        const nextActive =
-          p.activeScenarioId === scenarioId
-            ? remaining[0]?.id ?? 'default'
-            : p.activeScenarioId;
-        return {
-          ...p,
-          scenarios: remaining,
-          activeScenarioId: nextActive,
-        };
-      }),
+      projects: s.projects.map((p) => (p.id === project.id ? updatedProject : p)),
     })).catch(() => {});
-    setSelectedScenarioId(project.scenarios[0]?.id ?? 'default');
-    setSelectedMockId(null);
-    setSelectedSocketId(null);
+    if (!updatedProject.scenarios.some((sc) => sc.id === selectedScenarioId)) {
+      setSelectedScenarioId(updatedProject.scenarios[0]?.id ?? 'default');
+      setSelectedMockId(null);
+      setSelectedSocketId(null);
+    }
   };
 
   const handleAddMock = (scenarioId: string, newMock: Mock) => {
@@ -778,6 +910,15 @@ export default function App() {
                   onChange={handleImportFile}
                 />
               </div>
+              <button
+                type="button"
+                data-testid="clear-all"
+                className="btn-secondary"
+                disabled={!project}
+                onClick={handleClearAll}
+              >
+                Clear all
+              </button>
             </div>
 
             <div className="mocks-toolbar-feedback">
@@ -793,6 +934,50 @@ export default function App() {
               )}
             </div>
           </div>
+
+          {pendingImport && (
+            <div data-testid="import-choice" className="import-choice-bar">
+              <span className="import-choice-text">Import {pendingImport.fileName}:</span>
+              <button
+                type="button"
+                data-testid="import-add"
+                className="btn-secondary btn-sm"
+                onClick={handleImportAdd}
+              >
+                Add to my mocks
+              </button>
+              <button
+                type="button"
+                data-testid="import-replace"
+                className="btn-secondary btn-sm"
+                onClick={handleImportReplace}
+              >
+                Replace all
+              </button>
+              <button
+                type="button"
+                data-testid="import-cancel"
+                className="btn-secondary btn-sm"
+                onClick={handleImportCancel}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
+          {undoInfo && (
+            <div data-testid="undo-bar" className="undo-bar">
+              <span className="undo-bar-text">{undoInfo.message}</span>
+              <button
+                type="button"
+                data-testid="undo"
+                className="btn-secondary btn-sm"
+                onClick={handleUndo}
+              >
+                Undo
+              </button>
+            </div>
+          )}
 
           <TestBar
             project={project}
@@ -826,6 +1011,8 @@ export default function App() {
                   onAddScenario={handleAddScenario}
                   onRenameScenario={handleRenameScenario}
                   onDeleteScenario={handleDeleteScenario}
+                  onDeleteScenarios={handleDeleteScenarios}
+                  onDeleteAll={handleClearAll}
                   onAddMock={handleAddMock}
                   onAddSocket={handleAddSocket}
                 />
