@@ -3,6 +3,7 @@ import { useIsDark } from '../../ui/useIsDark';
 import { exportProject, parseProjectFile } from '../../core/exportFile';
 import { detectHar, harSummaryText, importHar } from '../../core/harImport';
 import { importMokku } from '../../core/mokkuImport';
+import { detectOpenApi, importOpenApi, openApiSummaryText, parseSpecText } from '../../core/openapiImport';
 import { ensureProject, mockFromLog, scenarioFromLogs } from '../../core/record';
 import { projectForOrigin } from '../../core/scenario';
 import { clearProject, deleteScenarios, mergeProject, replaceProject } from '../../core/scenarioOps';
@@ -390,20 +391,19 @@ export default function App() {
         };
         summaryText = formatImportSummary({ mocks: totalMocks });
       } else {
-        // Try Mokku import
-        let parsedJson: unknown;
-        try {
-          parsedJson = JSON.parse(text);
-        } catch {
-          setImportError(wemockResult.error);
+        const parsed = parseSpecText(text);
+        if (!parsed || typeof parsed !== 'object') {
+          setImportError(
+            'Unrecognized file format: expected wemock, HAR, OpenAPI, or Mokku',
+          );
           setPendingImport(null);
           e.target.value = '';
           return;
         }
 
-        if (detectHar(parsedJson)) {
+        if (detectHar(parsed)) {
           const originToUse = tabOrigin || project?.origins[0] || '';
-          const harResult = importHar(parsedJson, file.name, originToUse, newId, Date.now());
+          const harResult = importHar(parsed, file.name, originToUse, newId, Date.now());
           if (harResult.ok) {
             importedProject = harResult.result.project;
             summaryText = harSummaryText(harResult.result.summary);
@@ -413,13 +413,30 @@ export default function App() {
             e.target.value = '';
             return;
           }
+        } else if (detectOpenApi(parsed)) {
+          const originToUse = tabOrigin || project?.origins[0] || '';
+          const openApiResult = importOpenApi(parsed, originToUse, newId, Date.now());
+          if (openApiResult.ok) {
+            importedProject = openApiResult.result.project;
+            summaryText = openApiSummaryText(openApiResult.result.summary);
+          } else {
+            setImportError(openApiResult.error);
+            setPendingImport(null);
+            e.target.value = '';
+            return;
+          }
         } else {
-          const mokkuResult = importMokku(parsedJson, tabOrigin, newId, Date.now());
+          const mokkuResult = importMokku(parsed, tabOrigin, newId, Date.now());
           if (mokkuResult.ok) {
             importedProject = mokkuResult.result.project;
             summaryText = formatImportSummary(mokkuResult.result.summary);
           } else {
-            setImportError(mokkuResult.error || wemockResult.error);
+            // A wemock file that failed validation says what is wrong with it.
+            setImportError(
+              'wemock' in parsed
+                ? wemockResult.error
+                : 'Unrecognized file format: expected wemock, HAR, OpenAPI, or Mokku',
+            );
             setPendingImport(null);
             e.target.value = '';
             return;
@@ -920,7 +937,7 @@ export default function App() {
                 </button>
                 <input
                   type="file"
-                  accept=".json,.har"
+                  accept=".json,.har,.yaml,.yml"
                   data-testid="import"
                   className="overlay-file-input"
                   onChange={handleImportFile}

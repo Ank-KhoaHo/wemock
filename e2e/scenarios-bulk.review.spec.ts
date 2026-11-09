@@ -301,3 +301,17 @@ test('only the first scenario lacks a box, even when another is called Default',
     await page.close();
   }
 });
+
+test('a broken wemock file says what is wrong with it', async () => {
+  const { page, panel } = await openMocks();
+  try {
+    const file = JSON.parse(exportProject(fileProject()));
+    const text = JSON.stringify(file).replace('"createdAt":0', '"createdAt":"soon"');
+    expect(text).toContain('"createdAt":"soon"');
+    await panel.getByTestId('import').setInputFiles({ name: 'broken.json', mimeType: 'application/json', buffer: Buffer.from(text) });
+    await expect(panel.getByTestId('import-error')).toContainText('createdAt');
+  } finally {
+    await panel.close();
+    await page.close();
+  }
+});
