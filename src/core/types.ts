@@ -10,6 +10,13 @@ export interface MockResponse {
   delayMs: number;
 }
 
+/** A11: optional conditions that must hold for this mock to match. */
+export interface MockMatch {
+  query?: Record<string, string>;
+  headers?: Record<string, string>;
+  body?: string;
+}
+
 export interface Mock {
   id: string;
   name?: string;
@@ -17,6 +24,13 @@ export interface Mock {
   method: HttpMethod;
   urlPattern: string;
   graphqlOperation?: string;
+  /** A11: conditions on query params, headers, or body. */
+  match?: MockMatch;
+  /**
+   * A11: set by activeMocks (never stored) on Default's mocks while another scenario is active.
+   * findMock tries the scenario's mocks first, then these, each with conditions first.
+   */
+  fromDefault?: true;
   response: MockResponse;
   /** A2: 'code' runs `code` in the sandbox; absent or 'fixed' serves `response`. */
   reply?: 'fixed' | 'code';

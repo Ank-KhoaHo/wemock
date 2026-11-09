@@ -1,8 +1,9 @@
 import React, { Suspense, useEffect, useState } from 'react';
+import { hasConditions } from '../core/conditions';
 import { DEFAULT_CODE } from '../core/handler';
 import { compilePattern } from '../core/match';
 import { isValidStatus, STATUS_TEXT } from '../core/statusText';
-import type { BodyEncoding, HttpMethod, Mock } from '../core/types';
+import type { BodyEncoding, HttpMethod, Mock, MockMatch } from '../core/types';
 import { BodyEditor } from './BodyEditor';
 import { HeadersTable } from './HeadersTable';
 
@@ -17,16 +18,60 @@ export interface MockEditorProps {
   isDark?: boolean;
 }
 
+interface KeyValueRow {
+  id: string;
+  key: string;
+  value: string;
+}
+
 export function MockEditor({ mock, onSave, onDelete, isDark = false }: MockEditorProps) {
   const [draft, setDraft] = useState<Mock | null>(mock);
   const [statusInput, setStatusInput] = useState<string>(mock ? String(mock.response.status) : '200');
   const [delayInput, setDelayInput] = useState<string>(mock ? String(mock.response.delayMs) : '0');
+  const [matchExpanded, setMatchExpanded] = useState<boolean>(mock ? hasConditions(mock) : false);
+  const [queryRows, setQueryRows] = useState<KeyValueRow[]>(() => {
+    if (!mock?.match?.query) return [];
+    return Object.entries(mock.match.query).map(([key, value], idx) => ({
+      id: `q-${idx}-${key}`,
+      key,
+      value,
+    }));
+  });
+  const [headerRows, setHeaderRows] = useState<KeyValueRow[]>(() => {
+    if (!mock?.match?.headers) return [];
+    return Object.entries(mock.match.headers).map(([key, value], idx) => ({
+      id: `h-${idx}-${key}`,
+      key,
+      value,
+    }));
+  });
+  const [matchBody, setMatchBody] = useState<string>(mock?.match?.body ?? '');
 
   useEffect(() => {
     setDraft(mock);
     if (mock) {
       setStatusInput(String(mock.response.status));
       setDelayInput(String(mock.response.delayMs));
+      setMatchExpanded(hasConditions(mock));
+      setQueryRows(
+        mock.match?.query
+          ? Object.entries(mock.match.query).map(([key, value], idx) => ({
+              id: `q-${idx}-${key}`,
+              key,
+              value,
+            }))
+          : [],
+      );
+      setHeaderRows(
+        mock.match?.headers
+          ? Object.entries(mock.match.headers).map(([key, value], idx) => ({
+              id: `h-${idx}-${key}`,
+              key,
+              value,
+            }))
+          : [],
+      );
+      setMatchBody(mock.match?.body ?? '');
     }
   }, [mock?.id]);
 
@@ -126,6 +171,36 @@ export function MockEditor({ mock, onSave, onDelete, isDark = false }: MockEdito
     if (!canSave) return;
     const finalStatus = Number(statusInput);
     const finalDelay = Math.max(0, Math.min(60000, Number(delayInput) || 0));
+
+    const cleanQuery: Record<string, string> = {};
+    for (const r of queryRows) {
+      const k = r.key.trim();
+      if (k) {
+        cleanQuery[k] = r.value;
+      }
+    }
+
+    const cleanHeaders: Record<string, string> = {};
+    for (const r of headerRows) {
+      const k = r.key.trim();
+      if (k) {
+        cleanHeaders[k] = r.value;
+      }
+    }
+
+    const cleanBody = matchBody.trim();
+
+    const matchObj: MockMatch = {
+      ...(Object.keys(cleanQuery).length > 0 ? { query: cleanQuery } : {}),
+      ...(Object.keys(cleanHeaders).length > 0 ? { headers: cleanHeaders } : {}),
+      ...(cleanBody.length > 0 ? { body: matchBody } : {}),
+    };
+
+    const hasAnyConditions =
+      Boolean(matchObj.query && Object.keys(matchObj.query).length > 0) ||
+      Boolean(matchObj.headers && Object.keys(matchObj.headers).length > 0) ||
+      Boolean(typeof matchObj.body === 'string' && matchObj.body.trim().length > 0);
+
     const saved: Mock = {
       ...draft,
       response: {
@@ -133,7 +208,13 @@ export function MockEditor({ mock, onSave, onDelete, isDark = false }: MockEdito
         status: finalStatus,
         delayMs: finalDelay,
       },
+      ...(hasAnyConditions ? { match: matchObj } : {}),
     };
+
+    if (!hasAnyConditions) {
+      delete saved.match;
+    }
+
     onSave(saved);
   };
 
@@ -232,6 +313,161 @@ export function MockEditor({ mock, onSave, onDelete, isDark = false }: MockEdito
             }
           />
         </div>
+
+        {/* Match only when (A11) */}
+        {!matchExpanded ? (
+          <div className="form-group">
+            <button
+              type="button"
+              data-testid="match-toggle"
+              className="btn-secondary match-toggle-btn"
+              onClick={() => setMatchExpanded(true)}
+            >
+              Match only when…
+            </button>
+          </div>
+        ) : (
+          <div data-testid="match-section" className="match-section">
+            <div className="match-section-header">
+              <label className="field-label">Match only when</label>
+              <div className="field-help">Use * as a value for &quot;present, any value&quot;.</div>
+            </div>
+
+            {/* Query */}
+            <div className="match-subset-group">
+              <div className="match-subset-header">
+                <label className="field-label">Query</label>
+                <button
+                  type="button"
+                  data-testid="match-query-add"
+                  className="btn-link"
+                  onClick={() =>
+                    setQueryRows((prev) => [
+                      ...prev,
+                      { id: `q-${Date.now()}-${prev.length}`, key: '', value: '' },
+                    ])
+                  }
+                >
+                  + Add query param
+                </button>
+              </div>
+              {queryRows.map((r) => (
+                <div key={r.id} className="match-row">
+                  <input
+                    type="text"
+                    data-testid="match-query-key"
+                    className="text-input"
+                    placeholder="Key"
+                    value={r.key}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setQueryRows((prev) =>
+                        prev.map((item) => (item.id === r.id ? { ...item, key: val } : item)),
+                      );
+                    }}
+                  />
+                  <input
+                    type="text"
+                    data-testid="match-query-value"
+                    className="text-input"
+                    placeholder="Value"
+                    value={r.value}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setQueryRows((prev) =>
+                        prev.map((item) => (item.id === r.id ? { ...item, value: val } : item)),
+                      );
+                    }}
+                  />
+                  <button
+                    type="button"
+                    data-testid="match-query-remove"
+                    className="match-remove-btn"
+                    title="Remove query condition"
+                    onClick={() => setQueryRows((prev) => prev.filter((item) => item.id !== r.id))}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Headers */}
+            <div className="match-subset-group">
+              <div className="match-subset-header">
+                <label className="field-label">Headers</label>
+                <button
+                  type="button"
+                  data-testid="match-header-add"
+                  className="btn-link"
+                  onClick={() =>
+                    setHeaderRows((prev) => [
+                      ...prev,
+                      { id: `h-${Date.now()}-${prev.length}`, key: '', value: '' },
+                    ])
+                  }
+                >
+                  + Add header
+                </button>
+              </div>
+              {headerRows.map((r) => (
+                <div key={r.id} className="match-row">
+                  <input
+                    type="text"
+                    data-testid="match-header-key"
+                    className="text-input"
+                    placeholder="Header"
+                    value={r.key}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setHeaderRows((prev) =>
+                        prev.map((item) => (item.id === r.id ? { ...item, key: val } : item)),
+                      );
+                    }}
+                  />
+                  <input
+                    type="text"
+                    data-testid="match-header-value"
+                    className="text-input"
+                    placeholder="Value"
+                    value={r.value}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setHeaderRows((prev) =>
+                        prev.map((item) => (item.id === r.id ? { ...item, value: val } : item)),
+                      );
+                    }}
+                  />
+                  <button
+                    type="button"
+                    data-testid="match-header-remove"
+                    className="match-remove-btn"
+                    title="Remove header condition"
+                    onClick={() => setHeaderRows((prev) => prev.filter((item) => item.id !== r.id))}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Body contains */}
+            <div className="match-subset-group">
+              <label className="field-label">Body contains</label>
+              <textarea
+                data-testid="match-body"
+                className="text-input match-body-textarea"
+                placeholder="JSON: these fields must be in the body. Other text: the body must contain it."
+                value={matchBody}
+                onChange={(e) => setMatchBody(e.target.value)}
+                rows={3}
+              />
+              <div className="field-help">
+                JSON: these fields must be in the body. Other text: the body must contain it.
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Status & Delay */}
         <div className="form-row">

@@ -50,9 +50,27 @@ function findScenarioId(project: Project, mockId: string): string {
   return found?.id ?? project.activeScenarioId;
 }
 
+export function parseHeaderLines(text: string): Record<string, string> {
+  const headers: Record<string, string> = {};
+  const lines = text.split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const colonIdx = trimmed.indexOf(':');
+    if (colonIdx === -1) continue;
+    const name = trimmed.slice(0, colonIdx).trim();
+    const value = trimmed.slice(colonIdx + 1).trim();
+    if (name) {
+      headers[name] = value;
+    }
+  }
+  return headers;
+}
+
 export function TestBar({ project, pageOrigin, onOpenMock }: TestBarProps) {
   const [method, setMethod] = useState<string>('GET');
   const [url, setUrl] = useState<string>('');
+  const [reqHeaders, setReqHeaders] = useState<string>('');
   const [body, setBody] = useState<string>('');
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [urlError, setUrlError] = useState<string | null>(null);
@@ -92,6 +110,7 @@ export function TestBar({ project, pageOrigin, onOpenMock }: TestBarProps) {
   const handleRun = async () => {
     if (isRunDisabled) return;
 
+    const parsedHeaders = parseHeaderLines(reqHeaders);
     const reqBody = hasBody && body.length > 0 ? body : undefined;
     const result = testCall(
       project,
@@ -99,6 +118,7 @@ export function TestBar({ project, pageOrigin, onOpenMock }: TestBarProps) {
         method,
         url,
         body: reqBody,
+        headers: Object.keys(parsedHeaders).length > 0 ? parsedHeaders : undefined,
       },
       pageOrigin,
     );
@@ -143,7 +163,7 @@ export function TestBar({ project, pageOrigin, onOpenMock }: TestBarProps) {
       const request: HandlerRequest = {
         method,
         url: result.url,
-        headers: {},
+        headers: parsedHeaders,
         ...(reqBody !== undefined ? { body: reqBody } : {}),
       };
 
@@ -215,6 +235,17 @@ export function TestBar({ project, pageOrigin, onOpenMock }: TestBarProps) {
         >
           Test
         </button>
+      </div>
+
+      <div className="test-headers-row">
+        <textarea
+          data-testid="test-req-headers"
+          className="test-headers-textarea"
+          placeholder="Request headers, one per line: Name: value"
+          value={reqHeaders}
+          onChange={(e) => setReqHeaders(e.target.value)}
+          rows={2}
+        />
       </div>
 
       {hasBody && (

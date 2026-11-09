@@ -1,4 +1,5 @@
 import { match } from 'path-to-regexp';
+import { hasConditions, matchConditions } from './conditions';
 import { operationName } from './graphql';
 import type { Mock, RequestFacts } from './types';
 
@@ -38,6 +39,35 @@ export function compilePattern(
   }
 }
 
+function matchesBase(m: Mock, req: RequestFacts, reqUrl: URL, reqMethod: string): boolean {
+  if (!m.enabled) {
+    return false;
+  }
+
+  const mockMethod = m.method.toUpperCase();
+  if (mockMethod !== 'ANY' && mockMethod !== reqMethod) {
+    return false;
+  }
+
+  const compiled = compilePattern(m.urlPattern);
+  if (!compiled.ok) {
+    return false;
+  }
+
+  if (!compiled.test(reqUrl)) {
+    return false;
+  }
+
+  if (m.graphqlOperation && m.graphqlOperation.trim().length > 0) {
+    const op = operationName(req.body);
+    if (op !== m.graphqlOperation) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 export function findMock(mocks: Mock[], req: RequestFacts): Mock | null {
   try {
     let reqUrl: URL;
@@ -49,33 +79,17 @@ export function findMock(mocks: Mock[], req: RequestFacts): Mock | null {
 
     const reqMethod = req.method.toUpperCase();
 
-    for (const m of mocks) {
-      if (!m.enabled) {
-        continue;
-      }
-
-      const mockMethod = m.method.toUpperCase();
-      if (mockMethod !== 'ANY' && mockMethod !== reqMethod) {
-        continue;
-      }
-
-      const compiled = compilePattern(m.urlPattern);
-      if (!compiled.ok) {
-        continue;
-      }
-
-      if (!compiled.test(reqUrl)) {
-        continue;
-      }
-
-      if (m.graphqlOperation && m.graphqlOperation.trim().length > 0) {
-        const op = operationName(req.body);
-        if (op !== m.graphqlOperation) {
-          continue;
+    // A11: the active scenario's mocks, then Default's (fromDefault), so a scenario still
+    // overrides Default. Within each, mocks with conditions first, then the rest, in list order.
+    for (const layer of [mocks.filter((m) => !m.fromDefault), mocks.filter((m) => m.fromDefault)]) {
+      for (const withConditions of [true, false]) {
+        for (const m of layer) {
+          if (hasConditions(m) !== withConditions) continue;
+          if (!matchesBase(m, req, reqUrl, reqMethod)) continue;
+          if (withConditions && !matchConditions(m.match, req)) continue;
+          return m;
         }
       }
-
-      return m;
     }
 
     return null;

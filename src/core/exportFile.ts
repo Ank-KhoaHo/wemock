@@ -1,7 +1,61 @@
 import { isValidStatus } from './statusText';
-import type { HttpMethod, Mock, MockResponse, Project, Scenario, SocketMock, SocketPush, SocketReply, WemockState } from './types';
+import type { HttpMethod, Mock, MockMatch, MockResponse, Project, Scenario, SocketMock, SocketPush, SocketReply, WemockState } from './types';
 
 const VALID_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'ANY']);
+
+type Check<T> = { ok: true; value: T } | { ok: false; error: string };
+
+function isObj(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === 'object' && !Array.isArray(v);
+}
+
+function validateMatch(v: unknown): Check<MockMatch> {
+  if (!isObj(v)) {
+    return { ok: false, error: 'Mock match must be an object' };
+  }
+  let query: Record<string, string> | undefined;
+  if (v.query !== undefined) {
+    if (!isObj(v.query)) {
+      return { ok: false, error: 'Mock match query must be an object' };
+    }
+    query = {};
+    for (const [k, val] of Object.entries(v.query)) {
+      if (typeof val !== 'string') {
+        return { ok: false, error: `Mock match query ${k} value must be a string` };
+      }
+      query[k] = val;
+    }
+  }
+
+  let headers: Record<string, string> | undefined;
+  if (v.headers !== undefined) {
+    if (!isObj(v.headers)) {
+      return { ok: false, error: 'Mock match headers must be an object' };
+    }
+    headers = {};
+    for (const [k, val] of Object.entries(v.headers)) {
+      if (typeof val !== 'string') {
+        return { ok: false, error: `Mock match header ${k} value must be a string` };
+      }
+      headers[k] = val;
+    }
+  }
+
+  let body: string | undefined;
+  if (v.body !== undefined) {
+    if (typeof v.body !== 'string') {
+      return { ok: false, error: 'Mock match body must be a string' };
+    }
+    body = v.body;
+  }
+
+  const out: MockMatch = {
+    ...(query ? { query } : {}),
+    ...(headers ? { headers } : {}),
+    ...(body !== undefined ? { body } : {}),
+  };
+  return { ok: true, value: out };
+}
 
 function validateMockResponse(
   res: unknown,
@@ -77,6 +131,13 @@ function validateMock(mock: unknown): { ok: true; mock: Mock } | { ok: false; er
   if (typeof m.createdAt !== 'number' || Number.isNaN(m.createdAt)) {
     return { ok: false, error: 'Mock createdAt must be a number' };
   }
+  let match: MockMatch | undefined;
+  if (m.match !== undefined) {
+    const matchRes = validateMatch(m.match);
+    if (!matchRes.ok) return matchRes;
+    match = matchRes.value;
+  }
+
   const resValid = validateMockResponse(m.response);
   if (!resValid.ok) return resValid;
 
@@ -89,6 +150,7 @@ function validateMock(mock: unknown): { ok: true; mock: Mock } | { ok: false; er
       method: m.method.toUpperCase() as HttpMethod,
       urlPattern: m.urlPattern,
       graphqlOperation: m.graphqlOperation as string | undefined,
+      ...(match !== undefined ? { match } : {}),
       response: resValid.response,
       ...(m.reply !== undefined ? { reply: m.reply as 'fixed' | 'code' } : {}),
       ...(typeof m.code === 'string' ? { code: m.code } : {}),
@@ -96,12 +158,6 @@ function validateMock(mock: unknown): { ok: true; mock: Mock } | { ok: false; er
       createdAt: m.createdAt,
     },
   };
-}
-
-type Check<T> = { ok: true; value: T } | { ok: false; error: string };
-
-function isObj(v: unknown): v is Record<string, unknown> {
-  return !!v && typeof v === 'object' && !Array.isArray(v);
 }
 
 function validatePushes(v: unknown, where: string): Check<SocketPush[]> {

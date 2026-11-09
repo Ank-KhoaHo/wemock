@@ -50,7 +50,8 @@ describe('scenario', () => {
       proj.activeScenarioId = 'scenario-500';
 
       const mocks = activeMocks(proj);
-      expect(mocks).toEqual([errMock, defMock1, defMock2]);
+      // A11: Default's mocks carry fromDefault while another scenario is active.
+      expect(mocks).toEqual([errMock, { ...defMock1, fromDefault: true }, { ...defMock2, fromDefault: true }]);
     });
 
     it('falls back to Default mocks if activeScenarioId is not found', () => {

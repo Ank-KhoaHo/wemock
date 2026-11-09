@@ -7,6 +7,7 @@ export interface TestCallInput {
   method: string;
   url: string;
   body?: string;
+  headers?: Record<string, string>;
 }
 
 export type TestCallResult =
@@ -34,6 +35,7 @@ export function testCall(
     method: input.method.toUpperCase(),
     url: resolvedUrl.href,
     body: input.body,
+    headers: input.headers,
   });
 
   if (!matched) {

@@ -27,5 +27,5 @@ export function activeMocks(project: Project): Mock[] {
     return [...defaultMocks];
   }
 
-  return [...activeScenario.mocks, ...defaultMocks];
+  return [...activeScenario.mocks, ...defaultMocks.map((m) => ({ ...m, fromDefault: true as const }))];
 }
