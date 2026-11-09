@@ -65,6 +65,12 @@ function validateMock(mock: unknown): { ok: true; mock: Mock } | { ok: false; er
   if (m.graphqlOperation !== undefined && typeof m.graphqlOperation !== 'string') {
     return { ok: false, error: 'Mock graphqlOperation must be a string if defined' };
   }
+  if (m.reply !== undefined && m.reply !== 'fixed' && m.reply !== 'code') {
+    return { ok: false, error: `Invalid mock reply: ${String(m.reply)}` };
+  }
+  if (m.code !== undefined && typeof m.code !== 'string') {
+    return { ok: false, error: 'Mock code must be a string if defined' };
+  }
   if (m.source !== 'recorded' && m.source !== 'manual') {
     return { ok: false, error: `Invalid mock source: ${m.source}` };
   }
@@ -84,6 +90,8 @@ function validateMock(mock: unknown): { ok: true; mock: Mock } | { ok: false; er
       urlPattern: m.urlPattern,
       graphqlOperation: m.graphqlOperation as string | undefined,
       response: resValid.response,
+      ...(m.reply !== undefined ? { reply: m.reply as 'fixed' | 'code' } : {}),
+      ...(typeof m.code === 'string' ? { code: m.code } : {}),
       source: m.source,
       createdAt: m.createdAt,
     },

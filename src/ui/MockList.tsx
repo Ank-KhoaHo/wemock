@@ -265,6 +265,11 @@ export function MockList({
                       </span>
                       <span className="mock-name-or-pattern" title={mock.urlPattern}>
                         {mock.name || mock.urlPattern}
+                        {mock.reply === 'code' && (
+                          <span className="code-chip" data-testid="code-chip" title="Answers with code">
+                            code
+                          </span>
+                        )}
                       </span>
                     </div>
 

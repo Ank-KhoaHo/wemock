@@ -18,6 +18,10 @@ export interface Mock {
   urlPattern: string;
   graphqlOperation?: string;
   response: MockResponse;
+  /** A2: 'code' runs `code` in the sandbox; absent or 'fixed' serves `response`. */
+  reply?: 'fixed' | 'code';
+  /** A2: the body of an async function. See core/handler.ts. */
+  code?: string;
   source: 'recorded' | 'manual';
   createdAt: number;
 }
@@ -54,6 +58,7 @@ export interface RequestFacts {
   method: string;
   url: string; // url absolute
   body?: string;
+  headers?: Record<string, string>;
 }
 
 export type Badge = 'MOCK' | 'real' | 'LATE';
@@ -71,6 +76,8 @@ export interface LogEntry {
   durationMs: number;
   badge: Badge;
   mockId?: string;
+  /** A2: a code mock failed and the call got the error reply. */
+  error?: string;
   startedAt: number;
 }
 

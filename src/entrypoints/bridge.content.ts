@@ -1,4 +1,13 @@
-import { BRIDGE_SOURCE, isPageToBridge, type BridgeToPage } from '../core/messages';
+import { errorReply } from '../core/handler';
+import {
+  BRIDGE_SOURCE,
+  isHandlerReply,
+  isPageRunHandler,
+  isPageToBridge,
+  RUN_HANDLER,
+  type BridgeHandlerResult,
+  type BridgeToPage,
+} from '../core/messages';
 import { activeMocks, projectForOrigin } from '../core/scenario';
 import type { Settings, WemockState } from '../core/types';
 import { loadState, onStateChange } from '../shared/store';
@@ -43,6 +52,18 @@ export default defineContentScript({
     window.addEventListener('message', (event) => {
       try {
         if (event.source !== window) return;
+        if (isPageRunHandler(event.data)) {
+          const { callId, mockId, request } = event.data;
+          const answer = (reply: BridgeHandlerResult['reply']) => {
+            const msg: BridgeHandlerResult = { source: BRIDGE_SOURCE, type: 'handler-result', callId, reply };
+            window.postMessage(msg, '*');
+          };
+          browser.runtime
+            .sendMessage({ type: RUN_HANDLER, mockId, request })
+            .then((reply: unknown) => answer(isHandlerReply(reply) ? reply : errorReply('wemock sent a bad answer')))
+            .catch(() => answer(errorReply('wemock is not reachable; reload the page')));
+          return;
+        }
         if (!isPageToBridge(event.data)) return;
         if (!currentSettings.recording) return;
 

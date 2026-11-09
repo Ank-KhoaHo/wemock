@@ -58,7 +58,7 @@ describe('mokkuImport', () => {
       expect(r.result.summary).toEqual({
         mocks: 6,
         mocksSkipped: 1,
-        functionMocksDisabled: 1,
+        codeMocks: 1,
         headerRulesSkipped: 2,
       });
 
@@ -86,10 +86,12 @@ describe('mokkuImport', () => {
       expect(gqMock?.graphqlOperation).toBe('GetUsers');
       expect(gqMock?.method).toBe('POST');
 
-      // the function mock: enabled false
+      // the function mock: a code mock (A2), still enabled
       const fnMock = mocks.find((m) => m.name === 'Function Mock');
       expect(fnMock).toBeDefined();
-      expect(fnMock?.enabled).toBe(false);
+      expect(fnMock?.enabled).toBe(true);
+      expect(fnMock?.reply).toBe('code');
+      expect(fnMock?.code?.trim().length).toBeGreaterThan(0);
     });
 
     it('imports Mokku v1 store correctly', () => {
@@ -101,7 +103,7 @@ describe('mokkuImport', () => {
       expect(r.result.summary).toEqual({
         mocks: 6,
         mocksSkipped: 1,
-        functionMocksDisabled: 1,
+        codeMocks: 1,
         headerRulesSkipped: 0,
       });
 
@@ -115,7 +117,8 @@ describe('mokkuImport', () => {
       expect(m404?.response.delayMs).toBe(300);
 
       const fnMock = defaultScenario?.mocks.find((m) => m.name === 'Function Mock');
-      expect(fnMock?.enabled).toBe(false);
+      expect(fnMock?.enabled).toBe(true);
+      expect(fnMock?.reply).toBe('code');
 
       for (const m of defaultScenario!.mocks) {
         expect(compilePattern(m.urlPattern).ok).toBe(true);
@@ -132,7 +135,7 @@ describe('mokkuImport', () => {
       expect(r.result.summary).toEqual({
         mocks: 6,
         mocksSkipped: 1,
-        functionMocksDisabled: 1,
+        codeMocks: 1,
         headerRulesSkipped: 0,
       });
 
@@ -149,7 +152,8 @@ describe('mokkuImport', () => {
       expect(binaryMock?.response.body).toBe('AQIDBA==');
 
       const fnMock = mocks.find((m) => m.name === 'Function Mock');
-      expect(fnMock?.enabled).toBe(false);
+      expect(fnMock?.enabled).toBe(true);
+      expect(fnMock?.reply).toBe('code');
     });
 
     it('imports single Mokku mock-file correctly', () => {
@@ -161,7 +165,7 @@ describe('mokkuImport', () => {
       expect(r.result.summary).toEqual({
         mocks: 1,
         mocksSkipped: 0,
-        functionMocksDisabled: 0,
+        codeMocks: 0,
         headerRulesSkipped: 0,
       });
       const mocks = r.result.project.scenarios[0]!.mocks;
@@ -184,22 +188,43 @@ describe('importMokku: review cases', () => {
     url: '/api/x', status: 200, response: '{}', headers: [], delay: 0,
   };
 
-  it('a v2 STATIC mock with leftover function source stays enabled', () => {
+  it('a v2 STATIC mock with leftover function source stays a fixed mock', () => {
     const data = { projects: [{ name: 'P' }], headers: [],
       mocks: [{ ...base, responseType: 'STATIC', function: 'return 1' }] };
     const r = importMokku(data, 'http://a', ids(), 1);
     if (!r.ok) throw new Error(r.error);
-    expect(r.result.project.scenarios[0]!.mocks[0]!.enabled).toBe(true);
-    expect(r.result.summary.functionMocksDisabled).toBe(0);
+    const m = r.result.project.scenarios[0]!.mocks[0]!;
+    expect(m.enabled).toBe(true);
+    expect(m.reply).toBeUndefined();
+    expect(r.result.summary.codeMocks).toBe(0);
   });
 
-  it('a v2 FUNCTION mock is disabled even with empty function source', () => {
+  it('a v2 FUNCTION mock with source becomes a code mock with that source (A2)', () => {
     const data = { projects: [{ name: 'P' }], headers: [],
-      mocks: [{ ...base, responseType: 'FUNCTION', function: '' }] };
+      mocks: [{ ...base, responseType: 'FUNCTION', function: 'return { id: urlParams.id };' }] };
     const r = importMokku(data, 'http://a', ids(), 1);
     if (!r.ok) throw new Error(r.error);
-    expect(r.result.project.scenarios[0]!.mocks[0]!.enabled).toBe(false);
-    expect(r.result.summary.functionMocksDisabled).toBe(1);
+    const m = r.result.project.scenarios[0]!.mocks[0]!;
+    expect(m).toMatchObject({ enabled: true, reply: 'code', code: 'return { id: urlParams.id };' });
+    expect(r.result.summary.codeMocks).toBe(1);
+  });
+
+  it('a v2 FUNCTION mock with empty source serves its static response, as Mokku does', () => {
+    const data = { projects: [{ name: 'P' }], headers: [],
+      mocks: [{ ...base, responseType: 'FUNCTION', function: '  ' }] };
+    const r = importMokku(data, 'http://a', ids(), 1);
+    if (!r.ok) throw new Error(r.error);
+    expect(r.result.project.scenarios[0]!.mocks[0]!.reply).toBeUndefined();
+    expect(r.result.summary.codeMocks).toBe(0);
+  });
+
+  it('a mock-file function_source becomes a code mock and keeps enabled false', () => {
+    const data = { schema_version: 1, name: 'F', type: 'rest', method: 'GET', url_pattern: '/a/:id',
+      enabled: false, response: { status: 200, headers: {}, body: null }, function_source: 'return 2;' };
+    const r = importMokku(data, 'http://a', ids(), 1);
+    if (!r.ok) throw new Error(r.error);
+    const m = r.result.project.scenarios[0]!.mocks[0]!;
+    expect(m).toMatchObject({ enabled: false, reply: 'code', code: 'return 2;' });
   });
 
   it('keeps an inactive mock inactive: v2 active false, mock-file enabled false', () => {

@@ -3,6 +3,7 @@ import { findMock } from '../core/match';
 import { statusTextFor } from '../core/statusText';
 import type { Badge, BodyEncoding, LogDraft, Mock, RequestFacts, Settings } from '../core/types';
 import { announce } from './announce';
+import { resolveReply } from './reply';
 import { pageOriginOf, type PatchDeps } from './fetchPatch';
 
 declare global {
@@ -32,6 +33,7 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
 
   class PatchedXHR extends NativeXHR {
     private _method = 'GET';
+    private _requestHeaders: Record<string, string> = {};
     private _url = '';
     private _isAsync = true;
     private _sent = false;
@@ -111,6 +113,7 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
         this._realSent = false;
         this._mockCompleted = false;
         this._mockReadyState = 1;
+        this._requestHeaders = {};
       } catch {
         // Keep going
       }
@@ -119,6 +122,17 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
         return super.open(method, url);
       }
       return super.open(method, url, async, username, password);
+    }
+
+    override setRequestHeader(name: string, value: string): void {
+      super.setRequestHeader(name, value);
+      try {
+        const key = String(name).toLowerCase();
+        const prev = this._requestHeaders[key];
+        this._requestHeaders[key] = prev === undefined ? String(value) : `${prev}, ${value}`;
+      } catch {
+        // header capture is best effort
+      }
     }
 
     override send(body?: Document | XMLHttpRequestBodyInit | null): void {
@@ -192,6 +206,7 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
           method: this._method,
           url: this._url,
           body: reqBodyStr,
+          headers: { ...this._requestHeaders },
         };
       } catch {
         this._passThroughReal(body, startedAt, gateRes.late);
@@ -344,7 +359,13 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
       this._isMock = true;
       this._defineMockGetters();
 
-      const delayMs = mock.response.delayMs;
+      const reply = await resolveReply(deps.runHandler, mock, reqFacts);
+      if (this._aborted) {
+        return;
+      }
+      const response = reply.response;
+
+      const delayMs = response.delayMs;
       const timeoutMs = this.timeout;
 
       if (timeoutMs > 0 && timeoutMs < delayMs) {
@@ -380,13 +401,13 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
         }
       }
 
-      const isNullBody = [204, 205, 304].includes(mock.response.status);
-      const bytes = isNullBody ? new Uint8Array(0) : mockBodyBytes(mock.response);
+      const isNullBody = [204, 205, 304].includes(response.status);
+      const bytes = isNullBody ? new Uint8Array(0) : mockBodyBytes(response);
       const bodyLength = isNullBody ? 0 : bytes.byteLength;
 
-      this._mockStatus = mock.response.status;
-      this._mockStatusText = statusTextFor(mock.response.status);
-      this._mockHeaders = { ...mock.response.headers };
+      this._mockStatus = response.status;
+      this._mockStatusText = statusTextFor(response.status);
+      this._mockHeaders = { ...response.headers };
 
       if (isNullBody) {
         this._mockResponseText = '';
@@ -395,10 +416,10 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
         this._mockBlob = new win.Blob([], { type: contentType });
         this._mockArrayBuffer = new ArrayBuffer(0);
       } else {
-        if (mock.response.bodyEncoding === 'base64') {
+        if (response.bodyEncoding === 'base64') {
           this._mockResponseText = new TextDecoder().decode(bytes);
         } else {
-          this._mockResponseText = mock.response.body;
+          this._mockResponseText = response.body;
         }
 
         try {
@@ -461,20 +482,21 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
         method: reqFacts.method,
         url: reqFacts.url,
         requestBody: reqFacts.body,
-        status: mock.response.status,
-        responseHeaders: { ...mock.response.headers },
-        responseBody: isNullBody ? null : mock.response.body,
-        responseEncoding: mock.response.bodyEncoding,
+        status: response.status,
+        responseHeaders: { ...response.headers },
+        responseBody: isNullBody ? null : response.body,
+        responseEncoding: response.bodyEncoding,
         truncated: false,
         durationMs,
         badge: 'MOCK',
         mockId: mock.id,
+        ...(reply.error ? { error: reply.error } : {}),
         startedAt,
       });
       announce(
         deps.console,
         settings,
-        { method: reqFacts.method, url: reqFacts.url, status: mock.response.status, mock, durationMs },
+        { method: reqFacts.method, url: reqFacts.url, status: response.status, mock, durationMs, error: reply.error },
         pageOriginOf(win),
       );
     }

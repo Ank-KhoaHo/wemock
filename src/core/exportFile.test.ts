@@ -48,6 +48,26 @@ describe('exportFile', () => {
       }
     });
 
+    it('keeps a code mock through export and parse (A2)', () => {
+      const p = createSampleProject();
+      p.scenarios[0]!.mocks[0] = { ...p.scenarios[0]!.mocks[0]!, reply: 'code', code: 'return { id: params.id };' };
+      const parsed = parseProjectFile(exportProject(p));
+      expect(parsed.ok).toBe(true);
+      if (parsed.ok) {
+        expect(parsed.project.scenarios[0]!.mocks[0]).toMatchObject({ reply: 'code', code: 'return { id: params.id };' });
+        expect(parsed.project).toEqual(p);
+      }
+    });
+
+    it('rejects a bad reply or code type (A2)', () => {
+      for (const bad of [{ reply: 'js' }, { code: 7 }]) {
+        const p = createSampleProject();
+        const file = JSON.parse(exportProject(p));
+        Object.assign(file.scenarios[0].mocks[0], bad);
+        expect(parseProjectFile(JSON.stringify(file)).ok).toBe(false);
+      }
+    });
+
     it('rejects invalid JSON', () => {
       const res = parseProjectFile('not json');
       expect(res.ok).toBe(false);

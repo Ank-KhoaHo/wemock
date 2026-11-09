@@ -12,7 +12,8 @@ export interface MokkuImport {
     mocks: number;
     /** Mocks dropped: no URL, a pattern wemock cannot use, or a status outside 200-599. */
     mocksSkipped: number;
-    functionMocksDisabled: number;
+    /** A2: Mokku function mocks, imported as code mocks. */
+    codeMocks: number;
     headerRulesSkipped: number;
   };
 }
@@ -167,7 +168,7 @@ export function importMokku(
       rawMocks = Array.isArray(data) ? data : [data];
     }
 
-    let functionMocksDisabled = 0;
+    let codeMocks = 0;
     let mocksSkipped = 0;
     const keptMocks: Mock[] = [];
 
@@ -235,16 +236,20 @@ export function importMokku(
 
       // Function mock detection
       // Mokku 2.x says which in responseType; a STATIC mock may keep old function source.
+      // Mokku runs the function only when its source is not empty; otherwise it serves the
+      // static response. 2.x also says which in responseType, and a STATIC mock may keep old source.
+      const source =
+        typeof m.function === 'string' && m.function.trim().length > 0
+          ? m.function
+          : typeof m.function_source === 'string' && m.function_source.trim().length > 0
+            ? m.function_source
+            : '';
       const isFunctionMock =
-        typeof m.responseType === 'string'
-          ? m.responseType === 'FUNCTION'
-          : (typeof m.function === 'string' && m.function.trim().length > 0) ||
-            (typeof m.function_source === 'string' && m.function_source.trim().length > 0);
+        source.length > 0 && (typeof m.responseType === 'string' ? m.responseType === 'FUNCTION' : true);
 
-      let enabled = m.active !== false && m.enabled !== false;
+      const enabled = m.active !== false && m.enabled !== false;
       if (isFunctionMock) {
-        enabled = false;
-        functionMocksDisabled++;
+        codeMocks++;
       }
 
       // Delay ms
@@ -326,6 +331,7 @@ export function importMokku(
           bodyEncoding,
           delayMs,
         },
+        ...(isFunctionMock ? { reply: 'code' as const, code: source } : {}),
         source: 'manual',
         createdAt: now,
       });
@@ -341,7 +347,7 @@ export function importMokku(
         summary: {
           mocks: keptMocks.length,
           mocksSkipped,
-          functionMocksDisabled,
+          codeMocks,
           headerRulesSkipped,
         },
       },

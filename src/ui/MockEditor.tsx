@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
+import { DEFAULT_CODE } from '../core/handler';
 import { compilePattern } from '../core/match';
 import { isValidStatus, STATUS_TEXT } from '../core/statusText';
 import type { BodyEncoding, HttpMethod, Mock } from '../core/types';
 import { BodyEditor } from './BodyEditor';
 import { HeadersTable } from './HeadersTable';
+
+const CodeEditor = React.lazy(() => import('./CodeEditor'));
 
 const HTTP_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'ANY'];
 
@@ -106,6 +109,16 @@ export function MockEditor({ mock, onSave, onDelete, isDark = false }: MockEdito
           headers,
         },
       };
+    });
+  };
+
+  const isCode = draft.reply === 'code';
+
+  const setReply = (reply: 'fixed' | 'code') => {
+    setDraft((prev) => {
+      if (!prev) return prev;
+      if (reply === 'fixed') return { ...prev, reply: 'fixed' };
+      return { ...prev, reply: 'code', code: prev.code && prev.code.trim() ? prev.code : DEFAULT_CODE };
     });
   };
 
@@ -263,17 +276,59 @@ export function MockEditor({ mock, onSave, onDelete, isDark = false }: MockEdito
         {/* Headers Table */}
         <HeadersTable headers={draft.response.headers} onChange={handleHeadersChange} />
 
-        {/* Body Editor */}
-        <BodyEditor
-          body={draft.response.body}
-          bodyEncoding={draft.response.bodyEncoding}
-          contentType={getContentType()}
-          mockName={draft.name}
-          isDark={isDark}
-          onChangeBody={handleBodyChange}
-          onChangeContentType={handleContentTypeChange}
-          onLoadFile={handleLoadFile}
-        />
+        {/* Reply type (A2) */}
+        <div className="form-group">
+          <label className="field-label">Reply</label>
+          <div className="reply-switch" role="group" aria-label="Reply type">
+            <button
+              type="button"
+              data-testid="reply-fixed"
+              className={`reply-btn ${!isCode ? 'active' : ''}`}
+              aria-pressed={!isCode ? 'true' : 'false'}
+              onClick={() => setReply('fixed')}
+            >
+              Fixed body
+            </button>
+            <button
+              type="button"
+              data-testid="reply-code"
+              className={`reply-btn ${isCode ? 'active' : ''}`}
+              aria-pressed={isCode ? 'true' : 'false'}
+              onClick={() => setReply('code')}
+            >
+              Code
+            </button>
+          </div>
+        </div>
+
+        {isCode ? (
+          <div className="code-reply-view" data-testid="code-view">
+            <p className="field-help">
+              Return the body. <code>params</code>, <code>query</code>, <code>body</code> and <code>req</code> describe
+              the call. <code>res</code> starts with the status, headers and delay above; change it to answer
+              differently. Runs in a sandbox, at most 1 s.
+            </p>
+            <Suspense fallback={<div className="editor-loading">Loading editor...</div>}>
+              <CodeEditor
+                value={draft.code ?? ''}
+                dark={isDark}
+                language="javascript"
+                onChange={(val) => setDraft((prev) => (prev ? { ...prev, code: val } : prev))}
+              />
+            </Suspense>
+          </div>
+        ) : (
+          <BodyEditor
+            body={draft.response.body}
+            bodyEncoding={draft.response.bodyEncoding}
+            contentType={getContentType()}
+            mockName={draft.name}
+            isDark={isDark}
+            onChangeBody={handleBodyChange}
+            onChangeContentType={handleContentTypeChange}
+            onLoadFile={handleLoadFile}
+          />
+        )}
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import { isBridgeToPage, PAGE_SOURCE, type PageToBridge } from '../core/messages
 import type { LogDraft } from '../core/types';
 import { installFetchPatch } from '../patch/fetchPatch';
 import { createGate } from '../patch/gate';
+import { createRunHandler } from '../patch/reply';
 import { installXhrPatch } from '../patch/xhrPatch';
 
 // Runs in the page's MAIN world at document_start. Registered at runtime by
@@ -32,6 +33,7 @@ export default defineContentScript({
         now: () => Date.now(),
         // Captured now, so a page that replaces console later still gets our lines.
         console: { info: console.info.bind(console), warn: console.warn.bind(console) },
+        runHandler: createRunHandler(window),
       };
 
       installFetchPatch(window, deps);

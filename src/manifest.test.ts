@@ -18,8 +18,8 @@ describe('built manifest', () => {
     expect(m.name).toBe('wemock');
   });
 
-  it('asks for exactly storage, unlimitedStorage and scripting', () => {
-    expect(new Set(m.permissions)).toEqual(new Set(['storage', 'unlimitedStorage', 'scripting']));
+  it('asks for exactly storage, unlimitedStorage, scripting and offscreen (A2)', () => {
+    expect(new Set(m.permissions)).toEqual(new Set(['storage', 'unlimitedStorage', 'scripting', 'offscreen']));
   });
 
   it('is granted localhost only; every other site is optional', () => {
@@ -59,5 +59,12 @@ describe('release manifest (task 10)', () => {
   it('has a Store-sized description (at most 132 characters)', () => {
     expect(typeof m.description).toBe('string');
     expect(m.description.length).toBeLessThanOrEqual(132);
+  });
+
+  it('lets only the sandbox page eval, and keeps extension pages strict (A2)', () => {
+    expect(m.sandbox).toEqual({ pages: ['sandbox.html'] });
+    const csp = m.content_security_policy ?? {};
+    expect(csp.sandbox).toContain("'unsafe-eval'");
+    expect(csp.extension_pages ?? '').not.toContain('unsafe-eval');
   });
 });

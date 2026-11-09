@@ -17,7 +17,7 @@ import { useTabLog, useWemockState } from '../../ui/useWemockState';
 export function formatImportSummary(summary: {
   mocks: number;
   mocksSkipped?: number;
-  functionMocksDisabled?: number;
+  codeMocks?: number;
   headerRulesSkipped?: number;
 }): string {
   const parts: string[] = [];
@@ -27,10 +27,8 @@ export function formatImportSummary(summary: {
   if (summary.mocksSkipped && summary.mocksSkipped > 0) {
     parts.push(`${summary.mocksSkipped} skipped`);
   }
-  if (summary.functionMocksDisabled && summary.functionMocksDisabled > 0) {
-    parts.push(
-      `${summary.functionMocksDisabled} function mock${summary.functionMocksDisabled === 1 ? '' : 's'} disabled`,
-    );
+  if (summary.codeMocks && summary.codeMocks > 0) {
+    parts.push(`${summary.codeMocks} as code mock${summary.codeMocks === 1 ? '' : 's'}`);
   }
   if (summary.headerRulesSkipped && summary.headerRulesSkipped > 0) {
     parts.push(

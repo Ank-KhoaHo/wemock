@@ -42,6 +42,21 @@ export function startFixtureServer(host = '127.0.0.1'): Promise<FixtureServer> {
       return;
     }
 
+    // A2: a page whose CSP blocks eval, like many real sites. Code mocks must still run.
+    if (req.method === 'GET' && pathname === '/strict.html') {
+      res.writeHead(200, {
+        'content-type': 'text/html; charset=utf-8',
+        'content-security-policy': "default-src 'self'; script-src 'self' 'unsafe-inline'",
+      });
+      res.end(
+        indexHtml.replace(
+          '</body>',
+          "<script>window.evalBlocked = (() => { try { new Function('return 1')(); return false; } catch { return true; } })();</script></body>",
+        ),
+      );
+      return;
+    }
+
     if (req.method === 'GET' && pathname === '/early.html') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       res.end(earlyHtml);

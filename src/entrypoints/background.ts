@@ -1,3 +1,4 @@
+import { initHandlerRunner } from '../background/handlerRunner';
 import { initLogRouter } from '../background/logRouter';
 import { syncRegistrations } from '../background/sites';
 import { loadState, onStateChange } from '../shared/store';
@@ -12,6 +13,7 @@ function originsChanged(a: string[], b: string[]): boolean {
 
 export default defineBackground(() => {
   initLogRouter();
+  initHandlerRunner(loadState);
 
   let currentOrigins: string[] = [];
 

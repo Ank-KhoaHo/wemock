@@ -94,6 +94,11 @@ export function LogDetail({ entry, onMockThis, onClose }: LogDetailProps) {
       </div>
 
       <div className="detail-content">
+        {entry.error && (
+          <p data-testid="detail-error" className="log-error">
+            Code failed: {entry.error}
+          </p>
+        )}
         <section className="detail-section">
           <h4 className="section-title">General</h4>
           <div className="key-value-grid">

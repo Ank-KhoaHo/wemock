@@ -18,6 +18,7 @@
     "postinstall": "wxt prepare"
   },
   "dependencies": {
+    "@codemirror/lang-javascript": "6.2.5",
     "@codemirror/lang-json": "6.0.2",
     "@uiw/react-codemirror": "4.25.12",
     "path-to-regexp": "8.4.2",

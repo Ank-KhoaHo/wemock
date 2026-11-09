@@ -316,7 +316,7 @@ test('importing the Mokku v2 fixture makes a project for this site and serves it
   }
 });
 
-test('a Mokku import shows import-summary with the disabled function mock count', async () => {
+test('a Mokku import shows import-summary with the code mock count', async () => {
   const page = await session.context.newPage();
   const panelPage = await session.context.newPage();
   try {
@@ -338,8 +338,8 @@ test('a Mokku import shows import-summary with the disabled function mock count'
 
     const summary = panelPage.getByTestId('import-summary');
     await expect(summary).toBeVisible();
-    await expect(summary).toHaveText('6 mocks imported, 1 skipped, 1 function mock disabled, 2 header rules not imported');
-    await expect(summary).toContainText('1 function mock disabled');
+    await expect(summary).toHaveText('6 mocks imported, 1 skipped, 1 as code mock, 2 header rules not imported');
+    await expect(summary).toContainText('1 as code mock');
   } finally {
     await panelPage.close();
     await page.close();

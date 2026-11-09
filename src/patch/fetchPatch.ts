@@ -3,6 +3,7 @@ import { findMock } from '../core/match';
 import { statusTextFor } from '../core/statusText';
 import type { Badge, LogDraft, Mock, RequestFacts, Settings } from '../core/types';
 import { announce, type PageConsole } from './announce';
+import { resolveReply, type RunHandler } from './reply';
 import type { Gate } from './gate';
 
 export interface PatchDeps {
@@ -11,6 +12,8 @@ export interface PatchDeps {
   now(): number;
   /** A4: the page console, captured at install. */
   console?: PageConsole;
+  /** A2: runs a code mock; absent outside a real page (code mocks then answer the error reply). */
+  runHandler?: RunHandler;
 }
 
 declare global {
@@ -100,7 +103,11 @@ export function installFetchPatch(win: Window, deps: PatchDeps): () => void {
         }
       }
 
-      reqFacts = { method, url, body };
+      const headers: Record<string, string> = {};
+      req.headers.forEach((v, k) => {
+        headers[k] = v;
+      });
+      reqFacts = { method, url, body, headers };
     } catch {
       return nativeFetch.call(win, input, init);
     }
@@ -122,7 +129,12 @@ export function installFetchPatch(win: Window, deps: PatchDeps): () => void {
     }
 
     if (mock) {
-      if (mock.response.delayMs > 0) {
+      const reply = await resolveReply(deps.runHandler, mock, reqFacts);
+      if (signal?.aborted) {
+        throw createAbortError(signal.reason);
+      }
+      const response = reply.response;
+      if (response.delayMs > 0) {
         await new Promise<void>((resolve, reject) => {
           if (signal?.aborted) {
             reject(createAbortError(signal.reason));
@@ -146,17 +158,17 @@ export function installFetchPatch(win: Window, deps: PatchDeps): () => void {
               signal.removeEventListener('abort', onAbort);
             }
             resolve();
-          }, mock.response.delayMs);
+          }, response.delayMs);
         });
       }
 
       try {
-        const isNullBody = [204, 205, 304].includes(mock.response.status);
-        const bodyBytes = isNullBody ? null : mockBodyBytes(mock.response);
+        const isNullBody = [204, 205, 304].includes(response.status);
+        const bodyBytes = isNullBody ? null : mockBodyBytes(response);
         const bodyData: BodyInit | null = bodyBytes ? (bodyBytes as unknown as BodyInit) : null;
-        const status = mock.response.status;
+        const status = response.status;
         const statusText = statusTextFor(status);
-        const headers = new win.Headers(mock.response.headers);
+        const headers = new win.Headers(response.headers);
 
         const res = new win.Response(bodyData, {
           status,
@@ -177,16 +189,17 @@ export function installFetchPatch(win: Window, deps: PatchDeps): () => void {
           url: reqFacts.url,
           requestBody: reqFacts.body,
           status,
-          responseHeaders: { ...mock.response.headers },
-          responseBody: isNullBody ? null : mock.response.body,
-          responseEncoding: mock.response.bodyEncoding,
+          responseHeaders: { ...response.headers },
+          responseBody: isNullBody ? null : response.body,
+          responseEncoding: response.bodyEncoding,
           truncated: false,
           durationMs,
           badge: 'MOCK',
           mockId: mock.id,
+          ...(reply.error ? { error: reply.error } : {}),
           startedAt,
         });
-        announce(deps.console, gateRes.settings, { method: reqFacts.method, url: reqFacts.url, status, mock, durationMs }, pageOriginOf(win));
+        announce(deps.console, gateRes.settings, { method: reqFacts.method, url: reqFacts.url, status, mock, durationMs, error: reply.error }, pageOriginOf(win));
 
         return res;
       } catch {
