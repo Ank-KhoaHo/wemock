@@ -36,6 +36,8 @@ export interface Mock {
   reply?: 'fixed' | 'code';
   /** A2: the body of an async function. See core/handler.ts. */
   code?: string;
+  /** A13: fill {{...}} in a text body. */
+  templates?: boolean;
   source: 'recorded' | 'manual';
   createdAt: number;
 }

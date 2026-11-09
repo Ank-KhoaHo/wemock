@@ -182,6 +182,7 @@ export function MockList({
         bodyEncoding: 'text',
         delayMs: 0,
       },
+      templates: true,
       source: 'manual',
       createdAt: Date.now(),
     };

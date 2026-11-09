@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { base64ToBytes } from '../core/bodies';
 import { errorReply, type HandlerReply, type HandlerRequest } from '../core/handler';
 import { RUN_HANDLER, isHandlerReply } from '../core/messages';
+import { resolveReply } from '../patch/reply';
 import { statusTextFor } from '../core/statusText';
 import { testCall } from '../core/testCall';
 import type { Mock, MockResponse, Project } from '../core/types';
@@ -140,12 +141,18 @@ export function TestBar({ project, pageOrigin, onOpenMock }: TestBarProps) {
     const scenarioId = findScenarioId(project, matchedMock.id);
 
     if (matchedMock.reply !== 'code') {
+      const fixedReply = await resolveReply(undefined, matchedMock, {
+        method,
+        url: result.url,
+        headers: parsedHeaders,
+        body: reqBody,
+      });
       setTestOutput({
         kind: 'match',
         mock: matchedMock,
         scenarioName: result.scenarioName,
         scenarioId,
-        reply: { response: matchedMock.response },
+        reply: fixedReply,
       });
       return;
     }

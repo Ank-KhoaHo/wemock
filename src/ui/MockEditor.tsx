@@ -554,16 +554,32 @@ export function MockEditor({ mock, onSave, onDelete, isDark = false }: MockEdito
             </Suspense>
           </div>
         ) : (
-          <BodyEditor
-            body={draft.response.body}
-            bodyEncoding={draft.response.bodyEncoding}
-            contentType={getContentType()}
-            mockName={draft.name}
-            isDark={isDark}
-            onChangeBody={handleBodyChange}
-            onChangeContentType={handleContentTypeChange}
-            onLoadFile={handleLoadFile}
-          />
+          <>
+            <BodyEditor
+              body={draft.response.body}
+              bodyEncoding={draft.response.bodyEncoding}
+              contentType={getContentType()}
+              mockName={draft.name}
+              isDark={isDark}
+              onChangeBody={handleBodyChange}
+              onChangeContentType={handleContentTypeChange}
+              onLoadFile={handleLoadFile}
+            />
+            <div className="form-group templates-group">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  data-testid="field-templates"
+                  checked={Boolean(draft.templates)}
+                  onChange={(e) => setDraft({ ...draft, templates: e.target.checked })}
+                />
+                Fill {'{{templates}}'}
+              </label>
+              <div className="field-help">
+                tags: params.id, query.page, headers.name, body.path, uuid, now, timestamp
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>

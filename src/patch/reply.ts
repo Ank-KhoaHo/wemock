@@ -1,5 +1,6 @@
-import { errorReply, HANDLER_WAIT_MS, isCodeMock, type HandlerReply, type HandlerRequest } from '../core/handler';
+import { buildInput, errorReply, HANDLER_WAIT_MS, isCodeMock, type HandlerReply, type HandlerRequest } from '../core/handler';
 import { isBridgeHandlerResult, PAGE_SOURCE, type PageRunHandler } from '../core/messages';
+import { fillTemplate } from '../core/template';
 import type { Mock, RequestFacts } from '../core/types';
 
 // Spec A2. What a matched mock answers: its fixed response, or what its code returns.
@@ -11,7 +12,25 @@ export async function resolveReply(
   mock: Mock,
   facts: RequestFacts,
 ): Promise<HandlerReply> {
-  if (!isCodeMock(mock)) return { response: mock.response };
+  if (!isCodeMock(mock)) {
+    if (mock.templates === true && mock.response.bodyEncoding === 'text') {
+      const request: HandlerRequest = {
+        method: facts.method,
+        url: facts.url,
+        headers: { ...(facts.headers ?? {}) },
+        body: facts.body,
+      };
+      const req = buildInput(mock, request).req;
+      const filledBody = fillTemplate(mock.response.body, req);
+      return {
+        response: {
+          ...mock.response,
+          body: filledBody,
+        },
+      };
+    }
+    return { response: mock.response };
+  }
   if (!runHandler) return errorReply('Code mocks cannot run here');
   try {
     return await runHandler(mock.id, {
