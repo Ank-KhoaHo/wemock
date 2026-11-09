@@ -59,6 +59,7 @@ export function isBridgeToPage(data: unknown): data is BridgeToPage {
   if (!isObject(settings)) return false;
   if (typeof settings.enabled !== 'boolean') return false;
   if (typeof settings.recording !== 'boolean') return false;
+  if (settings.consoleLog !== undefined && typeof settings.consoleLog !== 'boolean') return false;
 
   return true;
 }

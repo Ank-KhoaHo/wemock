@@ -2,7 +2,8 @@ import { encodeBody, mockBodyBytes } from '../core/bodies';
 import { findMock } from '../core/match';
 import { statusTextFor } from '../core/statusText';
 import type { Badge, BodyEncoding, LogDraft, Mock, RequestFacts, Settings } from '../core/types';
-import type { PatchDeps } from './fetchPatch';
+import { announce } from './announce';
+import { pageOriginOf, type PatchDeps } from './fetchPatch';
 
 declare global {
   interface Window {
@@ -212,7 +213,7 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
       }
 
       try {
-        await this._serveMock(mock, reqFacts, startedAt);
+        await this._serveMock(mock, reqFacts, startedAt, gateRes.settings);
       } catch {
         this._passThroughReal(body, startedAt, gateRes.late);
       }
@@ -334,7 +335,12 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
       }
     }
 
-    private async _serveMock(mock: Mock, reqFacts: RequestFacts, startedAt: number): Promise<void> {
+    private async _serveMock(
+      mock: Mock,
+      reqFacts: RequestFacts,
+      startedAt: number,
+      settings: Settings,
+    ): Promise<void> {
       this._isMock = true;
       this._defineMockGetters();
 
@@ -465,6 +471,12 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
         mockId: mock.id,
         startedAt,
       });
+      announce(
+        deps.console,
+        settings,
+        { method: reqFacts.method, url: reqFacts.url, status: mock.response.status, mock, durationMs },
+        pageOriginOf(win),
+      );
     }
 
     private _defineMockGetters(): void {

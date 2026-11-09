@@ -11,6 +11,8 @@ export interface TopBarProps {
   onToggleRecording: () => void;
   enabled: boolean;
   onToggleEnabled: () => void;
+  consoleLog: boolean;
+  onToggleConsoleLog: () => void;
   activeTab: 'log' | 'mocks';
   onTabChange: (tab: 'log' | 'mocks') => void;
 }
@@ -25,6 +27,8 @@ export function TopBar({
   onToggleRecording,
   enabled,
   onToggleEnabled,
+  consoleLog,
+  onToggleConsoleLog,
   activeTab,
   onTabChange,
 }: TopBarProps) {
@@ -67,6 +71,16 @@ export function TopBar({
             title={recording ? 'Pause recording' : 'Start recording'}
           >
             <span className="rec-dot" /> Rec
+          </button>
+          <button
+            type="button"
+            data-testid="console-toggle"
+            className={`console-toggle ${consoleLog ? 'active' : ''}`}
+            aria-pressed={consoleLog ? 'true' : 'false'}
+            onClick={onToggleConsoleLog}
+            title={consoleLog ? 'Stop writing mocked calls to the Console' : 'Write each mocked call to the Console'}
+          >
+            Console
           </button>
           <button
             type="button"

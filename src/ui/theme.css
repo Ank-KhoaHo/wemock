@@ -332,6 +332,7 @@ body.panel-root {
 }
 
 .rec-toggle,
+.console-toggle,
 .power-toggle {
   display: inline-flex;
   align-items: center;
@@ -376,6 +377,18 @@ body.panel-root {
   color: #57d9a3;
   border-color: #164b35;
   background-color: #0b2e21;
+}
+
+.console-toggle.active {
+  color: #0747a6;
+  border-color: #b3d4ff;
+  background-color: #deebff;
+}
+
+.dark .console-toggle.active {
+  color: #79b8ff;
+  border-color: #1c3a66;
+  background-color: #0f2340;
 }
 
 .panel-tab-bar {

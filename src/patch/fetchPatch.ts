@@ -2,12 +2,15 @@ import { encodeBody, mockBodyBytes } from '../core/bodies';
 import { findMock } from '../core/match';
 import { statusTextFor } from '../core/statusText';
 import type { Badge, LogDraft, Mock, RequestFacts, Settings } from '../core/types';
+import { announce, type PageConsole } from './announce';
 import type { Gate } from './gate';
 
 export interface PatchDeps {
   gate: Gate;
   report(d: LogDraft): void;
   now(): number;
+  /** A4: the page console, captured at install. */
+  console?: PageConsole;
 }
 
 declare global {
@@ -36,6 +39,14 @@ function createAbortError(reason?: unknown): DOMException {
 }
 
 /** Logging must never change what the page gets. */
+export function pageOriginOf(win: Window): string {
+  try {
+    return new URL(win.location.href).origin;
+  } catch {
+    return '';
+  }
+}
+
 function safeReport(deps: PatchDeps, d: LogDraft): void {
   try {
     deps.report(d);
@@ -175,6 +186,7 @@ export function installFetchPatch(win: Window, deps: PatchDeps): () => void {
           mockId: mock.id,
           startedAt,
         });
+        announce(deps.console, gateRes.settings, { method: reqFacts.method, url: reqFacts.url, status, mock, durationMs }, pageOriginOf(win));
 
         return res;
       } catch {

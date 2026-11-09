@@ -123,6 +123,7 @@ export default function App() {
 
   const recording = state?.settings.recording ?? true;
   const enabled = state?.settings.enabled ?? true;
+  const consoleLog = state?.settings.consoleLog !== false;
 
   const filteredEntries = filter
     ? entries.filter((e) => e.url.toLowerCase().includes(filter.toLowerCase()))
@@ -141,6 +142,13 @@ export default function App() {
     update((s) => ({
       ...s,
       settings: { ...s.settings, enabled: !s.settings.enabled },
+    })).catch(() => {});
+  };
+
+  const handleToggleConsoleLog = () => {
+    update((s) => ({
+      ...s,
+      settings: { ...s.settings, consoleLog: s.settings.consoleLog === false },
     })).catch(() => {});
   };
 
@@ -479,6 +487,8 @@ export default function App() {
         onToggleRecording={handleToggleRecording}
         enabled={enabled}
         onToggleEnabled={handleToggleEnabled}
+        consoleLog={consoleLog}
+        onToggleConsoleLog={handleToggleConsoleLog}
         activeTab={activeTab}
         onTabChange={setActiveTab}
       />

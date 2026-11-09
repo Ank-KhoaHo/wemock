@@ -22,7 +22,7 @@ describe('types and state initialization', () => {
     const state = emptyState();
     expect(state).toEqual({
       schemaVersion: 1,
-      settings: { enabled: true, recording: true },
+      settings: { enabled: true, recording: true, consoleLog: true },
       projects: [],
       enabledOrigins: [],
     });

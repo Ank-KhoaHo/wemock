@@ -39,6 +39,8 @@ export interface Project {
 export interface Settings {
   enabled: boolean;
   recording: boolean;
+  /** A4: one console line per mocked call. Absent means on. */
+  consoleLog?: boolean;
 }
 
 export interface WemockState {
@@ -83,7 +85,7 @@ export const STATE_KEY = 'wemock.state';
 export function emptyState(): WemockState {
   return {
     schemaVersion: 1,
-    settings: { enabled: true, recording: true },
+    settings: { enabled: true, recording: true, consoleLog: true },
     projects: [],
     enabledOrigins: [],
   };

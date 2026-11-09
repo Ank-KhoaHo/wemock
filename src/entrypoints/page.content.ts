@@ -30,6 +30,8 @@ export default defineContentScript({
           }
         },
         now: () => Date.now(),
+        // Captured now, so a page that replaces console later still gets our lines.
+        console: { info: console.info.bind(console), warn: console.warn.bind(console) },
       };
 
       installFetchPatch(window, deps);
