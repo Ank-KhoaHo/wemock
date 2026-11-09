@@ -45,8 +45,8 @@ describe('release manifest (task 10)', () => {
     ? JSON.parse(readFileSync(`${OUT}/manifest.json`, 'utf8'))
     : {};
 
-  it('is version 1.3.0', () => {
-    expect(m.version).toBe('1.3.0');
+  it('is version 1.4.0', () => {
+    expect(m.version).toBe('1.4.0');
   });
 
   it('has icons at 16, 32, 48 and 128, and every file exists', () => {

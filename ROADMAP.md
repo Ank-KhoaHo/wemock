@@ -27,6 +27,11 @@ Socket mocks with a timeline and replies, and SignalR's JSON hub protocol on top
 
 Real sockets in the log, "Mock this socket", and recorded calls to other sites keep their host.
 
+## M1.4 — Smarter replies and faster setup (done in source, 1.4.0)
+
+Conditions on query, headers and body; templates; call sequences; HAR and OpenAPI import;
+bulk scenario actions with Undo; search and fold; keyboard and contrast pass.
+
 ## M2 — Hardening
 
 The rough edges found by daily use of 1.0.0, closed one at a time.
@@ -38,7 +43,6 @@ The first Store release.
 ## Later, if people ask
 
 - Firefox and Edge builds.
-- Matching on query strings and request bodies.
 - Rewriting headers on real calls.
 
 ## Things deliberately not coming

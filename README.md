@@ -11,28 +11,38 @@ you can test the states your backend rarely gives you.
 
 - **Record, then replay.** "Mock this" on a logged call, or "Save as scenario" on a whole
   filtered list. A call to another site keeps its host in the mock, so it matches only that
-  site.
+  site. The Log names the mock that answered each call, with a link to it.
+- **Import.** A HAR file from DevTools' Network tab ("Save all as HAR"), an OpenAPI 3 or
+  Swagger 2 file (JSON or YAML), or Mokku's files. Import asks whether to add to your mocks or
+  replace them.
 - **Scenarios.** A project's Default scenario always applies; the active one overrides it.
+  Select, delete or clear scenarios, with Undo. A filter box and fold arrows keep long lists
+  short.
 - **URL patterns.** `/api/goals/:id`, wildcards (`/files/*rest`), optional host
   (`https://api.example.com/x`), and GraphQL operation names.
+- **Conditions.** "Match only when" a query parameter, a request header or fields of a JSON
+  body have given values (`*` for "present"). Mocks with conditions are tried first.
 - **Any status from 200 to 599**, headers, a delay, and text or **binary** bodies (images,
   PDFs, downloads).
+- **Templates.** A body can say `{{params.id}}`, `{{query.page}}`, `{{headers.x-user}}`,
+  `{{body.user.name}}`, `{{uuid}}`, `{{now}}` or `{{timestamp}}`, filled in per call.
+- **Sequences.** Each call to a mock gets the next reply: "pending, pending, done". The count
+  starts over when the page reloads.
 - **Code replies.** A mock can answer with a few lines of JavaScript that read the call's
   URL parameters, query, body and headers, and set the status. `/doc/:id` with
-  `return { id: params.id }` answers each document by its id.
+  `return { id: params.id }` answers each document by its id. `req.callCount` counts the calls.
 - **WebSocket and SignalR mocks.** A socket mock answers a WebSocket URL with no server:
   messages on a timeline after connecting, and replies to what the client sends, fixed or from
   code. For SignalR hubs (JSON protocol) wemock also answers `negotiate`, the handshake and the
   pings, so `HubConnection.start()`, `on(...)` and `invoke(...)` work as with a real hub.
   Real sockets appear in the log with their messages; **Mock this socket** turns one
   connection into a socket mock, with the server's messages and its timing.
-- **Test bar.** Type a URL in the Mocks tab to see which mock answers and what it returns,
-  without reloading the page.
+- **Test bar.** Type a URL (and request headers, if you like) in the Mocks tab to see which
+  mock answers and what it returns, without reloading the page.
 - **Console line.** Each mocked call writes one line to the page's Console, such as
   `[wemock] GET /doc/1 → 200 mock "Doc one" (12 ms)`. A switch in the panel turns it off.
 - **`fetch`, `XMLHttpRequest` and libraries built on them** (axios included).
-- **Import from Mokku.** Its 2.x export, 1.x storage and mock-file formats all import,
-  function mocks included.
+- **Keyboard.** Every row, button and field works from the keyboard.
 
 Your data stays in your browser (`chrome.storage.local`). wemock sends nothing anywhere.
 
@@ -82,4 +92,4 @@ pick `.output/chrome-mv3`.
 
 ## Status
 
-Version 1.3.0, before its first Store release. Licensed under MIT; see [LICENSE](LICENSE).
+Version 1.4.0, before its first Store release. Licensed under MIT; see [LICENSE](LICENSE).
