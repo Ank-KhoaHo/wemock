@@ -1,8 +1,14 @@
 import { useEffect, useRef } from 'react';
+import type { SiteStatus } from '../core/siteStatus';
 import type { LogEntry } from '../core/types';
 
 export interface LogTableProps {
   entries: LogEntry[];
+  totalCount?: number;
+  siteStatus?: SiteStatus;
+  host?: string;
+  onReload?: () => void;
+  onTurnOn?: () => void;
   selectedEntryId: string | null;
   onSelectEntry: (entry: LogEntry) => void;
 }
@@ -17,7 +23,16 @@ function extractPath(urlStr: string): string {
   }
 }
 
-export function LogTable({ entries, selectedEntryId, onSelectEntry }: LogTableProps) {
+export function LogTable({
+  entries,
+  totalCount,
+  siteStatus = 'on',
+  host = '',
+  onReload,
+  onTurnOn,
+  selectedEntryId,
+  onSelectEntry,
+}: LogTableProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const wasAtBottomRef = useRef(true);
 
@@ -35,6 +50,8 @@ export function LogTable({ entries, selectedEntryId, onSelectEntry }: LogTablePr
       el.scrollTop = el.scrollHeight;
     }
   }, [entries]);
+
+  const effectiveTotal = totalCount !== undefined ? totalCount : entries.length;
 
   return (
     <div
@@ -56,7 +73,41 @@ export function LogTable({ entries, selectedEntryId, onSelectEntry }: LogTablePr
           {entries.length === 0 ? (
             <tr className="empty-row">
               <td colSpan={5} className="empty-cell">
-                No requests recorded
+                {effectiveTotal === 0 ? (
+                  <div data-testid="log-empty" className="log-empty">
+                    <p className="log-empty-text">
+                      {siteStatus === 'site-off'
+                        ? `wemock is off for ${host || 'this site'}. Click the wemock toolbar button, switch it on for this site, then reload the page.`
+                        : siteStatus === 'mocking-off'
+                          ? 'Mocking is off. Calls are still logged; turn it on to serve mocks.'
+                          : siteStatus === 'unknown'
+                            ? 'wemock does not run on this page.'
+                            : 'No calls yet. Reload the page or use it; its fetch, XHR and WebSocket calls appear here.'}
+                    </p>
+                    {(siteStatus === 'on' || siteStatus === 'site-off') && (
+                      <button
+                        type="button"
+                        data-testid="log-empty-reload"
+                        className="btn-secondary btn-sm log-empty-btn"
+                        onClick={onReload}
+                      >
+                        Reload page
+                      </button>
+                    )}
+                    {siteStatus === 'mocking-off' && (
+                      <button
+                        type="button"
+                        data-testid="log-empty-turn-on"
+                        className="btn-primary btn-sm log-empty-btn"
+                        onClick={onTurnOn}
+                      >
+                        Turn on
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  'No requests match filters'
+                )}
               </td>
             </tr>
           ) : (

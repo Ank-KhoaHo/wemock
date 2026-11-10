@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useIsDark } from '../../ui/useIsDark';
 import { exportProject, parseProjectFile } from '../../core/exportFile';
 import { detectHar, harSummaryText, importHar } from '../../core/harImport';
@@ -7,6 +7,7 @@ import { detectOpenApi, importOpenApi, openApiSummaryText, parseSpecText } from 
 import { ensureProject, mockFromLog, scenarioFromLogs } from '../../core/record';
 import { projectForOrigin } from '../../core/scenario';
 import { clearProject, deleteScenarios, mergeProject, replaceProject } from '../../core/scenarioOps';
+import { siteStatus } from '../../core/siteStatus';
 import { socketFromLogs } from '../../core/socketRecord';
 import type { LogEntry, Mock, Project, Scenario, SocketMock } from '../../core/types';
 import { newId } from '../../shared/ids';
@@ -53,8 +54,12 @@ export default function App() {
   const { entries, clear } = useTabLog(tabId);
 
   const [tabOrigin, setTabOrigin] = useState<string>('');
+  const [tabUrl, setTabUrl] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'log' | 'mocks'>('log');
   const [filter, setFilter] = useState('');
+  const [selectedTypes, setSelectedTypes] = useState<Set<'MOCK' | 'real' | 'LATE'>>(new Set());
+  const [selectedMethods, setSelectedMethods] = useState<Set<string>>(new Set());
+  const [selectedStatuses, setSelectedStatuses] = useState<Set<'2xx' | '3xx' | '4xx' | '5xx' | 'other'>>(new Set());
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [isNamingScenario, setIsNamingScenario] = useState(false);
   const [scenarioName, setScenarioName] = useState('');
@@ -106,6 +111,7 @@ export default function App() {
       try {
         const tab = await browser.tabs.get(tabId);
         if (tab?.url) {
+          setTabUrl(tab.url);
           try {
             setTabOrigin(new URL(tab.url).origin);
           } catch {}
@@ -117,6 +123,7 @@ export default function App() {
 
     const onUpdated = (updatedTabId: number, changeInfo: { url?: string }) => {
       if (updatedTabId === tabId && changeInfo.url) {
+        setTabUrl(changeInfo.url);
         try {
           setTabOrigin(new URL(changeInfo.url).origin);
         } catch {}
@@ -160,9 +167,151 @@ export default function App() {
   const enabled = state?.settings.enabled ?? true;
   const consoleLog = state?.settings.consoleLog !== false;
 
-  const filteredEntries = filter
-    ? entries.filter((e) => e.url.toLowerCase().includes(filter.toLowerCase()))
-    : entries;
+  let tabHost = '';
+  try {
+    if (tabUrl) {
+      tabHost = new URL(tabUrl).host;
+    }
+  } catch {}
+
+  const currentSiteStatus = siteStatus(tabUrl, state?.enabledOrigins ?? [], enabled);
+
+  const availableMethods = useMemo(() => {
+    const methodSet = new Set<string>();
+    for (const entry of entries) {
+      if (entry.method.startsWith('WS')) {
+        methodSet.add('WS');
+      } else if (entry.method) {
+        methodSet.add(entry.method);
+      }
+    }
+    const standard = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'WS'];
+    const list = Array.from(methodSet);
+    list.sort((a, b) => {
+      const ia = standard.indexOf(a);
+      const ib = standard.indexOf(b);
+      if (ia !== -1 && ib !== -1) return ia - ib;
+      if (ia !== -1) return -1;
+      if (ib !== -1) return 1;
+      return a.localeCompare(b);
+    });
+    return list;
+  }, [entries]);
+
+  useEffect(() => {
+    setSelectedMethods((prev) => {
+      let changed = false;
+      const next = new Set<string>();
+      for (const m of prev) {
+        if (availableMethods.includes(m)) {
+          next.add(m);
+        } else {
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [availableMethods]);
+
+  const toggleType = (type: 'MOCK' | 'real' | 'LATE') => {
+    setSelectedTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  };
+
+  const toggleMethod = (method: string) => {
+    setSelectedMethods((prev) => {
+      const next = new Set(prev);
+      if (next.has(method)) next.delete(method);
+      else next.add(method);
+      return next;
+    });
+  };
+
+  const toggleStatus = (status: '2xx' | '3xx' | '4xx' | '5xx' | 'other') => {
+    setSelectedStatuses((prev) => {
+      const next = new Set(prev);
+      if (next.has(status)) next.delete(status);
+      else next.add(status);
+      return next;
+    });
+  };
+
+  const handleClearFilters = () => {
+    setFilter('');
+    setSelectedTypes(new Set());
+    setSelectedMethods(new Set());
+    setSelectedStatuses(new Set());
+  };
+
+  const isFiltering =
+    Boolean(filter) ||
+    selectedTypes.size > 0 ||
+    selectedMethods.size > 0 ||
+    selectedStatuses.size > 0;
+
+  const filteredEntries = useMemo(() => {
+    return entries.filter((entry) => {
+      if (filter && !entry.url.toLowerCase().includes(filter.toLowerCase())) {
+        return false;
+      }
+      if (selectedTypes.size > 0 && !selectedTypes.has(entry.badge)) {
+        return false;
+      }
+      if (selectedMethods.size > 0) {
+        const entryMethod = entry.method.startsWith('WS') ? 'WS' : entry.method;
+        if (!selectedMethods.has(entryMethod)) {
+          return false;
+        }
+      }
+      if (selectedStatuses.size > 0) {
+        let matched = false;
+        for (const st of selectedStatuses) {
+          if (st === '2xx' && entry.status >= 200 && entry.status <= 299) {
+            matched = true;
+            break;
+          }
+          if (st === '3xx' && entry.status >= 300 && entry.status <= 399) {
+            matched = true;
+            break;
+          }
+          if (st === '4xx' && entry.status >= 400 && entry.status <= 499) {
+            matched = true;
+            break;
+          }
+          if (st === '5xx' && entry.status >= 500 && entry.status <= 599) {
+            matched = true;
+            break;
+          }
+          if (st === 'other' && (entry.status < 200 || entry.status >= 600)) {
+            matched = true;
+            break;
+          }
+        }
+        if (!matched) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [entries, filter, selectedTypes, selectedMethods, selectedStatuses]);
+
+  const handleReloadTab = () => {
+    if (tabId <= 0 || typeof browser === 'undefined' || !browser.tabs?.reload) return;
+    try {
+      browser.tabs.reload(tabId).catch?.(() => {});
+    } catch {}
+  };
+
+  const handleTurnOn = () => {
+    update((s) => ({
+      ...s,
+      settings: { ...s.settings, enabled: true },
+    })).catch(() => {});
+  };
 
   const selectedEntry = entries.find((e) => e.id === selectedEntryId) ?? null;
 
@@ -853,6 +1002,85 @@ export default function App() {
               >
                 Clear
               </button>
+              <div className="log-filter-chips">
+                <div className="log-chip-group" role="group" aria-label="Filter by type">
+                  <button
+                    type="button"
+                    data-testid="log-chip-type-MOCK"
+                    className={`log-filter-chip ${selectedTypes.has('MOCK') ? 'active' : ''}`}
+                    aria-pressed={selectedTypes.has('MOCK') ? 'true' : 'false'}
+                    onClick={() => toggleType('MOCK')}
+                  >
+                    MOCK
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="log-chip-type-real"
+                    className={`log-filter-chip ${selectedTypes.has('real') ? 'active' : ''}`}
+                    aria-pressed={selectedTypes.has('real') ? 'true' : 'false'}
+                    onClick={() => toggleType('real')}
+                  >
+                    real
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="log-chip-type-LATE"
+                    className={`log-filter-chip ${selectedTypes.has('LATE') ? 'active' : ''}`}
+                    aria-pressed={selectedTypes.has('LATE') ? 'true' : 'false'}
+                    onClick={() => toggleType('LATE')}
+                  >
+                    LATE
+                  </button>
+                </div>
+
+                {availableMethods.length > 0 && (
+                  <div className="log-chip-group" role="group" aria-label="Filter by method">
+                    {availableMethods.map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        data-testid={`log-chip-method-${m}`}
+                        className={`log-filter-chip ${selectedMethods.has(m) ? 'active' : ''}`}
+                        aria-pressed={selectedMethods.has(m) ? 'true' : 'false'}
+                        onClick={() => toggleMethod(m)}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="log-chip-group" role="group" aria-label="Filter by status">
+                  {(['2xx', '3xx', '4xx', '5xx', 'other'] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      data-testid={`log-chip-status-${s}`}
+                      className={`log-filter-chip ${selectedStatuses.has(s) ? 'active' : ''}`}
+                      aria-pressed={selectedStatuses.has(s) ? 'true' : 'false'}
+                      onClick={() => toggleStatus(s)}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+
+                {isFiltering && (
+                  <div className="log-filter-feedback">
+                    <span data-testid="log-filter-count" className="log-filter-count">
+                      {filteredEntries.length} of {entries.length}
+                    </span>
+                    <button
+                      type="button"
+                      data-testid="log-filter-clear"
+                      className="log-filter-clear-btn"
+                      onClick={handleClearFilters}
+                    >
+                      Clear filters
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="toolbar-right">
               {!isNamingScenario ? (
@@ -902,6 +1130,11 @@ export default function App() {
             <div className="panel-split-left">
               <LogTable
                 entries={filteredEntries}
+                totalCount={entries.length}
+                siteStatus={currentSiteStatus}
+                host={tabHost}
+                onReload={handleReloadTab}
+                onTurnOn={handleTurnOn}
                 selectedEntryId={selectedEntryId}
                 onSelectEntry={(entry) => setSelectedEntryId(entry.id)}
               />

@@ -393,6 +393,12 @@ export function MockList({
         )}
       </div>
 
+      {totalItems === 0 && (
+        <div data-testid="mocks-empty" className="mocks-empty">
+          No mocks yet. Click a call in the Log, then Mock this, or import a file.
+        </div>
+      )}
+
       {/* Scenarios list with their mocks */}
       <div className="scenarios-list">
         {scenarios.map((sc) => {
