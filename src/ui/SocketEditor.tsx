@@ -19,6 +19,21 @@ export function getPushDataError(kind: 'signalr' | 'plain', data: string): strin
   }
 }
 
+export function getReplyResultError(reply: SocketReply): string | null {
+  if (reply.respond !== 'stream') return null;
+  const trimmed = reply.result.trim();
+  if (!trimmed) return 'Items must be a JSON array';
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (!Array.isArray(parsed)) {
+      return 'Items must be a JSON array';
+    }
+    return null;
+  } catch {
+    return 'Items must be a JSON array';
+  }
+}
+
 interface PushRowProps {
   push: SocketPush;
   kind: 'signalr' | 'plain';
@@ -126,8 +141,11 @@ export function SocketEditor({ socket, onSave, onDelete, onDuplicate }: SocketEd
   const hasReplyPushError = draft.replies.some((r) =>
     r.pushes.some((p) => getPushDataError(draft.kind, p.data) !== null),
   );
+  const hasReplyResultError = draft.replies.some(
+    (r) => getReplyResultError(r) !== null,
+  );
 
-  const canSave = !patternError && !hasOnConnectError && !hasReplyPushError;
+  const canSave = !patternError && !hasOnConnectError && !hasReplyPushError && !hasReplyResultError;
 
   const handleSave = () => {
     if (!canSave || !draft) return;
@@ -285,9 +303,21 @@ export function SocketEditor({ socket, onSave, onDelete, onDuplicate }: SocketEd
               data-testid="socket-kind"
               className="select-input"
               value={draft.kind}
-              onChange={(e) =>
-                setDraft({ ...draft, kind: e.target.value as 'signalr' | 'plain' })
-              }
+              onChange={(e) => {
+                const nextKind = e.target.value as 'signalr' | 'plain';
+                setDraft({
+                  ...draft,
+                  kind: nextKind,
+                  replies:
+                    nextKind === 'plain'
+                      ? draft.replies.map((r) =>
+                          r.respond === 'error' || r.respond === 'stream'
+                            ? { ...r, respond: 'fixed' as const }
+                            : r,
+                        )
+                      : draft.replies,
+                });
+              }}
             >
               <option value="signalr">SignalR (JSON)</option>
               <option value="plain">Plain WebSocket</option>
@@ -383,12 +413,18 @@ export function SocketEditor({ socket, onSave, onDelete, onDuplicate }: SocketEd
                       onChange={(e) =>
                         handleUpdateReply(rIdx, (r) => ({
                           ...r,
-                          respond: e.target.value as 'fixed' | 'code',
+                          respond: e.target.value as SocketReply['respond'],
                         }))
                       }
                     >
                       <option value="fixed">Fixed</option>
                       <option value="code">Code</option>
+                      {draft.kind === 'signalr' && (
+                        <>
+                          <option value="error">Error</option>
+                          <option value="stream">Stream</option>
+                        </>
+                      )}
                     </select>
                   </div>
 
@@ -406,24 +442,7 @@ export function SocketEditor({ socket, onSave, onDelete, onDuplicate }: SocketEd
                 </div>
 
                 <div className="reply-body-group">
-                  {reply.respond === 'fixed' ? (
-                    <div className="form-group">
-                      <label className="field-label">
-                        {draft.kind === 'signalr'
-                          ? 'Result (JSON, empty = none)'
-                          : 'Reply text (empty = none)'}
-                      </label>
-                      <input
-                        type="text"
-                        data-testid="reply-result"
-                        className="text-input"
-                        value={reply.result}
-                        onChange={(e) =>
-                          handleUpdateReply(rIdx, (r) => ({ ...r, result: e.target.value }))
-                        }
-                      />
-                    </div>
-                  ) : (
+                  {reply.respond === 'code' ? (
                     <div className="form-group">
                       <label className="field-label">Code</label>
                       <textarea
@@ -438,6 +457,32 @@ export function SocketEditor({ socket, onSave, onDelete, onDuplicate }: SocketEd
                       <div className="field-help-text">
                         Return the result. body holds the client&apos;s arguments (SignalR) or text (plain). Runs in a sandbox, at most 1 s.
                       </div>
+                    </div>
+                  ) : (
+                    <div className="form-group">
+                      <label className="field-label">
+                        {reply.respond === 'error'
+                          ? 'Error message'
+                          : reply.respond === 'stream'
+                            ? 'Items (JSON array)'
+                            : draft.kind === 'signalr'
+                              ? 'Result (JSON, empty = none)'
+                              : 'Reply text (empty = none)'}
+                      </label>
+                      <input
+                        type="text"
+                        data-testid="reply-result"
+                        className={`text-input ${getReplyResultError(reply) ? 'input-error' : ''}`}
+                        value={reply.result}
+                        onChange={(e) =>
+                          handleUpdateReply(rIdx, (r) => ({ ...r, result: e.target.value }))
+                        }
+                      />
+                      {getReplyResultError(reply) && (
+                        <div data-testid="reply-result-error" className="error-message">
+                          {getReplyResultError(reply)}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

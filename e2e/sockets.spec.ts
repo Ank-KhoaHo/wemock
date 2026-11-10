@@ -76,14 +76,20 @@ test('SignalR: negotiate, handshake, a push on connect, an invoke with a result 
       for (let i = 0; i < 50 && got.length < 1; i++) await new Promise((r) => setTimeout(r, 20));
       const sent = await c.invoke('Send', 'hello');
       for (let i = 0; i < 50 && got.length < 2; i++) await new Promise((r) => setTimeout(r, 20));
-      const noRule = await c.invoke('Unknown', 1);
+      // A31: a method with no reply fails as on a real hub.
+      let noRule = '';
+      try {
+        await c.invoke('Unknown', 1);
+      } catch (e) {
+        noRule = String(e);
+      }
       await c.stop();
-      return { got, sent, noRule: noRule === undefined ? 'undefined' : noRule, started, stopped: c.state };
+      return { got, sent, noRule, started, stopped: c.state };
     });
     expect(out).toEqual({
       got: [['Receive', 'bot', 'hi'], ['Echo', 'echoed']],
       sent: { ok: true },
-      noRule: 'undefined',
+      noRule: "Error: Failed to invoke 'Unknown' due to an error on the server. HubException: Method does not exist.",
       started: 'Connected',
       stopped: 'Disconnected',
     });

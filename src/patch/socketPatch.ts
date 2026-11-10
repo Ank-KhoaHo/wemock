@@ -112,6 +112,7 @@ export function installSocketPatch(win: Window, deps: PatchDeps): () => void {
     private readonly _mock: SocketMock;
     private readonly _origin: string;
     private readonly _timers = new Set<ReturnType<typeof setTimeout>>();
+    private readonly _streamTimers = new Map<string, Set<ReturnType<typeof setTimeout>>>();
     private _ping: ReturnType<typeof setInterval> | null = null;
     private _handshakeDone = false;
     private readonly _connectionId = newConnectionId();
@@ -170,6 +171,7 @@ export function installSocketPatch(win: Window, deps: PatchDeps): () => void {
       this.readyState = CLOSING;
       for (const t of this._timers) clearTimeout(t);
       this._timers.clear();
+      this._streamTimers.clear();
       if (this._ping !== null) clearInterval(this._ping);
       this._ping = null;
       setTimeout(() => {
@@ -178,7 +180,7 @@ export function installSocketPatch(win: Window, deps: PatchDeps): () => void {
       }, 0);
     }
 
-    private _later(ms: number, fn: () => void): void {
+    private _later(ms: number, fn: () => void): ReturnType<typeof setTimeout> {
       const t = setTimeout(() => {
         this._timers.delete(t);
         try {
@@ -188,6 +190,7 @@ export function installSocketPatch(win: Window, deps: PatchDeps): () => void {
         }
       }, Math.max(0, ms));
       this._timers.add(t);
+      return t;
     }
 
     private _emit(type: string, ev: Event): void {
@@ -206,8 +209,34 @@ export function installSocketPatch(win: Window, deps: PatchDeps): () => void {
     }
 
     /** Like a real server: never inside the page's send(), and in the order queued. */
-    private _serverSend(text: string, logText: string | null): void {
-      this._later(0, () => this._deliver(text, logText));
+    private _serverSend(text: string, logText: string | null, delayMs = 0): ReturnType<typeof setTimeout> {
+      return this._later(delayMs, () => this._deliver(text, logText));
+    }
+
+    private _sendStream(invocationId: string, items: unknown[]): void {
+      const timers = new Set<ReturnType<typeof setTimeout>>();
+      this._streamTimers.set(invocationId, timers);
+
+      const track = (t: ReturnType<typeof setTimeout>) => {
+        timers.add(t);
+      };
+
+      items.forEach((item, index) => {
+        const msg = frame({ type: MessageType.StreamItem, invocationId, item });
+        const delay = index * 10;
+        const t = this._serverSend(msg, msg.slice(0, -1), delay);
+        track(t);
+      });
+
+      const compDelay = items.length === 0 ? 0 : items.length * 10;
+      const compMsg = completionMessage(invocationId, { has: false });
+      const compTimer = this._serverSend(compMsg, compMsg.slice(0, -1), compDelay);
+      track(compTimer);
+
+      const cleanupTimer = this._later(compDelay, () => {
+        this._streamTimers.delete(invocationId);
+      });
+      track(cleanupTimer);
     }
 
     private _deliver(text: string, logText: string | null): void {
@@ -288,18 +317,104 @@ export function installSocketPatch(win: Window, deps: PatchDeps): () => void {
         this._shut(1000, '');
         return;
       }
-      if (msg.type === MessageType.StreamInvocation && msg.invocationId !== undefined) {
-        const res = completionMessage(msg.invocationId, { has: false }, 'wemock does not mock streams');
-        this._serverSend(res, res.slice(0, -1));
+      if (msg.type === MessageType.CancelInvocation) {
+        if (msg.invocationId !== undefined) {
+          const timers = this._streamTimers.get(msg.invocationId);
+          if (timers) {
+            for (const t of timers) {
+              clearTimeout(t);
+              this._timers.delete(t);
+            }
+            this._streamTimers.delete(msg.invocationId);
+          }
+        }
+        return;
+      }
+      if (msg.type === MessageType.StreamInvocation) {
+        const rule = this._mock.replies.find((r) => r.when === msg.target);
+        if (!rule) {
+          if (msg.invocationId !== undefined) {
+            const err = `Failed to invoke '${msg.target ?? ''}' due to an error on the server. HubException: Method does not exist.`;
+            const res = completionMessage(msg.invocationId, { has: false }, err);
+            this._serverSend(res, res.slice(0, -1));
+          }
+          return;
+        }
+        if (rule.respond === 'error') {
+          if (msg.invocationId !== undefined) {
+            const err = rule.result.trim() ? rule.result : 'An error occurred on the server.';
+            const res = completionMessage(msg.invocationId, { has: false }, err);
+            this._serverSend(res, res.slice(0, -1));
+          }
+          this._timeline(rule.pushes);
+          return;
+        }
+        if (rule.respond === 'stream') {
+          if (msg.invocationId !== undefined) {
+            let items: unknown[] = [];
+            try {
+              const parsed = JSON.parse(rule.result);
+              if (Array.isArray(parsed)) {
+                items = parsed;
+              }
+            } catch {
+              items = [];
+            }
+            this._sendStream(msg.invocationId, items);
+          }
+          this._timeline(rule.pushes);
+          return;
+        }
+        // 'fixed' or 'code'
+        const answer = await this._answer(rule, JSON.stringify(msg.arguments ?? []));
+        if (answer.error) this._warn(answer.error);
+        if (msg.invocationId !== undefined) {
+          if (answer.error !== undefined) {
+            const res = completionMessage(msg.invocationId, { has: false }, answer.error);
+            this._serverSend(res, res.slice(0, -1));
+          } else {
+            const items = Array.isArray(answer.value)
+              ? answer.value
+              : answer.has
+                ? [answer.value]
+                : [];
+            this._sendStream(msg.invocationId, items);
+          }
+        }
+        this._timeline(rule.pushes);
         return;
       }
       if (msg.type !== MessageType.Invocation) return;
       const rule = this._mock.replies.find((r) => r.when === msg.target);
       if (!rule) {
         if (msg.invocationId !== undefined) {
-          const res = completionMessage(msg.invocationId, { has: false });
+          const err = `Failed to invoke '${msg.target ?? ''}' due to an error on the server. HubException: Method does not exist.`;
+          const res = completionMessage(msg.invocationId, { has: false }, err);
           this._serverSend(res, res.slice(0, -1));
         }
+        return;
+      }
+      if (rule.respond === 'error') {
+        if (msg.invocationId !== undefined) {
+          const err = rule.result.trim() ? rule.result : 'An error occurred on the server.';
+          const res = completionMessage(msg.invocationId, { has: false }, err);
+          this._serverSend(res, res.slice(0, -1));
+        }
+        this._timeline(rule.pushes);
+        return;
+      }
+      if (rule.respond === 'stream') {
+        if (msg.invocationId !== undefined) {
+          let items: unknown = [];
+          try {
+            items = JSON.parse(rule.result);
+          } catch {
+            items = [];
+          }
+          const res = completionMessage(msg.invocationId, { has: true, value: items });
+          this._serverSend(res, res.slice(0, -1));
+        }
+        this._timeline(rule.pushes);
         return;
       }
       const answer = await this._answer(rule, JSON.stringify(msg.arguments ?? []));

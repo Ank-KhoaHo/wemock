@@ -89,7 +89,8 @@ describe('socketPatch', () => {
     expect(closed).toBe(true);
   });
 
-  it('a stream invocation gets an error completion', async () => {
+  // A32: a stream with no reply is an unknown method, as on a real hub.
+  it('a stream invocation with no reply gets an error completion', async () => {
     const { WS } = setup(on);
     const ws = new WS('ws://a.test/hub');
     const got = collect(ws);
@@ -97,7 +98,7 @@ describe('socketPatch', () => {
     ws.send(`{"protocol":"json","version":1}${RS}`);
     ws.send(`{"type":4,"invocationId":"7","target":"Counter","arguments":[]}${RS}`);
     await vi.advanceTimersByTimeAsync(5);
-    expect(got[1]).toBe(`{"type":3,"invocationId":"7","error":"wemock does not mock streams"}${RS}`);
+    expect(got[1]).toBe(`{"type":3,"invocationId":"7","error":"Failed to invoke 'Counter' due to an error on the server. HubException: Method does not exist."}${RS}`);
   });
 
   it('rejects a reserved close code like the native socket', () => {

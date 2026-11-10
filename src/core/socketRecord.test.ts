@@ -53,12 +53,15 @@ describe('socketFromLogs (A6)', () => {
       kind: 'signalr',
       urlPattern: '/hubs/chat',
       createdAt: 5,
+      // A30: Echo came in the same frame as Send's answer, so it is Send's push.
       onConnect: [
         { id: expect.any(String), afterMs: 500, target: 'Receive', data: '["bot","hi"]' },
-        { id: expect.any(String), afterMs: 1010, target: 'Echo', data: '[1]' },
       ],
       replies: [
-        { id: expect.any(String), when: 'Send', respond: 'fixed', result: '{"ok":true}', pushes: [] },
+        { id: expect.any(String), when: 'Send', respond: 'fixed', result: '{"ok":true}',
+          pushes: [{ id: expect.any(String), afterMs: 0, target: 'Echo', data: '[1]' }] },
+        // A31: an error completion is kept as an error reply.
+        { id: expect.any(String), when: 'Boom', respond: 'error', result: 'bad', pushes: [] },
         { id: expect.any(String), when: 'Ping', respond: 'fixed', result: '', pushes: [] },
       ],
     });

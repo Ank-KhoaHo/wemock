@@ -35,7 +35,8 @@ you can test the states your backend rarely gives you.
 - **WebSocket and SignalR mocks.** A socket mock answers a WebSocket URL with no server:
   messages on a timeline after connecting, and replies to what the client sends, fixed or from
   code. For SignalR hubs (JSON protocol) wemock also answers `negotiate`, the handshake and the
-  pings, so `HubConnection.start()`, `on(...)` and `invoke(...)` work as with a real hub.
+  pings, so `HubConnection.start()`, `on(...)`, `invoke(...)` and `stream(...)` work as with a real
+  hub, errors included.
   Real sockets appear in the log with their messages; **Mock this socket** turns one
   connection into a socket mock, with the server's messages and its timing.
 - **Test bar.** Type a URL (and request headers, if you like) in the Mocks tab to see which
@@ -79,7 +80,7 @@ pick `.output/chrome-mv3`.
 - Calls made by Service Workers and Server-Sent Events are not seen.
 - A real socket logs at most 200 messages. "Mock this socket" replays a plain socket's
   messages on a timeline; it cannot tell which message answered which.
-- SignalR mocks speak the JSON hub protocol only, not MessagePack, and do not mock streams.
+- SignalR mocks speak the JSON hub protocol only, not MessagePack.
 - Mocked calls do not appear in DevTools' Network tab: they never leave the page. Use the
   wemock log or the Console line.
 - Code replies run in a sandboxed extension page with no access to the page or to wemock,

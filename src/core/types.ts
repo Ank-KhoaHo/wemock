@@ -65,7 +65,8 @@ export interface SocketReply {
   id: string;
   /** SignalR: the hub method the client invokes. Plain: text the frame contains ('' = any). */
   when: string;
-  respond: 'fixed' | 'code';
+  /** A31 error = result is the error text; A32 stream = result is a JSON array of items. */
+  respond: 'fixed' | 'code' | 'error' | 'stream';
   /** SignalR: JSON of the completion result ('' = none). Plain: text sent back ('' = none). */
   result: string;
   /** respond 'code': an async function body, run in the A2 sandbox. */

@@ -225,7 +225,9 @@ function validateSocket(v: unknown): Check<SocketMock> {
     if (!isObj(r) || typeof r.id !== 'string' || typeof r.when !== 'string' || typeof r.result !== 'string') {
       return { ok: false, error: 'Socket reply needs a string id, when and result' };
     }
-    if (r.respond !== 'fixed' && r.respond !== 'code') return { ok: false, error: `Invalid socket reply respond: ${String(r.respond)}` };
+    if (r.respond !== 'fixed' && r.respond !== 'code' && r.respond !== 'error' && r.respond !== 'stream') {
+      return { ok: false, error: `Invalid socket reply respond: ${String(r.respond)}` };
+    }
     if (r.code !== undefined && typeof r.code !== 'string') return { ok: false, error: 'Socket reply code must be a string' };
     const pushes = validatePushes(r.pushes, 'Socket reply pushes');
     if (!pushes.ok) return pushes;

@@ -93,6 +93,12 @@ test('real hub through wemock, then the same client against the recorded mock', 
     expect(sock.urlPattern).toBe(new URL(HUB_URL).origin + '/hubs/shop');
     expect(sock.onConnect.map((p) => [p.target, p.data])).toContainEqual(['Notify', '["Welcome back",3]']);
     expect(sock.replies.map((r) => [r.when, r.result])).toEqual(expect.arrayContaining([['Double', '{"n":42}'], ['Echo', '"echo:hi"']]));
+    // A30: GroupMsg came right after Join's answer, so it is Join's push, not an on-connect message.
+    expect(sock.onConnect.map((p) => p.target)).not.toContain('GroupMsg');
+    expect(sock.replies.find((r) => r.when === 'Join')?.pushes.map((p) => p.target)).toEqual(['GroupMsg']);
+    // A31, A32: the error and the stream are kept.
+    expect(sock.replies.find((r) => r.when === 'Fail')?.respond).toBe('error');
+    expect(sock.replies.find((r) => r.when === 'Counter')).toMatchObject({ respond: 'stream', result: '[1,2,3]' });
 
     // 3. The hub is gone; the mock answers the same client code.
     execSync(`docker stop ${HUB_NAME}`, { stdio: 'ignore' });
@@ -103,6 +109,9 @@ test('real hub through wemock, then the same client against the recorded mock', 
     expect(mocked.notify).toEqual([['Welcome back', 3]]);
     expect(mocked.doubled).toEqual({ n: 42 });
     expect(mocked.echoed).toBe('echo:hi');
+    expect(mocked.group).toEqual([['g1', 'joined']]);
+    expect(mocked.stream).toEqual([1, 2, 3]);
+    expect(mocked.failed).toContain('nope');
     await expect(rows.filter({ hasText: 'MOCK' }).filter({ hasText: '101' }).first()).toBeVisible();
   } finally {
     await s.context.close();
