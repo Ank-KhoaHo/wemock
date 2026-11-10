@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>wemock real app: axios</title></head>
+<body>
+<h1>axios shop</h1>
+<pre id="products"></pre>
+<button id="run">Run</button>
+<pre id="out"></pre>
+<script src="/axios.js"></script>
+<script>
+// A26: a real axios 1.x client the way apps set one up: an instance with a base URL, a request
+// interceptor that adds the auth header, a response interceptor that unwraps data, and cancelling.
+const api = axios.create({ baseURL: '/api', timeout: 5000 });
+api.interceptors.request.use((config) => {
+  if (config.url === '/me') config.headers.Authorization = 'Bearer abc';
+  return config;
+});
+api.interceptors.response.use(
+  (res) => ({ status: res.status, body: res.data }),
+  (err) => {
+    if (axios.isCancel(err)) return Promise.reject(err);
+    if (err.response) return { status: err.response.status, body: err.response.data };
+    return Promise.reject(err);
+  },
+);
+
+api.get('/products').then((r) => { document.getElementById('products').textContent = JSON.stringify(r); });
+
+async function runAll() {
+  const out = {};
+  out.user = await api.get('/users/7');
+  out.polls = [];
+  for (let i = 0; i < 3; i++) out.polls.push(await api.get('/orders/1/status'));
+  out.cart = await api.post('/cart', { sku: 'tea', qty: 2 });
+  out.me = await api.get('/me');
+  const ac = new AbortController();
+  const slow = api.get('/slow', { signal: ac.signal });
+  setTimeout(() => ac.abort(), 50);
+  try {
+    out.slow = await slow;
+  } catch (e) {
+    out.slow = axios.isCancel(e) ? 'CanceledError' : String(e);
+  }
+  out.real = await api.get('/goals');
+  return out;
+}
+
+document.getElementById('run').addEventListener('click', async () => {
+  const r = await runAll();
+  window.__results = r;
+  document.getElementById('out').textContent = JSON.stringify(r);
+});
+</script>
+</body>
+</html>

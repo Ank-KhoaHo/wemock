@@ -109,6 +109,22 @@ export function startFixtureServer(host = '127.0.0.1', port = 0): Promise<Fixtur
       return;
     }
 
+    // A26: real apps (React, axios, Angular), built into e2e/fixture/apps/<name>/.
+    if (req.method === 'GET' && pathname.startsWith('/apps/')) {
+      const root = path.resolve('e2e/fixture/apps');
+      let file = path.resolve(root, '.' + pathname.slice('/apps'.length));
+      if (pathname.endsWith('/')) file = path.join(file, 'index.html');
+      if (file.startsWith(root) && fs.existsSync(file) && fs.statSync(file).isFile()) {
+        const types: Record<string, string> = {
+          '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8',
+          '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml',
+        };
+        res.writeHead(200, { 'content-type': types[path.extname(file)] ?? 'application/octet-stream' });
+        res.end(fs.readFileSync(file));
+        return;
+      }
+    }
+
     res.writeHead(404, { 'content-type': 'text/plain' });
     res.end('Not found');
   });
