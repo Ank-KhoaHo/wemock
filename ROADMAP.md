@@ -37,6 +37,11 @@ bulk scenario actions with Undo; search and fold; keyboard and contrast pass.
 Duplicate mocks and scenarios, one-scenario files, Log filters and HAR export, help in an empty
 panel; checked on real React, axios and Angular apps, a real SignalR hub, and a load test.
 
+## M1.6 — SignalR like a real hub (done in source, 1.6.0)
+
+Errors and streams in SignalR mocks, and recorded pushes that stay with the call that caused them;
+checked against a real ASP.NET Core hub.
+
 ## M2 — Hardening
 
 The rough edges found by daily use of 1.0.0, closed one at a time.
