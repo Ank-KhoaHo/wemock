@@ -98,10 +98,11 @@ export interface SocketEditorProps {
   socket: SocketMock | null;
   onSave: (socket: SocketMock) => void;
   onDelete: (socketId: string) => void;
+  onDuplicate?: (socketId: string) => void;
   isDark?: boolean;
 }
 
-export function SocketEditor({ socket, onSave, onDelete }: SocketEditorProps) {
+export function SocketEditor({ socket, onSave, onDelete, onDuplicate }: SocketEditorProps) {
   const [draft, setDraft] = useState<SocketMock | null>(socket);
 
   useEffect(() => {
@@ -232,6 +233,16 @@ export function SocketEditor({ socket, onSave, onDelete }: SocketEditorProps) {
           <span className="mock-id-badge">{draft.kind}</span>
         </div>
         <div className="mock-editor-actions">
+          {onDuplicate && (
+            <button
+              type="button"
+              data-testid="socket-duplicate"
+              className="btn-secondary"
+              onClick={() => onDuplicate(draft.id)}
+            >
+              Duplicate
+            </button>
+          )}
           <button
             type="button"
             data-testid="socket-delete"

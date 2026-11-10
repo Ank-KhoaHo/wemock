@@ -181,3 +181,242 @@ export function replaceProject(target: Project, incoming: Project): Project {
     })),
   };
 }
+
+/**
+ * Duplicates a mock in scenarioId, placing the copy immediately after the original.
+ * Named "<name> (copy)" or "<urlPattern> (copy)".
+ * Returns updated project and the new mock id, or unchanged project and null if not found.
+ * Pure function: does not modify inputs.
+ */
+export function duplicateMock(
+  project: Project,
+  scenarioId: string,
+  mockId: string,
+  newId: () => string,
+): { project: Project; newId: string | null } {
+  const scIndex = project.scenarios.findIndex((s) => s.id === scenarioId);
+  if (scIndex === -1) {
+    return { project, newId: null };
+  }
+  const targetScenario = project.scenarios[scIndex]!;
+  const mockIndex = targetScenario.mocks.findIndex((m) => m.id === mockId);
+  if (mockIndex === -1) {
+    return { project, newId: null };
+  }
+
+  const origMock = targetScenario.mocks[mockIndex]!;
+  const copyId = newId();
+  const copyName =
+    (origMock.name && origMock.name.trim() ? origMock.name : origMock.urlPattern) + ' (copy)';
+
+  const copiedMock: Mock = {
+    ...origMock,
+    id: copyId,
+    name: copyName,
+  };
+
+  const nextMocks = [
+    ...targetScenario.mocks.slice(0, mockIndex + 1),
+    copiedMock,
+    ...targetScenario.mocks.slice(mockIndex + 1),
+  ];
+
+  const updatedScenarios = project.scenarios.map((s, idx) =>
+    idx === scIndex
+      ? { ...s, mocks: nextMocks, sockets: s.sockets ? [...s.sockets] : undefined }
+      : { ...s, mocks: [...s.mocks], sockets: s.sockets ? [...s.sockets] : undefined },
+  );
+
+  return {
+    project: {
+      ...project,
+      origins: [...project.origins],
+      scenarios: updatedScenarios,
+    },
+    newId: copyId,
+  };
+}
+
+/**
+ * Duplicates a socket mock in scenarioId, placing the copy immediately after the original.
+ * Named "<name> (copy)" or "<urlPattern> (copy)".
+ * Every push and reply (and their pushes) gets a new id.
+ * Returns updated project and the new socket id, or unchanged project and null if not found.
+ * Pure function: does not modify inputs.
+ */
+export function duplicateSocket(
+  project: Project,
+  scenarioId: string,
+  socketId: string,
+  newId: () => string,
+): { project: Project; newId: string | null } {
+  const scIndex = project.scenarios.findIndex((s) => s.id === scenarioId);
+  if (scIndex === -1) {
+    return { project, newId: null };
+  }
+  const targetScenario = project.scenarios[scIndex]!;
+  const sockets = targetScenario.sockets ?? [];
+  const socketIndex = sockets.findIndex((s) => s.id === socketId);
+  if (socketIndex === -1) {
+    return { project, newId: null };
+  }
+
+  const origSocket = sockets[socketIndex]!;
+  const copyId = newId();
+  const copyName =
+    (origSocket.name && origSocket.name.trim() ? origSocket.name : origSocket.urlPattern) + ' (copy)';
+
+  const copiedSocket: SocketMock = {
+    ...origSocket,
+    id: copyId,
+    name: copyName,
+    onConnect: origSocket.onConnect.map((p) => ({ ...p, id: newId() })),
+    replies: origSocket.replies.map((r) => ({
+      ...r,
+      id: newId(),
+      pushes: r.pushes.map((p) => ({ ...p, id: newId() })),
+    })),
+  };
+
+  const nextSockets = [
+    ...sockets.slice(0, socketIndex + 1),
+    copiedSocket,
+    ...sockets.slice(socketIndex + 1),
+  ];
+
+  const updatedScenarios = project.scenarios.map((s, idx) =>
+    idx === scIndex
+      ? { ...s, mocks: [...s.mocks], sockets: nextSockets }
+      : { ...s, mocks: [...s.mocks], sockets: s.sockets ? [...s.sockets] : undefined },
+  );
+
+  return {
+    project: {
+      ...project,
+      origins: [...project.origins],
+      scenarios: updatedScenarios,
+    },
+    newId: copyId,
+  };
+}
+
+/**
+ * Duplicates a scenario, placing the copy immediately after the original.
+ * Named with uniqueName. Every mock and socket (and pushes and replies) gets a new id.
+ * Default can be duplicated; the copy is an ordinary scenario. Active scenario does not change.
+ * Pure function: does not modify inputs.
+ */
+export function duplicateScenario(
+  project: Project,
+  scenarioId: string,
+  newId: () => string,
+): { project: Project; newId: string | null } {
+  const scIndex = project.scenarios.findIndex((s) => s.id === scenarioId);
+  if (scIndex === -1) {
+    return { project, newId: null };
+  }
+
+  const origScenario = project.scenarios[scIndex]!;
+  const allNames = project.scenarios.map((s) => s.name);
+  const copyName = uniqueName(origScenario.name, allNames);
+  const copyScenarioId = newId();
+
+  const copyMocks = origScenario.mocks.map((m) => ({ ...m, id: newId() }));
+  const copySockets = origScenario.sockets?.map((socket) => ({
+    ...socket,
+    id: newId(),
+    onConnect: socket.onConnect.map((p) => ({ ...p, id: newId() })),
+    replies: socket.replies.map((r) => ({
+      ...r,
+      id: newId(),
+      pushes: r.pushes.map((p) => ({ ...p, id: newId() })),
+    })),
+  }));
+
+  const copiedScenario: Scenario = {
+    ...origScenario,
+    id: copyScenarioId,
+    name: copyName,
+    mocks: copyMocks,
+    ...(copySockets !== undefined ? { sockets: copySockets } : {}),
+  };
+
+  const updatedScenarios = [
+    ...project.scenarios.slice(0, scIndex + 1).map((s) => ({
+      ...s,
+      mocks: [...s.mocks],
+      sockets: s.sockets ? [...s.sockets] : undefined,
+    })),
+    copiedScenario,
+    ...project.scenarios.slice(scIndex + 1).map((s) => ({
+      ...s,
+      mocks: [...s.mocks],
+      sockets: s.sockets ? [...s.sockets] : undefined,
+    })),
+  ];
+
+  return {
+    project: {
+      ...project,
+      origins: [...project.origins],
+      scenarios: updatedScenarios,
+      activeScenarioId: project.activeScenarioId,
+    },
+    newId: copyScenarioId,
+  };
+}
+
+/**
+ * Appends a scenario at the end with uniqueName and new ids everywhere.
+ * A scenario named "Default" becomes "Default (2)" and never goes into Default.
+ * Active scenario does not change.
+ * Pure function: does not modify inputs.
+ */
+export function addScenario(
+  project: Project,
+  scenario: Scenario,
+  newId: () => string,
+): Project {
+  const allNames = project.scenarios.map((s) => s.name);
+  let name = scenario.name;
+  if (name === 'Default') {
+    name = uniqueName('Default', ['Default', ...allNames]);
+  } else {
+    name = uniqueName(name, allNames);
+  }
+
+  const copyScenarioId = newId();
+  const copyMocks = scenario.mocks.map((m) => ({ ...m, id: newId() }));
+  const copySockets = scenario.sockets?.map((socket) => ({
+    ...socket,
+    id: newId(),
+    onConnect: socket.onConnect.map((p) => ({ ...p, id: newId() })),
+    replies: socket.replies.map((r) => ({
+      ...r,
+      id: newId(),
+      pushes: r.pushes.map((p) => ({ ...p, id: newId() })),
+    })),
+  }));
+
+  const addedScenario: Scenario = {
+    ...scenario,
+    id: copyScenarioId,
+    name,
+    mocks: copyMocks,
+    ...(copySockets !== undefined ? { sockets: copySockets } : {}),
+  };
+
+  return {
+    ...project,
+    origins: [...project.origins],
+    scenarios: [
+      ...project.scenarios.map((s) => ({
+        ...s,
+        mocks: [...s.mocks],
+        sockets: s.sockets ? [...s.sockets] : undefined,
+      })),
+      addedScenario,
+    ],
+    activeScenarioId: project.activeScenarioId,
+  };
+}

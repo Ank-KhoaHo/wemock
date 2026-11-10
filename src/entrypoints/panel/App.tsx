@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useIsDark } from '../../ui/useIsDark';
-import { exportProject, parseProjectFile } from '../../core/exportFile';
+import { exportProject, exportScenario, parseProjectFile, parseScenarioFile } from '../../core/exportFile';
+import { logToHar } from '../../core/harExport';
 import { detectHar, harSummaryText, importHar } from '../../core/harImport';
 import { importMokku } from '../../core/mokkuImport';
 import { detectOpenApi, importOpenApi, openApiSummaryText, parseSpecText } from '../../core/openapiImport';
 import { ensureProject, mockFromLog, scenarioFromLogs } from '../../core/record';
 import { projectForOrigin } from '../../core/scenario';
-import { clearProject, deleteScenarios, mergeProject, replaceProject } from '../../core/scenarioOps';
+import { addScenario, clearProject, deleteScenarios, duplicateMock, duplicateScenario, duplicateSocket, mergeProject, replaceProject } from '../../core/scenarioOps';
 import { siteStatus } from '../../core/siteStatus';
 import { socketFromLogs } from '../../core/socketRecord';
-import type { LogEntry, Mock, Project, Scenario, SocketMock } from '../../core/types';
+import { type LogEntry, type Mock, newProject, type Project, type Scenario, type SocketMock } from '../../core/types';
 import { newId } from '../../shared/ids';
 import { getInspectedTabId } from '../../shared/inspectedTab';
 import { LogDetail } from '../../ui/LogDetail';
@@ -73,9 +74,12 @@ export default function App() {
   const [importError, setImportError] = useState<string | null>(null);
   const [pendingImport, setPendingImport] = useState<{
     fileName: string;
-    importedProject: Project;
+    kind: 'project' | 'scenario';
+    importedProject?: Project;
+    importedScenario?: Scenario;
     summaryText: string;
   } | null>(null);
+  const [harSkippedNote, setHarSkippedNote] = useState<string | null>(null);
   const [undoInfo, setUndoInfo] = useState<{
     project: Project;
     message: string;
@@ -519,6 +523,96 @@ export default function App() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
+  const handleExportScenario = (scenarioId: string) => {
+    if (!project) return;
+    const sc = project.scenarios.find((s) => s.id === scenarioId);
+    if (!sc) return;
+    const jsonText = exportScenario(sc);
+    const blob = new Blob([jsonText], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `wemock-${sc.name}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const handleDuplicateScenario = (scenarioId: string) => {
+    if (!project) return;
+    const snapshot = structuredClone(project);
+    const result = duplicateScenario(project, scenarioId, newId);
+    if (!result.newId) return;
+    update((s) => ({
+      ...s,
+      projects: s.projects.map((p) => (p.id === project.id ? result.project : p)),
+    })).catch(() => {});
+    triggerUndo(snapshot, 'Scenario duplicated');
+  };
+
+  const handleDuplicateMock = (mockId: string) => {
+    if (!project) return;
+    const sc =
+      project.scenarios.find((s) => s.mocks.some((m) => m.id === mockId)) ??
+      project.scenarios.find((s) => s.id === selectedScenarioId);
+    if (!sc) return;
+    const result = duplicateMock(project, sc.id, mockId, newId);
+    if (!result.newId) return;
+    update((s) => ({
+      ...s,
+      projects: s.projects.map((p) => (p.id === project.id ? result.project : p)),
+    })).catch(() => {});
+    setSelectedScenarioId(sc.id);
+    setSelectedMockId(result.newId);
+    setSelectedSocketId(null);
+  };
+
+  const handleDuplicateSocket = (socketId: string) => {
+    if (!project) return;
+    const sc =
+      project.scenarios.find((s) => s.sockets?.some((m) => m.id === socketId)) ??
+      project.scenarios.find((s) => s.id === selectedScenarioId);
+    if (!sc) return;
+    const result = duplicateSocket(project, sc.id, socketId, newId);
+    if (!result.newId) return;
+    update((s) => ({
+      ...s,
+      projects: s.projects.map((p) => (p.id === project.id ? result.project : p)),
+    })).catch(() => {});
+    setSelectedScenarioId(sc.id);
+    setSelectedSocketId(result.newId);
+    setSelectedMockId(null);
+  };
+
+  const handleSaveHar = () => {
+    const { har, skippedSockets } = logToHar(filteredEntries);
+    let host = tabHost;
+    if (!host && tabOrigin) {
+      try {
+        host = new URL(tabOrigin).host;
+      } catch {}
+    }
+    if (!host && filteredEntries.length > 0) {
+      try {
+        host = new URL(filteredEntries[0]!.url).host;
+      } catch {}
+    }
+    const fileName = host ? `wemock-${host}.har` : 'wemock-log.har';
+    const jsonText = JSON.stringify(har, null, 2);
+    const blob = new Blob([jsonText], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+    if (skippedSockets > 0) {
+      setHarSkippedNote(`${skippedSockets} socket row${skippedSockets === 1 ? '' : 's'} left out`);
+    } else {
+      setHarSkippedNote(null);
+    }
+  };
+
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -527,10 +621,41 @@ export default function App() {
 
     try {
       const text = await file.text();
+
+      // Check if it's a wemock scenario file
+      const scenarioResult = parseScenarioFile(text);
+      if (scenarioResult.ok) {
+        const sc = scenarioResult.scenario;
+        if (!project) {
+          const originToClaim = tabOrigin;
+          const newP = newProject(newId(), originToClaim || 'http://localhost');
+          newP.scenarios = [{ ...sc, id: newId() }];
+          newP.activeScenarioId = newP.scenarios[0]!.id;
+          await update((s) => ({
+            ...s,
+            projects: [...s.projects, newP],
+          }));
+          setSelectedProjectId(newP.id);
+          setSelectedScenarioId(newP.scenarios[0]!.id);
+          setSelectedMockId(null);
+          setSelectedSocketId(null);
+          setImportSummary(`Scenario ${sc.name} added`);
+          return;
+        }
+
+        setPendingImport({
+          fileName: file.name,
+          kind: 'scenario',
+          importedScenario: sc,
+          summaryText: `Scenario ${sc.name} added`,
+        });
+        return;
+      }
+
       let importedProject: Project | null = null;
       let summaryText = '';
 
-      // Try parseProjectFile first
+      // Try parseProjectFile
       const wemockResult = parseProjectFile(text);
       if (wemockResult.ok) {
         const p = wemockResult.project;
@@ -546,6 +671,17 @@ export default function App() {
           setImportError(
             'Unrecognized file format: expected wemock, HAR, OpenAPI, or Mokku',
           );
+          setPendingImport(null);
+          e.target.value = '';
+          return;
+        }
+
+        if ('wemock' in parsed) {
+          const err =
+            (parsed as { wemock?: unknown }).wemock === 'scenario'
+              ? scenarioResult.error
+              : wemockResult.error;
+          setImportError(err);
           setPendingImport(null);
           e.target.value = '';
           return;
@@ -581,11 +717,8 @@ export default function App() {
             importedProject = mokkuResult.result.project;
             summaryText = formatImportSummary(mokkuResult.result.summary);
           } else {
-            // A wemock file that failed validation says what is wrong with it.
             setImportError(
-              'wemock' in parsed
-                ? wemockResult.error
-                : 'Unrecognized file format: expected wemock, HAR, OpenAPI, or Mokku',
+              'Unrecognized file format: expected wemock, HAR, OpenAPI, or Mokku',
             );
             setPendingImport(null);
             e.target.value = '';
@@ -632,6 +765,7 @@ export default function App() {
       // Success with existing project: store nothing yet, show import-choice bar
       setPendingImport({
         fileName: file.name,
+        kind: 'project',
         importedProject,
         summaryText,
       });
@@ -646,21 +780,40 @@ export default function App() {
   const handleImportAdd = async () => {
     if (!project || !pendingImport) return;
     const snapshot = structuredClone(project);
-    const merged = mergeProject(project, pendingImport.importedProject, newId);
-    const summary = pendingImport.summaryText;
-    setPendingImport(null);
 
-    await update((s) => ({
-      ...s,
-      projects: s.projects.map((p) => (p.id === project.id ? merged : p)),
-    }));
+    if (pendingImport.kind === 'scenario' && pendingImport.importedScenario) {
+      const updated = addScenario(project, pendingImport.importedScenario, newId);
+      const added = updated.scenarios[updated.scenarios.length - 1];
+      const addedName = added?.name ?? pendingImport.importedScenario.name;
+      setPendingImport(null);
 
-    setImportSummary(summary);
-    triggerUndo(snapshot, 'Import added');
+      await update((s) => ({
+        ...s,
+        projects: s.projects.map((p) => (p.id === project.id ? updated : p)),
+      }));
+
+      setImportSummary(`Scenario ${addedName} added`);
+      triggerUndo(snapshot, 'Import added');
+      return;
+    }
+
+    if (pendingImport.importedProject) {
+      const merged = mergeProject(project, pendingImport.importedProject, newId);
+      const summary = pendingImport.summaryText;
+      setPendingImport(null);
+
+      await update((s) => ({
+        ...s,
+        projects: s.projects.map((p) => (p.id === project.id ? merged : p)),
+      }));
+
+      setImportSummary(summary);
+      triggerUndo(snapshot, 'Import added');
+    }
   };
 
   const handleImportReplace = async () => {
-    if (!project || !pendingImport) return;
+    if (!project || !pendingImport || !pendingImport.importedProject) return;
     const snapshot = structuredClone(project);
     const replaced = replaceProject(project, pendingImport.importedProject);
     const summary = pendingImport.summaryText;
@@ -1083,6 +1236,19 @@ export default function App() {
               </div>
             </div>
             <div className="toolbar-right">
+              <button
+                type="button"
+                data-testid="log-save-har"
+                className="save-scenario-btn"
+                onClick={handleSaveHar}
+              >
+                Save HAR
+              </button>
+              {harSkippedNote && (
+                <span data-testid="log-save-har-note" className="save-har-note">
+                  {harSkippedNote}
+                </span>
+              )}
               {!isNamingScenario ? (
                 <button
                   type="button"
@@ -1211,16 +1377,18 @@ export default function App() {
                 className="btn-secondary btn-sm"
                 onClick={handleImportAdd}
               >
-                Add to my mocks
+                {pendingImport.kind === 'scenario' ? 'Add as a new scenario' : 'Add to my mocks'}
               </button>
-              <button
-                type="button"
-                data-testid="import-replace"
-                className="btn-secondary btn-sm"
-                onClick={handleImportReplace}
-              >
-                Replace all
-              </button>
+              {pendingImport.kind !== 'scenario' && (
+                <button
+                  type="button"
+                  data-testid="import-replace"
+                  className="btn-secondary btn-sm"
+                  onClick={handleImportReplace}
+                >
+                  Replace all
+                </button>
+              )}
               <button
                 type="button"
                 data-testid="import-cancel"
@@ -1282,6 +1450,8 @@ export default function App() {
                   onDeleteAll={handleClearAll}
                   onAddMock={handleAddMock}
                   onAddSocket={handleAddSocket}
+                  onDuplicateScenario={handleDuplicateScenario}
+                  onExportScenario={handleExportScenario}
                 />
               </div>
               <div className="panel-split-right">
@@ -1291,6 +1461,7 @@ export default function App() {
                     isDark={isDark}
                     onSave={handleSaveSocket}
                     onDelete={handleDeleteSocket}
+                    onDuplicate={handleDuplicateSocket}
                   />
                 ) : (
                   <MockEditor
@@ -1298,6 +1469,7 @@ export default function App() {
                     isDark={isDark}
                     onSave={handleSaveMock}
                     onDelete={handleDeleteMock}
+                    onDuplicate={handleDuplicateMock}
                   />
                 )}
               </div>

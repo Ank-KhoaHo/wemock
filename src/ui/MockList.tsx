@@ -19,6 +19,8 @@ export interface MockListProps {
   onDeleteAll: () => void;
   onAddMock: (scenarioId: string, mock: Mock) => void;
   onAddSocket: (scenarioId: string, socket: SocketMock) => void;
+  onDuplicateScenario?: (scenarioId: string) => void;
+  onExportScenario?: (scenarioId: string) => void;
 }
 
 function loadFoldedIds(projectId: string): string[] {
@@ -78,6 +80,8 @@ export function MockList({
   onDeleteAll,
   onAddMock,
   onAddSocket,
+  onDuplicateScenario,
+  onExportScenario,
 }: MockListProps) {
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameText, setRenameText] = useState('');
@@ -294,6 +298,24 @@ export function MockList({
             onClick={handleStartRename}
           >
             Rename
+          </button>
+          <button
+            type="button"
+            data-testid="scenario-duplicate"
+            className="btn-secondary"
+            disabled={!selectedScenario}
+            onClick={() => selectedScenario && onDuplicateScenario?.(selectedScenario.id)}
+          >
+            Duplicate
+          </button>
+          <button
+            type="button"
+            data-testid="scenario-export"
+            className="btn-secondary"
+            disabled={!selectedScenario}
+            onClick={() => selectedScenario && onExportScenario?.(selectedScenario.id)}
+          >
+            Export
           </button>
           <button
             type="button"

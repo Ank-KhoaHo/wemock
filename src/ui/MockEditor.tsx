@@ -15,6 +15,7 @@ export interface MockEditorProps {
   mock: Mock | null;
   onSave: (mock: Mock) => void;
   onDelete: (mockId: string) => void;
+  onDuplicate?: (mockId: string) => void;
   isDark?: boolean;
 }
 
@@ -30,7 +31,7 @@ interface StepDraft {
   body: string;
 }
 
-export function MockEditor({ mock, onSave, onDelete, isDark = false }: MockEditorProps) {
+export function MockEditor({ mock, onSave, onDelete, onDuplicate, isDark = false }: MockEditorProps) {
   const [draft, setDraft] = useState<Mock | null>(mock);
   const [statusInput, setStatusInput] = useState<string>(mock ? String(mock.response.status) : '200');
   const [delayInput, setDelayInput] = useState<string>(mock ? String(mock.response.delayMs) : '0');
@@ -327,6 +328,16 @@ export function MockEditor({ mock, onSave, onDelete, isDark = false }: MockEdito
           <span className="mock-id-badge">{draft.source}</span>
         </div>
         <div className="mock-editor-actions">
+          {onDuplicate && (
+            <button
+              type="button"
+              data-testid="mock-duplicate"
+              className="btn-secondary"
+              onClick={() => onDuplicate(draft.id)}
+            >
+              Duplicate
+            </button>
+          )}
           <button
             type="button"
             data-testid="mock-delete"

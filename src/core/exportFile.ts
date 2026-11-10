@@ -296,6 +296,44 @@ function validateScenario(
   };
 }
 
+export function exportScenario(scenario: Scenario): string {
+  return JSON.stringify(
+    {
+      wemock: 'scenario',
+      schemaVersion: 1,
+      scenario,
+    },
+    null,
+    2,
+  );
+}
+
+export function parseScenarioFile(
+  text: string,
+): { ok: true; scenario: Scenario } | { ok: false; error: string } {
+  try {
+    const data = JSON.parse(text);
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      return { ok: false, error: 'Scenario export file must be a JSON object' };
+    }
+    if (data.wemock !== 'scenario') {
+      return { ok: false, error: 'Invalid or missing wemock discriminator' };
+    }
+    if (data.schemaVersion !== 1) {
+      return { ok: false, error: `Unsupported schemaVersion: ${data.schemaVersion}` };
+    }
+    if (!data.scenario || typeof data.scenario !== 'object' || Array.isArray(data.scenario)) {
+      return { ok: false, error: 'Scenario must be an object' };
+    }
+    return validateScenario(data.scenario);
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'Failed to parse JSON',
+    };
+  }
+}
+
 export function exportProject(p: Project): string {
   return JSON.stringify(
     {

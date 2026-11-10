@@ -471,6 +471,11 @@ body.panel-root {
   cursor: pointer;
 }
 
+.save-har-note {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
 .save-scenario-confirm-btn {
   background: var(--accent-color);
   color: var(--accent-text);
