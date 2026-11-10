@@ -1,5 +1,7 @@
 # wemock
 
+![wemock: record real API calls in DevTools, replay them as mocks](.github/banner.png)
+
 Record real API calls in Chrome DevTools, then replay them as switchable mock scenarios.
 
 ## What this is
@@ -101,4 +103,4 @@ pick `.output/chrome-mv3`.
 
 ## Status
 
-Version 1.5.0, before its first Store release. Licensed under MIT; see [LICENSE](LICENSE).
+Version 1.6.0, before its first Store release. Licensed under MIT; see [LICENSE](LICENSE).

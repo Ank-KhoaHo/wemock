@@ -189,6 +189,36 @@ test('store images', async () => {
         <img class="shot" src="data:image/png;base64,${log}" style="width:820px;margin-top:60px;align-self:flex-start">
       </div>`));
     await art.screenshot({ path: path.join(OUT, 'promo-marquee-1400x560.png') });
+
+    // Banners: the GitHub link preview (Settings > Social preview, 1280x640) and the README's top
+    // banner (1280x320, committed as .github/banner.png).
+    const mocks = fs.readFileSync(path.join(OUT, 'screenshot-2-code-mock.png')).toString('base64');
+    await art.setViewportSize({ width: 1280, height: 640 });
+    await art.setContent(promo(1280, 640, `
+      <div style="display:flex;height:100%;align-items:center;padding:0 0 0 64px;gap:48px">
+        <div style="flex:0 0 420px;display:flex;flex-direction:column;gap:22px">
+          <div class="brand"><img src="data:image/png;base64,${icon}" width="76" height="76"><span class="name" style="font-size:58px">wemock</span></div>
+          <div class="tag" style="font-size:30px;line-height:1.25">Mock any API from Chrome DevTools.</div>
+          <div class="chips"><span class="chip">Free</span><span class="chip">MIT</span><span class="chip">WebSocket and SignalR</span></div>
+          <div style="font-size:18px;opacity:.9">github.com/Ank-KhoaHo/wemock</div>
+        </div>
+        <div style="position:relative;flex:1;height:100%">
+          <img class="shot" src="data:image/png;base64,${mocks}" style="position:absolute;width:760px;top:70px;left:40px">
+          <img class="shot" src="data:image/png;base64,${log}" style="position:absolute;width:640px;top:290px;left:0">
+        </div>
+      </div>`));
+    await art.screenshot({ path: path.join(OUT, 'github-social-1280x640.png') });
+
+    await art.setViewportSize({ width: 1280, height: 320 });
+    await art.setContent(promo(1280, 320, `
+      <div style="display:flex;height:100%;align-items:center;padding:0 0 0 64px;gap:48px">
+        <div style="flex:0 0 520px;display:flex;flex-direction:column;gap:18px">
+          <div class="brand"><img src="data:image/png;base64,${icon}" width="72" height="72"><span class="name" style="font-size:56px">wemock</span></div>
+          <div class="tag" style="font-size:26px;line-height:1.25">Record real API calls in DevTools.<br>Replay them as mocks.</div>
+        </div>
+        <img class="shot" src="data:image/png;base64,${log}" style="width:640px;margin-top:150px;align-self:flex-start">
+      </div>`));
+    await art.screenshot({ path: path.join(OUT, 'readme-banner-1280x320.png') });
   } finally {
     await s.context.close();
     await fixture.close();
