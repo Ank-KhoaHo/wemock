@@ -11,13 +11,14 @@ you can test the states your backend rarely gives you.
 
 - **Record, then replay.** "Mock this" on a logged call, or "Save as scenario" on a whole
   filtered list. A call to another site keeps its host in the mock, so it matches only that
-  site. The Log names the mock that answered each call, with a link to it.
+  site. The Log names the mock that answered each call, with a link to it, and filters by type,
+  method and status. Save the Log as a HAR file to share a session.
 - **Import.** A HAR file from DevTools' Network tab ("Save all as HAR"), an OpenAPI 3 or
   Swagger 2 file (JSON or YAML), or Mokku's files. Import asks whether to add to your mocks or
   replace them.
 - **Scenarios.** A project's Default scenario always applies; the active one overrides it.
-  Select, delete or clear scenarios, with Undo. A filter box and fold arrows keep long lists
-  short.
+  Select, duplicate, delete or clear scenarios, with Undo; duplicate a mock; export one scenario
+  to share it. A filter box and fold arrows keep long lists short.
 - **URL patterns.** `/api/goals/:id`, wildcards (`/files/*rest`), optional host
   (`https://api.example.com/x`), and GraphQL operation names.
 - **Conditions.** "Match only when" a query parameter, a request header or fields of a JSON
@@ -43,12 +44,19 @@ you can test the states your backend rarely gives you.
   `[wemock] GET /doc/1 → 200 mock "Doc one" (12 ms)`. A switch in the panel turns it off.
 - **`fetch`, `XMLHttpRequest` and libraries built on them** (axios included).
 - **Keyboard.** Every row, button and field works from the keyboard.
+- **Checked on real apps.** React (fetch), axios (XHR, interceptors), Angular `HttpClient` and a
+  real ASP.NET Core SignalR hub are part of the tests.
 
 Your data stays in your browser (`chrome.storage.local`). wemock sends nothing anywhere.
 
 ## Use it
 
-wemock is not on the Chrome Web Store yet. To run it from source:
+wemock is not on the Chrome Web Store yet. The easiest way in: download the zip from the
+[latest release](https://github.com/Ank-KhoaHo/wemock/releases/latest), unzip it, open
+`chrome://extensions`, turn on **Developer mode**, choose **Load unpacked**, and pick the
+unzipped folder.
+
+Or run it from source:
 
 ```
 npm ci
@@ -92,4 +100,4 @@ pick `.output/chrome-mv3`.
 
 ## Status
 
-Version 1.4.0, before its first Store release. Licensed under MIT; see [LICENSE](LICENSE).
+Version 1.5.0, before its first Store release. Licensed under MIT; see [LICENSE](LICENSE).

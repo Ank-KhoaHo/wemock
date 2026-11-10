@@ -9,7 +9,7 @@ export default defineConfig({
   manifest: {
     name: 'wemock',
     description:
-      'Record real API calls in Chrome DevTools, then replay them as switchable mock scenarios.',
+      'Record real API calls in Chrome DevTools, then replay them as mock scenarios. WebSocket and SignalR too.',
     // offscreen: spec A2, code mocks run in a sandboxed iframe inside an offscreen document.
     permissions: ['storage', 'unlimitedStorage', 'scripting', 'offscreen'],
     host_permissions: ['http://localhost/*', 'http://127.0.0.1/*'],

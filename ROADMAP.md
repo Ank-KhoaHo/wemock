@@ -32,6 +32,11 @@ Real sockets in the log, "Mock this socket", and recorded calls to other sites k
 Conditions on query, headers and body; templates; call sequences; HAR and OpenAPI import;
 bulk scenario actions with Undo; search and fold; keyboard and contrast pass.
 
+## M1.5 — Sharing and checking (done in source, 1.5.0)
+
+Duplicate mocks and scenarios, one-scenario files, Log filters and HAR export, help in an empty
+panel; checked on real React, axios and Angular apps, a real SignalR hub, and a load test.
+
 ## M2 — Hardening
 
 The rough edges found by daily use of 1.0.0, closed one at a time.
