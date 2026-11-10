@@ -46,3 +46,7 @@ Thumbs.db
 /BACKLOG.html
 /AGENTS.md
 .check/
+
+# A27: .NET build output of the real-hub check, if it is ever built outside its container.
+scripts/real-hub/hub/bin/
+scripts/real-hub/hub/obj/

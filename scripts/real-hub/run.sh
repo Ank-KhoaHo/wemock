@@ -7,11 +7,12 @@ NAME=wemock-real-hub
 PORT="${HUB_PORT:-5099}"
 
 docker rm -f "$NAME" >/dev/null 2>&1 || true
-# The SDK image runs the hub straight from source; nothing is installed on the host.
+# The SDK image builds a copy of the source inside the container (the mount is read-only), so
+# nothing is installed on the host and no bin/ or obj/ lands in the repository.
 MSYS_NO_PATHCONV=1 docker run -d --name "$NAME" -p "127.0.0.1:${PORT}:8080" \
-  -v "$(pwd -W 2>/dev/null || pwd)/scripts/real-hub/hub:/src" -w /src \
+  -v "$(pwd -W 2>/dev/null || pwd)/scripts/real-hub/hub:/src:ro" \
   -e ASPNETCORE_URLS=http://+:8080 -e DOTNET_CLI_TELEMETRY_OPTOUT=1 \
-  mcr.microsoft.com/dotnet/sdk:10.0 dotnet run -c Release >/dev/null
+  mcr.microsoft.com/dotnet/sdk:10.0 sh -c 'cp -r /src /app && rm -rf /app/bin /app/obj && cd /app && dotnet run -c Release' >/dev/null
 trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true' EXIT
 
 for i in $(seq 1 120); do
