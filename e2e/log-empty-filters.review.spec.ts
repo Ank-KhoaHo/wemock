@@ -51,8 +51,11 @@ test.describe('A20: an empty panel says why', () => {
     try {
       await expect(panel.getByTestId('log-empty')).toContainText('No calls yet');
       await page.evaluate(() => ((window as unknown as { marker: number }).marker = 1));
+      // Wait for the reload itself: reading the page mid-navigation throws.
+      const reloaded = page.waitForEvent('load');
       await panel.getByTestId('log-empty-reload').click();
-      await expect.poll(() => page.evaluate(() => (window as unknown as { marker?: number }).marker ?? 0)).toBe(0);
+      await reloaded;
+      expect(await page.evaluate(() => (window as unknown as { marker?: number }).marker ?? 0)).toBe(0);
       await page.evaluate(async () => (await fetch('/api/goals')).text());
       await expect(panel.getByTestId('log-row')).toHaveCount(1);
       await expect(panel.getByTestId('log-empty')).toHaveCount(0);
