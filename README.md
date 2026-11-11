@@ -34,6 +34,10 @@ you can test the states your backend rarely gives you.
 - **Code replies.** A mock can answer with a few lines of JavaScript that read the call's
   URL parameters, query, body and headers, and set the status. `/doc/:id` with
   `return { id: params.id }` answers each document by its id. `req.callCount` counts the calls.
+  The editor suggests `req.`, `res.` and the pattern's parameters as you type, and **Run** tries
+  the code on a URL before you save it.
+- **Change real.** Let the real call through, then change its status, headers or JSON fields
+  (`user.flags.beta`, `items.*.price`), to test "the real data, but this one flag off".
 - **WebSocket and SignalR mocks.** A socket mock answers a WebSocket URL with no server:
   messages on a timeline after connecting, and replies to what the client sends, fixed or from
   code. For SignalR hubs (JSON protocol) wemock also answers `negotiate`, the handshake and the
@@ -103,4 +107,4 @@ pick `.output/chrome-mv3`.
 
 ## Status
 
-Version 1.6.0, before its first Store release. Licensed under MIT; see [LICENSE](LICENSE).
+Version 1.7.0, before its first Store release. Licensed under MIT; see [LICENSE](LICENSE).

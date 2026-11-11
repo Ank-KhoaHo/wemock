@@ -42,6 +42,10 @@ panel; checked on real React, axios and Angular apps, a real SignalR hub, and a 
 Errors and streams in SignalR mocks, and recorded pushes that stay with the call that caused them;
 checked against a real ASP.NET Core hub.
 
+## M1.7 — Change real, and code hints (done in source, 1.7.0)
+
+Change a real response instead of replacing it, and hints plus a Run button for code mocks.
+
 ## M2 — Hardening
 
 The rough edges found by daily use of 1.0.0, closed one at a time.
