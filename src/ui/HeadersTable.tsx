@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 export interface HeadersTableProps {
   headers: Record<string, string>;
   onChange: (headers: Record<string, string>) => void;
+  title?: string;
 }
 
 interface HeaderPair {
@@ -11,7 +12,7 @@ interface HeaderPair {
   value: string;
 }
 
-export function HeadersTable({ headers, onChange }: HeadersTableProps) {
+export function HeadersTable({ headers, onChange, title }: HeadersTableProps) {
   const [pairs, setPairs] = useState<HeaderPair[]>(() => {
     const entries = Object.entries(headers);
     if (entries.length === 0) {
@@ -87,7 +88,7 @@ export function HeadersTable({ headers, onChange }: HeadersTableProps) {
   return (
     <div className="headers-table-container">
       <div className="headers-table-header">
-        <label className="field-label">Headers</label>
+        <label className="field-label">{title ?? 'Headers'}</label>
         <button
           type="button"
           data-testid="header-add"

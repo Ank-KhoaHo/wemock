@@ -1,5 +1,5 @@
 import { isValidStatus } from './statusText';
-import type { HttpMethod, Mock, MockMatch, MockResponse, MockSequence, Project, Scenario, SocketMock, SocketPush, SocketReply, WemockState } from './types';
+import type { HttpMethod, Mock, MockMatch, MockPatch, MockResponse, MockSequence, Project, Scenario, SocketMock, SocketPush, SocketReply, WemockState } from './types';
 
 const VALID_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'ANY']);
 
@@ -121,6 +121,65 @@ function validateSequence(v: unknown): Check<MockSequence> {
   };
 }
 
+function validatePatch(v: unknown): Check<MockPatch> {
+  if (!isObj(v)) {
+    return { ok: false, error: 'Mock patch must be an object' };
+  }
+  let status: number | undefined;
+  if (v.status !== undefined) {
+    if (typeof v.status !== 'number' || !Number.isInteger(v.status) || v.status < 200 || v.status > 599) {
+      return { ok: false, error: `Invalid mock patch status: ${String(v.status)}` };
+    }
+    status = v.status;
+  }
+  let headers: Record<string, string> | undefined;
+  if (v.headers !== undefined) {
+    if (!isObj(v.headers)) {
+      return { ok: false, error: 'Mock patch headers must be an object' };
+    }
+    headers = {};
+    for (const [k, val] of Object.entries(v.headers)) {
+      if (typeof val !== 'string') {
+        return { ok: false, error: `Mock patch header ${k} must be a string` };
+      }
+      headers[k] = val;
+    }
+  }
+  let set: { path: string; value: string }[] | undefined;
+  if (v.set !== undefined) {
+    if (!Array.isArray(v.set)) {
+      return { ok: false, error: 'Mock patch set must be an array' };
+    }
+    set = [];
+    for (const item of v.set) {
+      if (!isObj(item) || typeof item.path !== 'string' || typeof item.value !== 'string') {
+        return { ok: false, error: 'Mock patch set item must have string path and value' };
+      }
+      set.push({ path: item.path, value: item.value });
+    }
+  }
+  let remove: string[] | undefined;
+  if (v.remove !== undefined) {
+    if (!Array.isArray(v.remove)) {
+      return { ok: false, error: 'Mock patch remove must be an array' };
+    }
+    remove = [];
+    for (const item of v.remove) {
+      if (typeof item !== 'string') {
+        return { ok: false, error: 'Mock patch remove item must be a string' };
+      }
+      remove.push(item);
+    }
+  }
+  const out: MockPatch = {
+    ...(status !== undefined ? { status } : {}),
+    ...(headers !== undefined ? { headers } : {}),
+    ...(set !== undefined ? { set } : {}),
+    ...(remove !== undefined ? { remove } : {}),
+  };
+  return { ok: true, value: out };
+}
+
 function validateMock(mock: unknown): { ok: true; mock: Mock } | { ok: false; error: string } {
   if (!mock || typeof mock !== 'object' || Array.isArray(mock)) {
     return { ok: false, error: 'Mock must be an object' };
@@ -144,7 +203,7 @@ function validateMock(mock: unknown): { ok: true; mock: Mock } | { ok: false; er
   if (m.graphqlOperation !== undefined && typeof m.graphqlOperation !== 'string') {
     return { ok: false, error: 'Mock graphqlOperation must be a string if defined' };
   }
-  if (m.reply !== undefined && m.reply !== 'fixed' && m.reply !== 'code' && m.reply !== 'sequence') {
+  if (m.reply !== undefined && m.reply !== 'fixed' && m.reply !== 'code' && m.reply !== 'sequence' && m.reply !== 'patch') {
     return { ok: false, error: `Invalid mock reply: ${String(m.reply)}` };
   }
   if (m.code !== undefined && typeof m.code !== 'string') {
@@ -170,6 +229,13 @@ function validateMock(mock: unknown): { ok: true; mock: Mock } | { ok: false; er
     sequence = seqValid.value;
   }
 
+  let patch: MockPatch | undefined;
+  if (m.patch !== undefined) {
+    const patchValid = validatePatch(m.patch);
+    if (!patchValid.ok) return patchValid;
+    patch = patchValid.value;
+  }
+
   const resValid = validateMockResponse(m.response);
   if (!resValid.ok) return resValid;
 
@@ -184,9 +250,10 @@ function validateMock(mock: unknown): { ok: true; mock: Mock } | { ok: false; er
       graphqlOperation: m.graphqlOperation as string | undefined,
       ...(match !== undefined ? { match } : {}),
       response: resValid.response,
-      ...(m.reply !== undefined ? { reply: m.reply as 'fixed' | 'code' | 'sequence' } : {}),
+      ...(m.reply !== undefined ? { reply: m.reply as 'fixed' | 'code' | 'sequence' | 'patch' } : {}),
       ...(typeof m.code === 'string' ? { code: m.code } : {}),
       ...(sequence !== undefined ? { sequence } : {}),
+      ...(patch !== undefined ? { patch } : {}),
       source: m.source,
       createdAt: m.createdAt,
     },

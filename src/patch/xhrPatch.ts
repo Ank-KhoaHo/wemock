@@ -1,8 +1,9 @@
 import { encodeBody, mockBodyBytes } from '../core/bodies';
 import { findAnyMock } from '../core/sockets';
 import { statusTextFor } from '../core/statusText';
-import type { Badge, BodyEncoding, LogDraft, Mock, RequestFacts, Settings } from '../core/types';
+import type { Badge, BodyEncoding, LogDraft, Mock, MockResponse, RequestFacts, Settings } from '../core/types';
 import { announce } from './announce';
+import { patchRealResponse } from './patchReal';
 import { resolveReply } from './reply';
 import { pageOriginOf, type PatchDeps } from './fetchPatch';
 import type { GateResult } from './gate';
@@ -228,6 +229,68 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
         return;
       }
 
+      if (mock.reply === 'patch') {
+        this._isMock = true;
+        const fetchFn = deps.nativeFetch ?? win.fetch;
+        if (!fetchFn) {
+          this._passThroughReal(body, startedAt, gateRes.late);
+          return;
+        }
+
+        const init: RequestInit = {
+          method: this._method,
+          headers: { ...this._requestHeaders },
+          credentials: this.withCredentials ? 'include' : 'same-origin',
+        };
+        if (this._method !== 'GET' && this._method !== 'HEAD' && body !== undefined && body !== null) {
+          init.body = body as BodyInit;
+        }
+
+        let realRes: Response;
+        try {
+          realRes = await fetchFn(this._url, init);
+        } catch {
+          if (this._aborted) {
+            return;
+          }
+          this._defineMockGetters();
+          this._mockReadyState = 4;
+          this._mockStatus = 0;
+          this._mockStatusText = '';
+          this._mockHeaders = {};
+          this._mockResponseText = '';
+          this._mockJson = null;
+          this.dispatchEvent(new win.Event('readystatechange'));
+          this.dispatchEvent(new win.ProgressEvent('error', { lengthComputable: false, loaded: 0, total: 0 }));
+          this.dispatchEvent(new win.ProgressEvent('loadend', { lengthComputable: false, loaded: 0, total: 0 }));
+          this._mockCompleted = true;
+          return;
+        }
+
+        if (this._aborted) {
+          return;
+        }
+
+        let patchedResponse: MockResponse;
+        try {
+          patchedResponse = await patchRealResponse(realRes, mock);
+        } catch {
+          this._passThroughReal(body, startedAt, gateRes.late);
+          return;
+        }
+
+        if (this._aborted) {
+          return;
+        }
+
+        try {
+          await this._serveMock(mock, reqFacts, startedAt, gateRes, patchedResponse);
+        } catch {
+          this._passThroughReal(body, startedAt, gateRes.late);
+        }
+        return;
+      }
+
       try {
         await this._serveMock(mock, reqFacts, startedAt, gateRes);
       } catch {
@@ -356,21 +419,30 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
       reqFacts: RequestFacts,
       startedAt: number,
       gateRes: GateResult,
+      customResponse?: MockResponse,
     ): Promise<void> {
       this._isMock = true;
       this._defineMockGetters();
 
-      const isSocket = !gateRes.mocks.includes(mock);
-      let callCount = 1;
-      if (!isSocket && deps.callCounter) {
-        const listKey = gateRes.mocks.map((m) => m.id).join(',');
-        callCount = deps.callCounter.next(mock, listKey);
+      let response: MockResponse;
+      let error: string | undefined;
+
+      if (customResponse) {
+        response = customResponse;
+      } else {
+        const isSocket = !gateRes.mocks.includes(mock);
+        let callCount = 1;
+        if (!isSocket && deps.callCounter) {
+          const listKey = gateRes.mocks.map((m) => m.id).join(',');
+          callCount = deps.callCounter.next(mock, listKey);
+        }
+        const reply = await resolveReply(deps.runHandler, mock, reqFacts, callCount);
+        if (this._aborted) {
+          return;
+        }
+        response = reply.response;
+        error = reply.error;
       }
-      const reply = await resolveReply(deps.runHandler, mock, reqFacts, callCount);
-      if (this._aborted) {
-        return;
-      }
-      const response = reply.response;
 
       const delayMs = response.delayMs;
       const timeoutMs = this.timeout;
@@ -497,13 +569,13 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
         durationMs,
         badge: 'MOCK',
         mockId: mock.id,
-        ...(reply.error ? { error: reply.error } : {}),
+        ...(error ? { error } : {}),
         startedAt,
       });
       announce(
         deps.console,
         gateRes.settings,
-        { method: reqFacts.method, url: reqFacts.url, status: response.status, mock, durationMs, error: reply.error },
+        { method: reqFacts.method, url: reqFacts.url, status: response.status, mock, durationMs, error },
         pageOriginOf(win),
       );
     }

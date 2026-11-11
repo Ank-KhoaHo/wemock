@@ -16,6 +16,7 @@ export default defineContentScript({
   world: 'MAIN',
   main() {
     try {
+      const nativeFetch = window.fetch;
       const gate = createGate();
       const callCounter = createCallCounter();
 
@@ -38,6 +39,7 @@ export default defineContentScript({
         console: { info: console.info.bind(console), warn: console.warn.bind(console) },
         runHandler: createRunHandler(window),
         callCounter,
+        nativeFetch,
       };
 
       installFetchPatch(window, deps);

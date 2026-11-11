@@ -4,6 +4,7 @@ import { statusTextFor } from '../core/statusText';
 import type { Badge, LogDraft, Mock, RequestFacts, Settings } from '../core/types';
 import { announce, type PageConsole } from './announce';
 import type { CallCounter } from './callCounter';
+import { patchRealResponse } from './patchReal';
 import { resolveReply, type RunHandler } from './reply';
 import type { Gate, GateResult } from './gate';
 
@@ -17,6 +18,8 @@ export interface PatchDeps {
   runHandler?: RunHandler;
   /** A12: call counter for sequence and code mocks. */
   callCounter?: CallCounter;
+  /** A33: the native fetch captured before patches. */
+  nativeFetch?: typeof fetch;
 }
 
 declare global {
@@ -132,6 +135,91 @@ export function installFetchPatch(win: Window, deps: PatchDeps): () => void {
     }
 
     if (mock) {
+      if (mock.reply === 'patch') {
+        const fetchFn = deps.nativeFetch ?? nativeFetch;
+        const realRes = await fetchFn.call(win, input, init);
+        if (signal?.aborted) {
+          throw createAbortError(signal.reason);
+        }
+
+        const patchedResponse = await patchRealResponse(realRes, mock);
+        if (signal?.aborted) {
+          throw createAbortError(signal.reason);
+        }
+
+        if (patchedResponse.delayMs > 0) {
+          await new Promise<void>((resolve, reject) => {
+            if (signal?.aborted) {
+              reject(createAbortError(signal.reason));
+              return;
+            }
+
+            let timer: ReturnType<typeof setTimeout> | null = null;
+            let onAbort: (() => void) | null = null;
+
+            if (signal) {
+              onAbort = () => {
+                if (timer !== null) clearTimeout(timer);
+                signal.removeEventListener('abort', onAbort!);
+                reject(createAbortError(signal.reason));
+              };
+              signal.addEventListener('abort', onAbort);
+            }
+
+            timer = setTimeout(() => {
+              if (signal && onAbort) {
+                signal.removeEventListener('abort', onAbort);
+              }
+              resolve();
+            }, patchedResponse.delayMs);
+          });
+        }
+
+        try {
+          const isNullBody = [204, 205, 304].includes(patchedResponse.status);
+          const bodyBytes = isNullBody ? null : mockBodyBytes(patchedResponse);
+          const bodyData: BodyInit | null = bodyBytes ? (bodyBytes as unknown as BodyInit) : null;
+          const status = patchedResponse.status;
+          const statusText = statusTextFor(status);
+          const headers = new win.Headers(patchedResponse.headers);
+
+          const res = new win.Response(bodyData, {
+            status,
+            statusText,
+            headers,
+          });
+
+          Object.defineProperty(res, 'url', {
+            value: reqFacts.url,
+            writable: false,
+            enumerable: true,
+            configurable: true,
+          });
+
+          const durationMs = deps.now() - startedAt;
+          safeReport(deps, {
+            method: reqFacts.method,
+            url: reqFacts.url,
+            requestBody: reqFacts.body,
+            status,
+            responseHeaders: { ...patchedResponse.headers },
+            responseBody: isNullBody ? null : patchedResponse.body,
+            responseEncoding: patchedResponse.bodyEncoding,
+            truncated: false,
+            durationMs,
+            badge: 'MOCK',
+            mockId: mock.id,
+            startedAt,
+          });
+          announce(deps.console, gateRes.settings, { method: reqFacts.method, url: reqFacts.url, status, mock, durationMs }, pageOriginOf(win));
+
+          return res;
+        } catch (err) {
+          // Never call the server a second time: a POST would run twice. Fail like a network error.
+          throw new TypeError(`wemock could not build the changed response: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+
       const isSocket = !gateRes.mocks.includes(mock);
       let callCount = 1;
       if (!isSocket && deps.callCounter) {

@@ -3,7 +3,7 @@ import { hasConditions } from '../core/conditions';
 import { DEFAULT_CODE } from '../core/handler';
 import { compilePattern } from '../core/match';
 import { isValidStatus, STATUS_TEXT } from '../core/statusText';
-import type { BodyEncoding, HttpMethod, Mock, MockMatch, MockResponse, MockSequence } from '../core/types';
+import type { BodyEncoding, HttpMethod, Mock, MockMatch, MockPatch, MockResponse, MockSequence } from '../core/types';
 import { BodyEditor } from './BodyEditor';
 import { HeadersTable } from './HeadersTable';
 
@@ -69,6 +69,20 @@ export function MockEditor({ mock, onSave, onDelete, onDuplicate, isDark = false
     }));
   });
   const [matchBody, setMatchBody] = useState<string>(mock?.match?.body ?? '');
+  const [patchStatus, setPatchStatus] = useState<string>(
+    mock?.patch?.status !== undefined ? String(mock.patch.status) : '',
+  );
+  const [patchHeaders, setPatchHeaders] = useState<Record<string, string>>(
+    mock?.patch?.headers ? { ...mock.patch.headers } : {},
+  );
+  const [patchSetRows, setPatchSetRows] = useState<{ id: string; path: string; value: string }[]>(() => {
+    if (!mock?.patch?.set) return [];
+    return mock.patch.set.map((s, idx) => ({ id: `s-${idx}`, path: s.path, value: s.value }));
+  });
+  const [patchRemoveRows, setPatchRemoveRows] = useState<{ id: string; path: string }[]>(() => {
+    if (!mock?.patch?.remove) return [];
+    return mock.patch.remove.map((r, idx) => ({ id: `r-${idx}`, path: r }));
+  });
 
   useEffect(() => {
     setDraft(mock);
@@ -76,6 +90,18 @@ export function MockEditor({ mock, onSave, onDelete, onDuplicate, isDark = false
       setStatusInput(String(mock.response.status));
       setDelayInput(String(mock.response.delayMs));
       setMatchExpanded(hasConditions(mock));
+      setPatchStatus(mock.patch?.status !== undefined ? String(mock.patch.status) : '');
+      setPatchHeaders(mock.patch?.headers ? { ...mock.patch.headers } : {});
+      setPatchSetRows(
+        mock.patch?.set
+          ? mock.patch.set.map((s, idx) => ({ id: `s-${idx}`, path: s.path, value: s.value }))
+          : [],
+      );
+      setPatchRemoveRows(
+        mock.patch?.remove
+          ? mock.patch.remove.map((r, idx) => ({ id: `r-${idx}`, path: r }))
+          : [],
+      );
       setQueryRows(
         mock.match?.query
           ? Object.entries(mock.match.query).map(([key, value], idx) => ({
@@ -121,11 +147,15 @@ export function MockEditor({ mock, onSave, onDelete, onDuplicate, isDark = false
   const patternResult = compilePattern(draft.urlPattern);
   const isCode = draft.reply === 'code';
   const isSequence = draft.reply === 'sequence';
-  const isFixed = !isCode && !isSequence;
+  const isPatch = draft.reply === 'patch';
+  const isFixed = !isCode && !isSequence && !isPatch;
 
   const isStatusValid = isValidStatus(Number(statusInput));
   const isDelayValid = !Number.isNaN(Number(delayInput)) && Number(delayInput) >= 0;
   const isFixedValid = isStatusValid && isDelayValid;
+
+  const isPatchStatusValid = !patchStatus.trim() || isValidStatus(Number(patchStatus));
+  const isPatchValid = isPatchStatusValid;
 
   const isSequenceValid = Boolean(
     seqDraft &&
@@ -138,7 +168,10 @@ export function MockEditor({ mock, onSave, onDelete, onDuplicate, isDark = false
       ),
   );
 
-  const canSave = patternResult.ok && (isSequence ? isSequenceValid : isFixedValid);
+  const canSave =
+    patternResult.ok &&
+    isDelayValid &&
+    (isSequence ? isSequenceValid : isPatch ? isPatchValid : isFixedValid);
 
   const getContentType = (): string => {
     const entry = Object.entries(draft.response.headers).find(
@@ -210,7 +243,7 @@ export function MockEditor({ mock, onSave, onDelete, onDuplicate, isDark = false
     });
   };
 
-  const setReply = (reply: 'fixed' | 'code' | 'sequence') => {
+  const setReply = (reply: 'fixed' | 'code' | 'sequence' | 'patch') => {
     if (reply === 'sequence') {
       if (!seqDraft || seqDraft.steps.length === 0) {
         setSeqDraft({
@@ -229,6 +262,7 @@ export function MockEditor({ mock, onSave, onDelete, onDuplicate, isDark = false
       if (!prev) return prev;
       if (reply === 'fixed') return { ...prev, reply: 'fixed' };
       if (reply === 'sequence') return { ...prev, reply: 'sequence' };
+      if (reply === 'patch') return { ...prev, reply: 'patch' };
       return { ...prev, reply: 'code', code: prev.code && prev.code.trim() ? prev.code : DEFAULT_CODE };
     });
   };
@@ -267,6 +301,59 @@ export function MockEditor({ mock, onSave, onDelete, onDuplicate, isDark = false
       Boolean(matchObj.headers && Object.keys(matchObj.headers).length > 0) ||
       Boolean(typeof matchObj.body === 'string' && matchObj.body.trim().length > 0);
 
+    if (draft.reply === 'patch') {
+      const patchObj: MockPatch = {};
+      if (patchStatus.trim()) {
+        const parsed = Number(patchStatus);
+        if (isValidStatus(parsed)) {
+          patchObj.status = parsed;
+        }
+      }
+
+      const cleanPatchHeaders: Record<string, string> = {};
+      for (const [k, v] of Object.entries(patchHeaders)) {
+        const trimmed = k.trim();
+        if (trimmed) {
+          cleanPatchHeaders[trimmed.toLowerCase()] = v;
+        }
+      }
+      if (Object.keys(cleanPatchHeaders).length > 0) {
+        patchObj.headers = cleanPatchHeaders;
+      }
+
+      const validSets = patchSetRows
+        .filter((r) => r.path.trim().length > 0)
+        .map((r) => ({ path: r.path.trim(), value: r.value }));
+      if (validSets.length > 0) {
+        patchObj.set = validSets;
+      }
+
+      const validRemoves = patchRemoveRows
+        .filter((r) => r.path.trim().length > 0)
+        .map((r) => r.path.trim());
+      if (validRemoves.length > 0) {
+        patchObj.remove = validRemoves;
+      }
+
+      const saved: Mock = {
+        ...draft,
+        reply: 'patch',
+        patch: patchObj,
+        response: {
+          ...draft.response,
+          delayMs: finalDelay,
+        },
+        ...(hasAnyConditions ? { match: matchObj } : {}),
+      };
+
+      if (!hasAnyConditions) {
+        delete saved.match;
+      }
+
+      onSave(saved);
+      return;
+    }
+
     if (draft.reply === 'sequence') {
       if (!seqDraft || seqDraft.steps.length === 0) return;
       const sequence: MockSequence = {
@@ -295,6 +382,7 @@ export function MockEditor({ mock, onSave, onDelete, onDuplicate, isDark = false
         ...(hasAnyConditions ? { match: matchObj } : {}),
       };
 
+      delete saved.patch;
       if (!hasAnyConditions) {
         delete saved.match;
       }
@@ -313,6 +401,7 @@ export function MockEditor({ mock, onSave, onDelete, onDuplicate, isDark = false
       ...(hasAnyConditions ? { match: matchObj } : {}),
     };
 
+    delete saved.patch;
     if (!hasAnyConditions) {
       delete saved.match;
     }
@@ -586,29 +675,31 @@ export function MockEditor({ mock, onSave, onDelete, onDuplicate, isDark = false
         {/* Status & Delay */}
         {!isSequence && (
           <div className="form-row">
-            <div className="form-group status-group">
-              <label className="field-label">Status</label>
-              <input
-                type="number"
-                data-testid="field-status"
-                list="status-datalist"
-                className={`text-input ${!isStatusValid ? 'input-error' : ''}`}
-                value={statusInput}
-                onChange={(e) => setStatusInput(e.target.value)}
-              />
-              <datalist id="status-datalist">
-                {Object.entries(STATUS_TEXT).map(([code, reason]) => (
-                  <option key={code} value={code}>
-                    {code} {reason}
-                  </option>
-                ))}
-              </datalist>
-              {!isStatusValid && (
-                <div data-testid="status-error" className="error-message">
-                  Invalid status code (must be 200–599)
-                </div>
-              )}
-            </div>
+            {!isPatch && (
+              <div className="form-group status-group">
+                <label className="field-label">Status</label>
+                <input
+                  type="number"
+                  data-testid="field-status"
+                  list="status-datalist"
+                  className={`text-input ${!isStatusValid ? 'input-error' : ''}`}
+                  value={statusInput}
+                  onChange={(e) => setStatusInput(e.target.value)}
+                />
+                <datalist id="status-datalist">
+                  {Object.entries(STATUS_TEXT).map(([code, reason]) => (
+                    <option key={code} value={code}>
+                      {code} {reason}
+                    </option>
+                  ))}
+                </datalist>
+                {!isStatusValid && (
+                  <div data-testid="status-error" className="error-message">
+                    Invalid status code (must be 200–599)
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="form-group delay-group">
               <label className="field-label">Delay (ms)</label>
@@ -626,7 +717,7 @@ export function MockEditor({ mock, onSave, onDelete, onDuplicate, isDark = false
         )}
 
         {/* Headers Table */}
-        <HeadersTable headers={draft.response.headers} onChange={handleHeadersChange} />
+        {!isPatch && <HeadersTable headers={draft.response.headers} onChange={handleHeadersChange} />}
 
         {/* Reply type (A2) */}
         <div className="form-group">
@@ -658,6 +749,15 @@ export function MockEditor({ mock, onSave, onDelete, onDuplicate, isDark = false
               onClick={() => setReply('sequence')}
             >
               Sequence
+            </button>
+            <button
+              type="button"
+              data-testid="reply-patch"
+              className={`reply-btn ${isPatch ? 'active' : ''}`}
+              aria-pressed={isPatch ? 'true' : 'false'}
+              onClick={() => setReply('patch')}
+            >
+              Change real
             </button>
           </div>
         </div>
@@ -818,6 +918,140 @@ export function MockEditor({ mock, onSave, onDelete, onDuplicate, isDark = false
               <div className="field-help">
                 tags: params.id, query.page, headers.name, body.path, uuid, now, timestamp
               </div>
+            </div>
+          </div>
+        ) : isPatch ? (
+          <div className="patch-reply-view" data-testid="patch-view">
+            <p className="field-help">
+              The real call goes through; then these changes apply. Paths are like user.name, items.0.price or items.*.price. Values are JSON (false, 0, &quot;text&quot;).
+            </p>
+
+            <div className="form-group status-group">
+              <label className="field-label">Status</label>
+              <input
+                type="number"
+                data-testid="patch-status"
+                placeholder="Keep real status"
+                className={`text-input ${!isPatchStatusValid ? 'input-error' : ''}`}
+                value={patchStatus}
+                onChange={(e) => setPatchStatus(e.target.value)}
+              />
+              {!isPatchStatusValid && (
+                <div data-testid="status-error" className="error-message">
+                  Invalid status code (must be 200–599)
+                </div>
+              )}
+            </div>
+
+            <HeadersTable
+              headers={patchHeaders}
+              onChange={setPatchHeaders}
+              title="Headers to add or replace"
+            />
+
+            <div className="patch-subset-group">
+              <div className="patch-subset-header">
+                <label className="field-label">Set fields</label>
+                <button
+                  type="button"
+                  data-testid="patch-set-add"
+                  className="header-add-btn"
+                  onClick={() =>
+                    setPatchSetRows((prev) => [
+                      ...prev,
+                      { id: `s-${Date.now()}-${prev.length}`, path: '', value: '' },
+                    ])
+                  }
+                >
+                  + Add set
+                </button>
+              </div>
+              {patchSetRows.map((r) => (
+                <div key={r.id} className="patch-row">
+                  <input
+                    type="text"
+                    data-testid="patch-set-path"
+                    className="text-input"
+                    placeholder="Path (e.g. user.name)"
+                    value={r.path}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setPatchSetRows((prev) =>
+                        prev.map((item) => (item.id === r.id ? { ...item, path: val } : item)),
+                      );
+                    }}
+                  />
+                  <input
+                    type="text"
+                    data-testid="patch-set-value"
+                    className="text-input"
+                    placeholder='Value (e.g. false, 0, "text")'
+                    value={r.value}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setPatchSetRows((prev) =>
+                        prev.map((item) => (item.id === r.id ? { ...item, value: val } : item)),
+                      );
+                    }}
+                  />
+                  <button
+                    type="button"
+                    data-testid="patch-set-remove"
+                    className="match-remove-btn"
+                    title="Remove set field"
+                    aria-label="Remove this set field"
+                    onClick={() => setPatchSetRows((prev) => prev.filter((item) => item.id !== r.id))}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="patch-subset-group">
+              <div className="patch-subset-header">
+                <label className="field-label">Remove fields</label>
+                <button
+                  type="button"
+                  data-testid="patch-remove-add"
+                  className="header-add-btn"
+                  onClick={() =>
+                    setPatchRemoveRows((prev) => [
+                      ...prev,
+                      { id: `r-${Date.now()}-${prev.length}`, path: '' },
+                    ])
+                  }
+                >
+                  + Add remove
+                </button>
+              </div>
+              {patchRemoveRows.map((r) => (
+                <div key={r.id} className="patch-row">
+                  <input
+                    type="text"
+                    data-testid="patch-remove-path"
+                    className="text-input"
+                    placeholder="Path (e.g. token)"
+                    value={r.path}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setPatchRemoveRows((prev) =>
+                        prev.map((item) => (item.id === r.id ? { ...item, path: val } : item)),
+                      );
+                    }}
+                  />
+                  <button
+                    type="button"
+                    data-testid="patch-remove-remove"
+                    className="match-remove-btn"
+                    title="Remove field"
+                    aria-label="Remove this field"
+                    onClick={() => setPatchRemoveRows((prev) => prev.filter((item) => item.id !== r.id))}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         ) : (

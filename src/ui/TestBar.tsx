@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { base64ToBytes } from '../core/bodies';
 import { errorReply, type HandlerReply, type HandlerRequest } from '../core/handler';
 import { RUN_HANDLER, isHandlerReply } from '../core/messages';
+import { patchSummary } from '../core/patchResponse';
 import { resolveReply } from '../patch/reply';
 import { statusTextFor } from '../core/statusText';
 import { testCall } from '../core/testCall';
@@ -140,6 +141,17 @@ export function TestBar({ project, pageOrigin, onOpenMock }: TestBarProps) {
 
     const matchedMock = result.mock;
     const scenarioId = findScenarioId(project, matchedMock.id);
+
+    if (matchedMock.reply === 'patch') {
+      setTestOutput({
+        kind: 'match',
+        mock: matchedMock,
+        scenarioName: result.scenarioName,
+        scenarioId,
+        reply: null,
+      });
+      return;
+    }
 
     if (matchedMock.reply !== 'code') {
       const fixedReply = await resolveReply(undefined, matchedMock, {
@@ -312,7 +324,16 @@ export function TestBar({ project, pageOrigin, onOpenMock }: TestBarProps) {
             )}
           </div>
 
-          {isRunning ? (
+          {testOutput.mock.reply === 'patch' ? (
+            <div data-testid="test-patch-summary" className="test-patch-summary">
+              <div className="test-patch-title">Changes the real response:</div>
+              <ul className="test-patch-lines">
+                {patchSummary(testOutput.mock.patch ?? {}).map((line, idx) => (
+                  <li key={idx}>{line}</li>
+                ))}
+              </ul>
+            </div>
+          ) : isRunning ? (
             <div className="test-running">Running…</div>
           ) : testOutput.reply ? (
             <div className="test-reply">
