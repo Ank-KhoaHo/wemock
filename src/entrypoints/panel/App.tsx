@@ -1467,6 +1467,8 @@ export default function App() {
                   <MockEditor
                     mock={selectedMock}
                     isDark={isDark}
+                    pageOrigin={tabOrigin || project?.origins[0] || ''}
+                    projectId={project?.id}
                     onSave={handleSaveMock}
                     onDelete={handleDeleteMock}
                     onDuplicate={handleDuplicateMock}

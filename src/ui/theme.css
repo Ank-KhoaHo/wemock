@@ -2299,5 +2299,80 @@ body.panel-root {
   margin-bottom: 2px;
 }
 
+/* A34: Code mock hints and run */
+.code-try-section {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.code-try-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.code-try-url-input {
+  flex: 1;
+  height: 28px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+.code-run-btn {
+  height: 28px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.code-try-body-row {
+  display: flex;
+}
+
+.code-try-body-textarea {
+  width: 100%;
+  height: 48px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-family: ui-monospace, Consolas, monospace;
+  resize: vertical;
+}
+
+.code-run-error {
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: ui-monospace, Consolas, monospace;
+  color: #bf2600;
+  background: #ffebe6;
+  border: 1px solid #ffbdad;
+}
+
+.dark .code-run-error {
+  color: #ff8f73;
+  background: #3b1812;
+  border-color: #601e14;
+}
+
+.code-run-out {
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px;
+  max-height: 140px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 
 

@@ -1,8 +1,10 @@
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
+import { paramNamesOf, sampleUrl } from '../core/codeHints';
 import { hasConditions } from '../core/conditions';
-import { DEFAULT_CODE } from '../core/handler';
+import { DEFAULT_CODE, type HandlerReply, type HandlerRequest } from '../core/handler';
+import { RUN_HANDLER } from '../core/messages';
 import { compilePattern } from '../core/match';
-import { isValidStatus, STATUS_TEXT } from '../core/statusText';
+import { isValidStatus, statusTextFor, STATUS_TEXT } from '../core/statusText';
 import type { BodyEncoding, HttpMethod, Mock, MockMatch, MockPatch, MockResponse, MockSequence } from '../core/types';
 import { BodyEditor } from './BodyEditor';
 import { HeadersTable } from './HeadersTable';
@@ -17,6 +19,8 @@ export interface MockEditorProps {
   onDelete: (mockId: string) => void;
   onDuplicate?: (mockId: string) => void;
   isDark?: boolean;
+  pageOrigin?: string;
+  projectId?: string;
 }
 
 interface KeyValueRow {
@@ -31,7 +35,30 @@ interface StepDraft {
   body: string;
 }
 
-export function MockEditor({ mock, onSave, onDelete, onDuplicate, isDark = false }: MockEditorProps) {
+function formatRunOut(response: MockResponse): string {
+  const statusLine = `${response.status} ${statusTextFor(response.status)}`.trim();
+  const headerLines = Object.entries(response.headers)
+    .map(([k, v]) => `${k}: ${v}`)
+    .join('\n');
+  let text = statusLine;
+  if (headerLines) {
+    text += '\n' + headerLines;
+  }
+  if (response.body) {
+    text += '\n\n' + response.body;
+  }
+  return text;
+}
+
+export function MockEditor({
+  mock,
+  onSave,
+  onDelete,
+  onDuplicate,
+  isDark = false,
+  pageOrigin = '',
+  projectId,
+}: MockEditorProps) {
   const [draft, setDraft] = useState<Mock | null>(mock);
   const [statusInput, setStatusInput] = useState<string>(mock ? String(mock.response.status) : '200');
   const [delayInput, setDelayInput] = useState<string>(mock ? String(mock.response.delayMs) : '0');
@@ -83,6 +110,14 @@ export function MockEditor({ mock, onSave, onDelete, onDuplicate, isDark = false
     if (!mock?.patch?.remove) return [];
     return mock.patch.remove.map((r, idx) => ({ id: `r-${idx}`, path: r }));
   });
+  const [tryUrl, setTryUrl] = useState<string>(() =>
+    mock ? sampleUrl(mock.urlPattern, pageOrigin) : '',
+  );
+  const [tryBody, setTryBody] = useState<string>('');
+  const [runReply, setRunReply] = useState<HandlerReply | null>(null);
+  const [isRunningRun, setIsRunningRun] = useState<boolean>(false);
+  const lastPatternRef = useRef<string>(mock?.urlPattern ?? '');
+  const lastOriginRef = useRef<string>(pageOrigin);
 
   useEffect(() => {
     setDraft(mock);
@@ -121,6 +156,11 @@ export function MockEditor({ mock, onSave, onDelete, onDuplicate, isDark = false
           : [],
       );
       setMatchBody(mock.match?.body ?? '');
+      lastPatternRef.current = mock.urlPattern;
+      lastOriginRef.current = pageOrigin;
+      setTryUrl(sampleUrl(mock.urlPattern, pageOrigin));
+      setTryBody('');
+      setRunReply(null);
       if (mock.sequence?.steps?.length) {
         setSeqDraft({
           steps: mock.sequence.steps.map((s) => ({
@@ -135,6 +175,19 @@ export function MockEditor({ mock, onSave, onDelete, onDuplicate, isDark = false
       }
     }
   }, [mock?.id]);
+
+  useEffect(() => {
+    const patternChanged =
+      draft?.urlPattern !== undefined && draft.urlPattern !== lastPatternRef.current;
+    const originChanged = pageOrigin !== lastOriginRef.current;
+    if (patternChanged || originChanged) {
+      if (draft?.urlPattern !== undefined) {
+        lastPatternRef.current = draft.urlPattern;
+        lastOriginRef.current = pageOrigin;
+        setTryUrl(sampleUrl(draft.urlPattern, pageOrigin));
+      }
+    }
+  }, [draft?.urlPattern, pageOrigin]);
 
   if (!draft) {
     return (
@@ -265,6 +318,58 @@ export function MockEditor({ mock, onSave, onDelete, onDuplicate, isDark = false
       if (reply === 'patch') return { ...prev, reply: 'patch' };
       return { ...prev, reply: 'code', code: prev.code && prev.code.trim() ? prev.code : DEFAULT_CODE };
     });
+  };
+
+  const hasTryBody = ['POST', 'PUT', 'PATCH', 'ANY'].includes(draft.method);
+
+  const handleCodeRun = async () => {
+    if (!draft || isRunningRun) return;
+    setIsRunningRun(true);
+    setRunReply(null);
+
+    try {
+      const reqBody = hasTryBody && tryBody.length > 0 ? tryBody : undefined;
+      const currentResponse: MockResponse = {
+        ...draft.response,
+        status: isValidStatus(Number(statusInput)) ? Number(statusInput) : draft.response.status,
+        delayMs: Math.max(0, Number(delayInput) || 0),
+      };
+
+      const request: HandlerRequest = {
+        method: draft.method === 'ANY' ? 'GET' : draft.method,
+        url: tryUrl,
+        headers: {},
+        ...(reqBody !== undefined ? { body: reqBody } : {}),
+      };
+
+      const reply = (await browser.runtime.sendMessage({
+        type: RUN_HANDLER,
+        mockId: draft.id,
+        projectId,
+        request,
+        draft: {
+          code: draft.code ?? '',
+          urlPattern: draft.urlPattern,
+          response: currentResponse,
+        },
+      })) as HandlerReply;
+
+      setRunReply(reply);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setRunReply({
+        error: message,
+        response: {
+          status: 500,
+          headers: {},
+          body: '',
+          bodyEncoding: 'text',
+          delayMs: 0,
+        },
+      });
+    } finally {
+      setIsRunningRun(false);
+    }
   };
 
   const handleSave = () => {
@@ -774,9 +879,57 @@ export function MockEditor({ mock, onSave, onDelete, onDuplicate, isDark = false
                 value={draft.code ?? ''}
                 dark={isDark}
                 language="javascript"
+                paramNames={paramNamesOf(draft.urlPattern)}
                 onChange={(val) => setDraft((prev) => (prev ? { ...prev, code: val } : prev))}
               />
             </Suspense>
+
+            <div className="code-try-section">
+              <div className="code-try-row">
+                <input
+                  type="text"
+                  data-testid="code-try-url"
+                  className="text-input code-try-url-input"
+                  placeholder="Try URL..."
+                  value={tryUrl}
+                  onChange={(e) => setTryUrl(e.target.value)}
+                />
+                <button
+                  type="button"
+                  data-testid="code-run"
+                  className="btn-primary code-run-btn"
+                  disabled={isRunningRun || !tryUrl.trim()}
+                  onClick={handleCodeRun}
+                >
+                  {isRunningRun ? 'Running…' : 'Run'}
+                </button>
+              </div>
+
+              {hasTryBody && (
+                <div className="code-try-body-row">
+                  <textarea
+                    data-testid="code-try-body"
+                    className="text-input code-try-body-textarea"
+                    placeholder="Request body (JSON or text)"
+                    rows={3}
+                    value={tryBody}
+                    onChange={(e) => setTryBody(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {runReply && (
+                runReply.error ? (
+                  <div data-testid="code-run-error" className="code-run-error">
+                    {runReply.error}
+                  </div>
+                ) : (
+                  <pre data-testid="code-run-out" className="code-run-out">
+                    {formatRunOut(runReply.response)}
+                  </pre>
+                )
+              )}
+            </div>
           </div>
         ) : isSequence ? (
           <div className="sequence-reply-view" data-testid="sequence-view">

@@ -2,7 +2,7 @@ import { buildInput, errorReply, HANDLER_TIMEOUT_MS, isCodeMock, toReply, type H
 import { OFFSCREEN_TARGET, RUN_HANDLER } from '../core/messages';
 import { projectForOrigin } from '../core/scenario';
 import { normalizePattern } from '../core/sockets';
-import type { Mock, WemockState } from '../core/types';
+import type { Mock, MockResponse, WemockState } from '../core/types';
 
 // Spec A2. Runs a code mock for a page (via the bridge) or for the panel's Test bar.
 // The code always comes from storage, looked up by mock id inside the sender's own
@@ -16,6 +16,11 @@ export interface RunHandlerMessage {
   request: HandlerRequest;
   /** Only honoured from extension pages (the panel), never from a tab. */
   projectId?: string;
+  draft?: {
+    code: string;
+    urlPattern: string;
+    response: MockResponse;
+  };
 }
 
 export interface SenderFacts {
@@ -45,6 +50,14 @@ export function isRunHandlerMessage(m: unknown): m is RunHandlerMessage {
   if (!r || typeof r !== 'object') return false;
   if (typeof r.method !== 'string' || typeof r.url !== 'string' || !isStringRecord(r.headers)) return false;
   if (r.body !== undefined && typeof r.body !== 'string') return false;
+  if (o.draft !== undefined) {
+    const d = o.draft as Record<string, unknown> | undefined;
+    if (!d || typeof d !== 'object' || Array.isArray(d)) return false;
+    if (typeof d.code !== 'string' || typeof d.urlPattern !== 'string') return false;
+    const resp = d.response as Record<string, unknown> | undefined;
+    if (!resp || typeof resp !== 'object' || Array.isArray(resp)) return false;
+    if (typeof resp.status !== 'number') return false;
+  }
   return true;
 }
 
@@ -97,13 +110,39 @@ export function findCodeMock(state: WemockState, sender: SenderFacts, msg: RunHa
 
 export async function runHandler(msg: RunHandlerMessage, sender: SenderFacts, io: RunnerIo): Promise<HandlerReply> {
   try {
-    const state = await io.loadState();
-    const mock = findCodeMock(state, sender, msg, io.extensionId);
-    if (!mock) return errorReply('This code mock was not found in the project for this page');
+    let mock: Mock | null = null;
+    let code = '';
+    if (msg.draft) {
+      const isOurExtensionPage =
+        sender.id === io.extensionId &&
+        Boolean(sender.url?.startsWith(`chrome-extension://${io.extensionId}/`));
+      if (!isOurExtensionPage) {
+        return errorReply('Code from a web page is not accepted');
+      }
+      mock = {
+        id: msg.mockId,
+        name: '',
+        enabled: true,
+        method: 'ANY',
+        urlPattern: msg.draft.urlPattern,
+        reply: 'code',
+        code: msg.draft.code,
+        response: msg.draft.response,
+        source: 'manual',
+        createdAt: 0,
+      };
+      code = msg.draft.code;
+    } else {
+      const state = await io.loadState();
+      mock = findCodeMock(state, sender, msg, io.extensionId);
+      if (!mock) return errorReply('This code mock was not found in the project for this page');
+      code = mock.code ?? '';
+    }
+
     const input = buildInput(mock, msg.request);
     const outcome = await io.runInOffscreen({
       target: OFFSCREEN_TARGET,
-      code: mock.code ?? '',
+      code,
       input,
       timeoutMs: HANDLER_TIMEOUT_MS,
     });
