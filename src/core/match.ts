@@ -3,18 +3,31 @@ import { hasConditions, matchConditions } from './conditions';
 import { operationName } from './graphql';
 import type { Mock, RequestFacts } from './types';
 
+/**
+ * The origin a pattern is bound to (or null) and its path, as path-to-regexp text. The path is
+ * not parsed as a URL: that would turn `\` into `/` and encode `{}`, breaking the pattern's
+ * syntax. Only what a URL would encode anyway (non-ASCII, spaces) is encoded, so the path
+ * compares with `url.pathname`. Throws on a bad host.
+ */
+export function splitPattern(pattern: string): { origin: string | null; path: string } {
+  let origin: string | null = null;
+  let path = pattern;
+
+  const host = /^https?:\/\/[^/?#\\]*/.exec(pattern);
+  if (host) {
+    origin = new URL(host[0]).origin;
+    // Like a URL, a host-bound pattern ends at its query or fragment (unless escaped).
+    path = pattern.slice(host[0].length).replace(/(?<!\\)[?#][\s\S]*$/, '') || '/';
+  }
+
+  return { origin, path: path.replace(/[^\x21-\x7E]/gu, (c) => encodeURIComponent(c)) };
+}
+
 export function compilePattern(
   pattern: string,
 ): { ok: true; test(url: URL): boolean } | { ok: false; error: string } {
   try {
-    let expectedOrigin: string | null = null;
-    let path = pattern;
-
-    if (pattern.startsWith('http://') || pattern.startsWith('https://')) {
-      const parsed = new URL(pattern);
-      expectedOrigin = parsed.origin;
-      path = parsed.pathname;
-    }
+    const { origin: expectedOrigin, path } = splitPattern(pattern);
 
     const matchFn = match(path, { decode: decodeURIComponent });
 

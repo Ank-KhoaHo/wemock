@@ -227,6 +227,16 @@ describe('record: patterns keep the host of another site (A7)', () => {
     expect(findMock([m], { method: 'GET', url: 'https://a.com/v1' })).toBeNull();
   });
 
+  it('a call to another site matches itself too, whatever pattern characters its path has', () => {
+    for (const path of ['/v1/items:batch', '/a*b', '/(default)/docs', '/a[0]', '/a+b', '/a!b']) {
+      const url = `https://api.other.com${path}`;
+      const m = mockFromLog(createLogEntry({ url }), 'm', 0, 'https://a.com');
+      expect(m.urlPattern.startsWith('https://api.other.com/')).toBe(true);
+      expect(findMock([m], { method: 'GET', url })?.id, path).toBe('m');
+      expect(findMock([m], { method: 'GET', url: 'https://api.other.com/v1/items/zzz' }), path).toBeNull();
+    }
+  });
+
   it('Save as scenario keeps the host too, and keeps two hosts with one path apart', () => {
     const sc = scenarioFromLogs(
       [
