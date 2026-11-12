@@ -11,6 +11,8 @@ export interface LogTableProps {
   onTurnOn?: () => void;
   selectedEntryId: string | null;
   onSelectEntry: (entry: LogEntry) => void;
+  selectedLogIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
 }
 
 function extractPath(urlStr: string): string {
@@ -32,6 +34,8 @@ export function LogTable({
   onTurnOn,
   selectedEntryId,
   onSelectEntry,
+  selectedLogIds,
+  onToggleSelect,
 }: LogTableProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const wasAtBottomRef = useRef(true);
@@ -62,6 +66,7 @@ export function LogTable({
       <table className="log-table">
         <thead>
           <tr>
+            <th className="log-th-select"></th>
             <th className="log-th-method">Method</th>
             <th className="log-th-path">Path</th>
             <th className="log-th-status">Status</th>
@@ -72,7 +77,7 @@ export function LogTable({
         <tbody>
           {entries.length === 0 ? (
             <tr className="empty-row">
-              <td colSpan={5} className="empty-cell">
+              <td colSpan={6} className="empty-cell">
                 {effectiveTotal === 0 ? (
                   <div data-testid="log-empty" className="log-empty">
                     <p className="log-empty-text">
@@ -113,6 +118,8 @@ export function LogTable({
           ) : (
             entries.map((entry) => {
               const isSelected = entry.id === selectedEntryId;
+              const isSocket = entry.method.startsWith('WS');
+              const isTicked = selectedLogIds?.has(entry.id) ?? false;
               const path = extractPath(entry.url);
               return (
                 <tr
@@ -131,6 +138,21 @@ export function LogTable({
                     }
                   }}
                 >
+                  <td className="log-col-select" onClick={(e) => e.stopPropagation()}>
+                    {!isSocket && (
+                      <input
+                        type="checkbox"
+                        data-testid="log-select"
+                        className="log-select-checkbox"
+                        checked={isTicked}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          onToggleSelect?.(entry.id);
+                        }}
+                      />
+                    )}
+                  </td>
                   <td className="log-col-method">{entry.method}</td>
                   <td className="log-col-path monospace" title={entry.url}>
                     {path}

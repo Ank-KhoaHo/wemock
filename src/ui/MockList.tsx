@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { unreachableMocks } from '../core/reachability';
 import type { Mock, Project, SocketMock } from '../core/types';
 import { newId } from '../shared/ids';
 
@@ -427,6 +428,7 @@ export function MockList({
           const isSelected = sc.id === (selectedScenario?.id ?? '');
           const isScDefault = sc.id === scenarios[0]?.id;
           const isFolded = foldedIds.includes(sc.id);
+          const unreachable = unreachableMocks(sc.mocks);
 
           const displayMocks = isFilterActive
             ? sc.mocks
@@ -514,7 +516,9 @@ export function MockList({
 
               {showRows && (
                 <div className="mock-rows-container">
-                  {displayMocks.map(({ mock, originalIndex }) => (
+                  {displayMocks.map(({ mock, originalIndex }) => {
+                    const unreachableInfo = unreachable.get(mock.id);
+                    return (
                     <div
                       key={mock.id}
                       data-testid="mock-row"
@@ -572,6 +576,15 @@ export function MockList({
                               code
                             </span>
                           )}
+                          {unreachableInfo && (
+                            <span
+                              data-testid="mock-unreachable"
+                              className="mock-unreachable"
+                              title={unreachableInfo.reason}
+                            >
+                              Never answers
+                            </span>
+                          )}
                         </span>
                       </div>
 
@@ -613,7 +626,8 @@ export function MockList({
                         </div>
                       </div>
                     </div>
-                  ))}
+                  );
+                })}
                   {displaySockets.map((socket) => (
                     <div
                       key={socket.id}

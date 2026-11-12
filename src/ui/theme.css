@@ -431,6 +431,10 @@ body.panel-root {
   overflow: hidden;
 }
 
+.panel-main-content[hidden] {
+  display: none !important;
+}
+
 .panel-toolbar {
   display: flex;
   align-items: center;
@@ -548,6 +552,7 @@ body.panel-root {
   z-index: 1;
 }
 
+.log-th-select { width: 32px; text-align: center; }
 .log-th-method { width: 65px; }
 .log-th-path { width: auto; }
 .log-th-status { width: 55px; }
@@ -560,6 +565,18 @@ body.panel-root {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.log-col-select {
+  width: 32px;
+  text-align: center;
+  padding: 4px 0 !important;
+}
+
+.log-select-checkbox {
+  cursor: pointer;
+  margin: 0;
+  vertical-align: middle;
 }
 
 .log-row {
@@ -1645,6 +1662,26 @@ body.panel-root {
   background: var(--bg-secondary);
   color: var(--text-secondary);
   border: 1px solid var(--border-color);
+}
+
+.mock-unreachable {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  background: #fffae6;
+  color: #6b4700;
+  border: 1px solid #ffe380;
+}
+
+:root.dark .mock-unreachable,
+body.dark .mock-unreachable,
+.dark .mock-unreachable {
+  background: #332600;
+  color: #ffe380;
+  border: 1px solid #664d00;
 }
 
 /* A12: call sequences */

@@ -6,6 +6,7 @@ import { detectHar, harSummaryText, importHar } from '../../core/harImport';
 import { importMokku } from '../../core/mokkuImport';
 import { detectOpenApi, importOpenApi, openApiSummaryText, parseSpecText } from '../../core/openapiImport';
 import { ensureProject, mockFromLog, scenarioFromLogs } from '../../core/record';
+import { isValidStatus } from '../../core/statusText';
 import { projectForOrigin } from '../../core/scenario';
 import { addScenario, clearProject, deleteScenarios, duplicateMock, duplicateScenario, duplicateSocket, mergeProject, replaceProject } from '../../core/scenarioOps';
 import { siteStatus } from '../../core/siteStatus';
@@ -62,6 +63,7 @@ export default function App() {
   const [selectedMethods, setSelectedMethods] = useState<Set<string>>(new Set());
   const [selectedStatuses, setSelectedStatuses] = useState<Set<'2xx' | '3xx' | '4xx' | '5xx' | 'other'>>(new Set());
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
+  const [selectedLogIds, setSelectedLogIds] = useState<Set<string>>(new Set());
   const [isNamingScenario, setIsNamingScenario] = useState(false);
   const [scenarioName, setScenarioName] = useState('');
 
@@ -430,6 +432,101 @@ export default function App() {
         return {
           ...p,
           scenarios: updatedScenarios,
+        };
+      });
+
+      return {
+        ...nextState,
+        projects: updatedProjects,
+      };
+    }).catch(() => {});
+  };
+
+  const handleToggleSelectLog = (id: string) => {
+    setSelectedLogIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleMockSelected = () => {
+    if (selectedLogIds.size === 0) return;
+
+    let originToUse = tabOrigin || project?.origins[0] || '';
+    if (!originToUse) {
+      for (const entry of entries) {
+        if (selectedLogIds.has(entry.id)) {
+          try {
+            originToUse = new URL(entry.url).origin;
+            if (originToUse) break;
+          } catch {}
+        }
+      }
+    }
+    if (!originToUse) return;
+
+    let addedCount = 0;
+    let skippedCount = 0;
+    const now = Date.now();
+    const mocksToAdd: Mock[] = [];
+
+    for (const entry of entries) {
+      if (!selectedLogIds.has(entry.id)) continue;
+
+      if (
+        entry.badge === 'MOCK' ||
+        entry.truncated ||
+        !isValidStatus(entry.status) ||
+        entry.method.startsWith('WS')
+      ) {
+        skippedCount++;
+        continue;
+      }
+
+      try {
+        const mock = mockFromLog(entry, newId(), now, originToUse);
+        mocksToAdd.push(mock);
+        addedCount++;
+      } catch {
+        skippedCount++;
+      }
+    }
+
+    const currentProject = project;
+    if (currentProject) {
+      const msg = `${addedCount} mock${addedCount === 1 ? '' : 's'} added${
+        skippedCount > 0 ? ` (${skippedCount} skipped)` : ''
+      }`;
+      triggerUndo(structuredClone(currentProject), msg);
+    }
+
+    setSelectedLogIds(new Set());
+
+    update((s) => {
+      const { state: nextState, project: targetProject } = ensureProject(s, originToUse, newId);
+      if (!currentProject) {
+        const msg = `${addedCount} mock${addedCount === 1 ? '' : 's'} added${
+          skippedCount > 0 ? ` (${skippedCount} skipped)` : ''
+        }`;
+        triggerUndo(structuredClone(targetProject), msg);
+      }
+      const activeScenarioId = targetProject.activeScenarioId || targetProject.scenarios[0]?.id;
+      const updatedProjects = nextState.projects.map((p) => {
+        if (p.id !== targetProject.id) return p;
+        return {
+          ...p,
+          scenarios: p.scenarios.map((sc) => {
+            if (sc.id !== activeScenarioId) return sc;
+            return {
+              ...sc,
+              mocks: [...sc.mocks, ...mocksToAdd],
+            };
+          }),
         };
       });
 
@@ -1135,9 +1232,26 @@ export default function App() {
         onTabChange={setActiveTab}
       />
 
-      {activeTab === 'log' ? (
-        <div className="panel-main-content">
-          <div className="panel-toolbar">
+      {undoInfo && (
+        <div data-testid="undo-bar" className="undo-bar">
+          <span className="undo-bar-text">{undoInfo.message}</span>
+          <button
+            type="button"
+            data-testid="undo"
+            className="btn-secondary btn-sm"
+            onClick={handleUndo}
+          >
+            Undo
+          </button>
+        </div>
+      )}
+
+      <div
+        className="panel-main-content"
+        hidden={activeTab !== 'log'}
+        style={{ display: activeTab === 'log' ? undefined : 'none' }}
+      >
+        <div className="panel-toolbar">
             <div className="toolbar-left">
               <input
                 type="text"
@@ -1236,6 +1350,16 @@ export default function App() {
               </div>
             </div>
             <div className="toolbar-right">
+              {selectedLogIds.size > 0 && (
+                <button
+                  type="button"
+                  data-testid="log-mock-selected"
+                  className="save-scenario-btn"
+                  onClick={handleMockSelected}
+                >
+                  Mock selected ({selectedLogIds.size})
+                </button>
+              )}
               <button
                 type="button"
                 data-testid="log-save-har"
@@ -1303,6 +1427,8 @@ export default function App() {
                 onTurnOn={handleTurnOn}
                 selectedEntryId={selectedEntryId}
                 onSelectEntry={(entry) => setSelectedEntryId(entry.id)}
+                selectedLogIds={selectedLogIds}
+                onToggleSelect={handleToggleSelectLog}
               />
             </div>
             <div className="panel-split-right">
@@ -1317,8 +1443,12 @@ export default function App() {
             </div>
           </div>
         </div>
-      ) : (
-        <div className="panel-main-content">
+
+      <div
+        className="panel-main-content"
+        hidden={activeTab !== 'mocks'}
+        style={{ display: activeTab === 'mocks' ? undefined : 'none' }}
+      >
           {/* Top area: import/export toolbar */}
           <div className="mocks-toolbar">
             <div className="mocks-toolbar-actions">
@@ -1400,20 +1530,6 @@ export default function App() {
             </div>
           )}
 
-          {undoInfo && (
-            <div data-testid="undo-bar" className="undo-bar">
-              <span className="undo-bar-text">{undoInfo.message}</span>
-              <button
-                type="button"
-                data-testid="undo"
-                className="btn-secondary btn-sm"
-                onClick={handleUndo}
-              >
-                Undo
-              </button>
-            </div>
-          )}
-
           <TestBar
             project={project}
             pageOrigin={tabOrigin || project?.origins[0] || ''}
@@ -1482,7 +1598,6 @@ export default function App() {
             </div>
           )}
         </div>
-      )}
     </div>
   );
 }
