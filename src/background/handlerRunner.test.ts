@@ -33,9 +33,14 @@ const tab = (url: string) => ({ id: EXT, url, tab: { id: 1 } });
 const panel = { id: EXT, url: `chrome-extension://${EXT}/panel.html?tabId=1` };
 
 describe('findCodeMock', () => {
-  it('a tab runs code mocks of its own origin, in any scenario', () => {
+  it('a tab runs code mocks of its own origin, in the active scenario or default', () => {
     expect(findCodeMock(state(), tab('http://a.test/page'), msg('code-a'), EXT)?.id).toBe('code-a');
-    expect(findCodeMock(state(), tab('http://a.test/page'), msg('code-a2'), EXT)?.id).toBe('code-a2');
+    expect(findCodeMock(state(), tab('http://a.test/page'), msg('code-a2'), EXT)).toBeNull();
+    const withS2 = {
+      ...state(),
+      projects: state().projects.map((p) => (p.id === 'pa' ? { ...p, activeScenarioId: 's2' } : p)),
+    };
+    expect(findCodeMock(withS2, tab('http://a.test/page'), msg('code-a2'), EXT)?.id).toBe('code-a2');
   });
   it('a tab cannot reach another project, even naming its project id', () => {
     expect(findCodeMock(state(), tab('http://a.test/page'), msg('code-b'), EXT)).toBeNull();

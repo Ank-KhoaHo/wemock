@@ -16,13 +16,13 @@ export function siteStatus(tabUrl: string, enabledOrigins: string[], enabled: bo
     return 'unknown';
   }
 
-  const isLocalHttp =
-    parsed.protocol === 'http:' &&
+  const isLocalhost =
+    (parsed.protocol === 'http:' || parsed.protocol === 'https:') &&
     (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1');
 
   const isOriginEnabled = enabledOrigins.includes(parsed.origin);
 
-  const siteOn = isLocalHttp || isOriginEnabled;
+  const siteOn = isLocalhost || isOriginEnabled;
 
   if (!siteOn) {
     return 'site-off';

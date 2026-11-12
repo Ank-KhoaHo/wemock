@@ -1,8 +1,8 @@
 import { buildInput, errorReply, HANDLER_TIMEOUT_MS, isCodeMock, toReply, type HandlerReply, type HandlerRequest, type WorkerOutcome } from '../core/handler';
 import { OFFSCREEN_TARGET, RUN_HANDLER } from '../core/messages';
-import { projectForOrigin } from '../core/scenario';
+import { activeMocks, projectForOrigin } from '../core/scenario';
 import { normalizePattern } from '../core/sockets';
-import type { Mock, MockResponse, WemockState } from '../core/types';
+import { DEFAULT_SCENARIO_ID, type Mock, type MockResponse, type SocketReply, type WemockState } from '../core/types';
 
 // Spec A2. Runs a code mock for a page (via the bridge) or for the panel's Test bar.
 // The code always comes from storage, looked up by mock id inside the sender's own
@@ -73,8 +73,9 @@ function senderOrigin(sender: SenderFacts): string | null {
 /** The code mock this sender may run, or null. */
 export function findCodeMock(state: WemockState, sender: SenderFacts, msg: RunHandlerMessage, extensionId: string): Mock | null {
   if (sender.id !== extensionId) return null;
+  const isExtensionPage = Boolean(sender.url?.startsWith(`chrome-extension://${extensionId}/`));
   let project;
-  if (sender.url?.startsWith(`chrome-extension://${extensionId}/`)) {
+  if (isExtensionPage) {
     // Our own page (the panel, even when opened in a tab) names its project.
     project = msg.projectId ? (state.projects.find((p) => p.id === msg.projectId) ?? null) : null;
   } else if (sender.tab) {
@@ -83,12 +84,49 @@ export function findCodeMock(state: WemockState, sender: SenderFacts, msg: RunHa
     project = origin ? projectForOrigin(state, origin) : null;
   }
   if (!project) return null;
-  for (const s of project.scenarios) {
-    const m = s.mocks.find((x) => x.id === msg.mockId);
-    if (m) return isCodeMock(m) ? m : null;
-    // A5: a socket reply rule with code runs the same way, as a mock-shaped stand-in.
+
+  if (isExtensionPage) {
+    for (const s of project.scenarios) {
+      const m = s.mocks.find((x) => x.id === msg.mockId);
+      if (m) return isCodeMock(m) ? m : null;
+      for (const socket of s.sockets ?? []) {
+        const rule = socket.replies.find((r: SocketReply) => r.id === msg.mockId);
+        if (rule) {
+          if (rule.respond !== 'code') return null;
+          return {
+            id: rule.id,
+            enabled: true,
+            method: 'ANY',
+            urlPattern: normalizePattern(socket.urlPattern),
+            reply: 'code',
+            code: rule.code ?? '',
+            response: { status: 200, headers: {}, body: '', bodyEncoding: 'text', delayMs: 0 },
+            source: 'manual',
+            createdAt: socket.createdAt,
+          };
+        }
+      }
+    }
+    return null;
+  }
+
+  const mocks = activeMocks(project);
+  const m = mocks.find((x) => x.id === msg.mockId);
+  if (m) {
+    if (!m.enabled) return null;
+    return isCodeMock(m) ? m : null;
+  }
+
+  const defaultScenario = project.scenarios.find((s) => s.id === DEFAULT_SCENARIO_ID) ?? project.scenarios[0];
+  const activeScenario = project.scenarios.find((s) => s.id === project.activeScenarioId);
+  const scenariosToCheck = [activeScenario, defaultScenario].filter(
+    (s, idx, arr): s is typeof project.scenarios[number] => Boolean(s) && arr.indexOf(s) === idx,
+  );
+
+  for (const s of scenariosToCheck) {
     for (const socket of s.sockets ?? []) {
-      const rule = socket.replies.find((r) => r.id === msg.mockId);
+      if (!socket.enabled) continue;
+      const rule = socket.replies.find((r: SocketReply) => r.id === msg.mockId);
       if (rule) {
         if (rule.respond !== 'code') return null;
         return {

@@ -17,8 +17,15 @@ function formatResponseBody(entry: LogEntry): string {
     return 'not kept, over 1 MB';
   }
   if (entry.responseEncoding === 'base64') {
-    const bytes = entry.responseBody ? base64ToBytes(entry.responseBody).length : 0;
-    return `binary, ${bytes} bytes`;
+    if (entry.responseBody === null || entry.responseBody === undefined) {
+      return 'binary, size unknown';
+    }
+    try {
+      const bytes = base64ToBytes(entry.responseBody).length;
+      return `binary, ${bytes} bytes`;
+    } catch {
+      return 'binary, size unknown';
+    }
   }
   if (entry.responseBody !== null && entry.responseBody !== undefined) {
     try {

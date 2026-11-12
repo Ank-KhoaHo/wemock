@@ -18,12 +18,17 @@ describe('built manifest', () => {
     expect(m.name).toBe('wemock');
   });
 
-  it('asks for exactly storage, unlimitedStorage, scripting and offscreen (A2)', () => {
-    expect(new Set(m.permissions)).toEqual(new Set(['storage', 'unlimitedStorage', 'scripting', 'offscreen']));
+  it('asks for storage, unlimitedStorage, scripting, offscreen and activeTab (A2, A43)', () => {
+    expect(new Set(m.permissions)).toEqual(new Set(['storage', 'unlimitedStorage', 'scripting', 'offscreen', 'activeTab']));
   });
 
   it('is granted localhost only; every other site is optional', () => {
-    expect(m.host_permissions).toEqual(['http://localhost/*', 'http://127.0.0.1/*']);
+    expect(m.host_permissions).toEqual([
+      'http://localhost/*',
+      'http://127.0.0.1/*',
+      'https://localhost/*',
+      'https://127.0.0.1/*',
+    ]);
     expect(m.optional_host_permissions).toEqual(['<all_urls>']);
   });
 

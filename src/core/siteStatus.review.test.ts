@@ -13,8 +13,9 @@ describe('siteStatus', () => {
     expect(siteStatus('https://shop.example.com/cart', ['https://shop.example.com'], true)).toBe('on');
     expect(siteStatus('https://shop.example.com/cart', ['https://other.example.com'], true)).toBe('site-off');
   });
-  it('https localhost needs switching on too (only http localhost is granted at install)', () => {
-    expect(siteStatus('https://localhost:8443/', [], true)).toBe('site-off');
+  it('https localhost is on too (A43: http and https localhost are granted at install)', () => {
+    expect(siteStatus('https://localhost:8443/', [], true)).toBe('on');
+    expect(siteStatus('https://127.0.0.1:8443/', [], true)).toBe('on');
   });
   it('the origin must match exactly, port included', () => {
     expect(siteStatus('http://dev.test:8080/', ['http://dev.test'], true)).toBe('site-off');

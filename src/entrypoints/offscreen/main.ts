@@ -34,7 +34,8 @@ async function runInSandbox(code: string, input: HandlerInput, timeoutMs: number
   });
 }
 
-browser.runtime.onMessage.addListener((msg: unknown, _sender, sendResponse) => {
+browser.runtime.onMessage.addListener((msg: unknown, sender, sendResponse) => {
+  if (sender?.id !== browser.runtime.id) return undefined;
   const m = msg as { target?: string; code?: unknown; input?: HandlerInput; timeoutMs?: unknown };
   if (m?.target !== OFFSCREEN_TARGET || typeof m.code !== 'string' || !m.input || typeof m.timeoutMs !== 'number') {
     return undefined;

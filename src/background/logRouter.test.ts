@@ -20,6 +20,10 @@ function createDraft(url: string): LogDraft {
 
 interface FakePort {
   name: string;
+  sender?: {
+    id?: string;
+    url?: string;
+  };
   postMessage: ReturnType<typeof vi.fn>;
   onMessage: {
     addListener(fn: (msg: unknown) => void): void;
@@ -34,9 +38,11 @@ interface FakePort {
 function createFakePort(name = 'wemock-panel'): FakePort {
   const messageListeners: ((msg: unknown) => void)[] = [];
   const disconnectListeners: (() => void)[] = [];
+  const extId = fakeBrowser.runtime.id ?? 'extid';
 
   return {
     name,
+    sender: { id: extId, url: `chrome-extension://${extId}/panel.html` },
     postMessage: vi.fn(),
     onMessage: {
       addListener(fn) {
@@ -60,6 +66,7 @@ function createFakePort(name = 'wemock-panel'): FakePort {
 describe('logRouter', () => {
   beforeEach(() => {
     fakeBrowser.reset();
+    fakeBrowser.runtime.id = 'extid';
   });
 
   it('two tabs keep separate buffers', () => {
@@ -81,7 +88,8 @@ describe('logRouter', () => {
     expect(buf2?.entries()[0]?.id).not.toBe(buf1?.entries()[0]?.id);
   });
 
-  it('a subscriber gets a snapshot then live entries', () => {
+  // A43: subscribe waits for the tab's stored rows (storage.session), so the snapshot is async.
+  it('a subscriber gets a snapshot then live entries', async () => {
     const router = new LogRouter();
 
     router.handleMessage({ type: 'log', entry: createDraft('http://a.com/initial') }, { tab: { id: 10 } } as any);
@@ -91,7 +99,7 @@ describe('logRouter', () => {
 
     port.onMessage.trigger({ type: 'subscribe', tabId: 10 });
 
-    expect(port.postMessage).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(port.postMessage).toHaveBeenCalledTimes(1));
     expect(port.postMessage).toHaveBeenCalledWith({
       type: 'snapshot',
       entries: expect.arrayContaining([
@@ -123,7 +131,7 @@ describe('logRouter', () => {
     expect(router.getBuffer(42)).toBeUndefined();
   });
 
-  it('clear message empties the buffer and notifies subscribers with an empty snapshot', () => {
+  it('clear message empties the buffer and notifies subscribers with an empty snapshot', async () => {
     const router = new LogRouter();
 
     router.handleMessage({ type: 'log', entry: createDraft('http://a.com/1') }, { tab: { id: 5 } } as any);
@@ -132,6 +140,7 @@ describe('logRouter', () => {
     router.handleConnect(port as any);
     port.onMessage.trigger({ type: 'subscribe', tabId: 5 });
 
+    await vi.waitFor(() => expect(port.postMessage).toHaveBeenCalledTimes(1));
     expect(port.postMessage).toHaveBeenCalledWith({
       type: 'snapshot',
       entries: [expect.objectContaining({ url: 'http://a.com/1' })],

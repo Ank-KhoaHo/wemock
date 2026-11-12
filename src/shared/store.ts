@@ -9,11 +9,18 @@ export async function loadState(): Promise<WemockState> {
   return state as WemockState;
 }
 
-export async function updateState(fn: (s: WemockState) => WemockState): Promise<WemockState> {
-  const current = await loadState();
-  const next = fn(current);
-  await browser.storage.local.set({ [STATE_KEY]: next });
-  return next;
+let updateQueue: Promise<unknown> = Promise.resolve();
+
+export function updateState(fn: (s: WemockState) => WemockState): Promise<WemockState> {
+  const run = async (): Promise<WemockState> => {
+    const current = await loadState();
+    const next = fn(current);
+    await browser.storage.local.set({ [STATE_KEY]: next });
+    return next;
+  };
+  const nextPromise = updateQueue.then(run, run);
+  updateQueue = nextPromise.catch(() => {});
+  return nextPromise;
 }
 
 export function onStateChange(cb: (s: WemockState) => void): () => void {

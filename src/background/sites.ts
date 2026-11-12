@@ -1,4 +1,9 @@
-export const LOCALHOST_MATCHES = ['http://localhost/*', 'http://127.0.0.1/*'];
+export const LOCALHOST_MATCHES = [
+  'http://localhost/*',
+  'http://127.0.0.1/*',
+  'https://localhost/*',
+  'https://127.0.0.1/*',
+];
 
 export function originToMatch(origin: string): string {
   try {

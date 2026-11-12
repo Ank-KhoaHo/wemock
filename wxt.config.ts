@@ -11,8 +11,9 @@ export default defineConfig({
     description:
       'Record real API calls in Chrome DevTools, then replay them as mock scenarios. WebSocket and SignalR too.',
     // offscreen: spec A2, code mocks run in a sandboxed iframe inside an offscreen document.
-    permissions: ['storage', 'unlimitedStorage', 'scripting', 'offscreen'],
-    host_permissions: ['http://localhost/*', 'http://127.0.0.1/*'],
+    // activeTab: A43, the popup reads the address of the tab it was opened on.
+    permissions: ['storage', 'unlimitedStorage', 'scripting', 'offscreen', 'activeTab'],
+    host_permissions: ['http://localhost/*', 'http://127.0.0.1/*', 'https://localhost/*', 'https://127.0.0.1/*'],
     optional_host_permissions: ['<all_urls>'],
     content_security_policy: {
       // The sandbox page (no extension APIs, opaque origin) may eval, and may start

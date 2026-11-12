@@ -21,6 +21,7 @@ import { MockList } from '../../ui/MockList';
 import { SocketEditor } from '../../ui/SocketEditor';
 import { TestBar } from '../../ui/TestBar';
 import { TopBar } from '../../ui/TopBar';
+import { PanelErrorBoundary } from '../../ui/PanelErrorBoundary';
 import { useTabLog, useWemockState } from '../../ui/useWemockState';
 
 export function formatImportSummary(summary: {
@@ -1246,11 +1247,12 @@ export default function App() {
         </div>
       )}
 
-      <div
-        className="panel-main-content"
-        hidden={activeTab !== 'log'}
-        style={{ display: activeTab === 'log' ? undefined : 'none' }}
-      >
+      <PanelErrorBoundary hidden={activeTab !== 'log'}>
+        <div
+          className="panel-main-content"
+          hidden={activeTab !== 'log'}
+          style={{ display: activeTab === 'log' ? undefined : 'none' }}
+        >
         <div className="panel-toolbar">
             <div className="toolbar-left">
               <input
@@ -1443,12 +1445,14 @@ export default function App() {
             </div>
           </div>
         </div>
+      </PanelErrorBoundary>
 
-      <div
-        className="panel-main-content"
-        hidden={activeTab !== 'mocks'}
-        style={{ display: activeTab === 'mocks' ? undefined : 'none' }}
-      >
+      <PanelErrorBoundary hidden={activeTab !== 'mocks'}>
+        <div
+          className="panel-main-content"
+          hidden={activeTab !== 'mocks'}
+          style={{ display: activeTab === 'mocks' ? undefined : 'none' }}
+        >
           {/* Top area: import/export toolbar */}
           <div className="mocks-toolbar">
             <div className="mocks-toolbar-actions">
@@ -1598,6 +1602,7 @@ export default function App() {
             </div>
           )}
         </div>
+      </PanelErrorBoundary>
     </div>
   );
 }

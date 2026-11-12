@@ -61,13 +61,29 @@ export function useTabLog(tabId: number): {
     }
 
     let mounted = true;
-    let hasReconnected = false;
+    let isReconnect = false;
+    let delayMs = 200;
+    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
     let activePort: RuntimePort | null = null;
+
+    function scheduleReconnect() {
+      if (!mounted) return;
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+      isReconnect = true;
+      const waitTime = delayMs;
+      delayMs = Math.min(5000, delayMs * 2);
+      reconnectTimeout = setTimeout(() => {
+        if (mounted) {
+          connect();
+        }
+      }, waitTime);
+    }
 
     function connect() {
       if (!mounted) return;
       try {
-        // browser.runtime.connect returns a RuntimePort
         const port = browser.runtime.connect({ name: 'wemock-panel' }) as unknown as RuntimePort;
         activePort = port;
         portRef.current = port;
@@ -76,24 +92,39 @@ export function useTabLog(tabId: number): {
           if (!mounted || !msg || typeof msg !== 'object') return;
           const m = msg as { type?: unknown; entries?: LogEntry[]; entry?: LogEntry };
           if (m.type === 'snapshot' && Array.isArray(m.entries)) {
-            setEntries(m.entries);
+            if (isReconnect) {
+              setEntries((prev) => {
+                const seen = new Set(prev.map((e) => e.id));
+                const newEntries = m.entries!.filter((e) => !seen.has(e.id));
+                return [...prev, ...newEntries];
+              });
+              isReconnect = false;
+            } else {
+              setEntries(m.entries);
+            }
+            delayMs = 200;
           } else if (m.type === 'log' && m.entry) {
-            setEntries((prev) => [...prev, m.entry!]);
+            setEntries((prev) => {
+              if (prev.some((e) => e.id === m.entry!.id)) {
+                return prev;
+              }
+              return [...prev, m.entry!];
+            });
           }
         });
 
         port.onDisconnect.addListener(() => {
           if (!mounted) return;
           portRef.current = null;
-          if (!hasReconnected) {
-            hasReconnected = true;
-            connect();
-          }
+          activePort = null;
+          scheduleReconnect();
         });
 
         port.postMessage({ type: 'subscribe', tabId });
       } catch {
-        // Ignore connection errors if background is unavailable
+        portRef.current = null;
+        activePort = null;
+        scheduleReconnect();
       }
     }
 
@@ -101,6 +132,9 @@ export function useTabLog(tabId: number): {
 
     return () => {
       mounted = false;
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
       if (activePort) {
         try {
           activePort.disconnect();
