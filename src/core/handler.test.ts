@@ -25,7 +25,7 @@ describe('matchParams', () => {
     });
   });
   it('reads params from a host-bound pattern with escapes or an optional group', () => {
-    expect(matchParams('https://api.test/v1/:name\\:cancel', 'https://api.test/v1/op7:cancel')).toEqual({
+    expect(matchParams(String.raw`https://api.test/v1/:name\:cancel`, 'https://api.test/v1/op7:cancel')).toEqual({
       name: 'op7',
     });
     expect(matchParams('https://api.test/users{/:id}', 'https://api.test/users/5')).toEqual({ id: '5' });

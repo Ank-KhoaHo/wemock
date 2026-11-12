@@ -70,7 +70,7 @@ describe('socket matching', () => {
     expect(findSocket(s, 'ws://api.test/live')).toBeNull();
   });
   it('a host-bound socket pattern keeps its escapes', () => {
-    const s = [sock('a', 'wss://api.test/v1/live\\:stream')];
+    const s = [sock('a', String.raw`wss://api.test/v1/live\:stream`)];
     expect(findSocket(s, 'wss://api.test/v1/live:stream')?.id).toBe('a');
     expect(findSocket(s, 'wss://api.test/v1/live/zzz')).toBeNull();
   });

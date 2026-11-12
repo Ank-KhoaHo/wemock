@@ -91,7 +91,7 @@ describe('match', () => {
   });
 
   it('a host-bound pattern keeps its path syntax: escapes and optional groups', () => {
-    const escaped = mock({ urlPattern: 'https://api.b.com/v1/items\\:batch' });
+    const escaped = mock({ urlPattern: String.raw`https://api.b.com/v1/items\:batch` });
     expect(findMock([escaped], get('https://api.b.com/v1/items:batch'))).toBe(escaped);
     expect(findMock([escaped], get('https://api.b.com/v1/items/zzz'))).toBeNull();
 
