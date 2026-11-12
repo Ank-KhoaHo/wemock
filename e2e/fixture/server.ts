@@ -34,6 +34,7 @@ export function startFixtureServer(host = '127.0.0.1', port = 0): Promise<Fixtur
   // 2 MB octet-stream buffer
   const bigBin = Buffer.alloc(2 * 1024 * 1024, 0x42);
 
+  const hits = new Map<string, number>();
   const server = http.createServer((req, res) => {
     const parsedUrl = new URL(req.url ?? '/', `http://${req.headers.host ?? '127.0.0.1'}`);
     const pathname = parsedUrl.pathname;
@@ -106,6 +107,28 @@ export function startFixtureServer(host = '127.0.0.1', port = 0): Promise<Fixtur
     if (req.method === 'GET' && pathname === '/api/big.bin') {
       res.writeHead(200, { 'content-type': 'application/octet-stream' });
       res.end(bigBin);
+      return;
+    }
+
+    // A39: answers with the request headers it received (names are lower-case in Node).
+    if (pathname === '/api/headers') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(req.headers));
+      return;
+    }
+
+    // A43: sends headers and half a body, then cuts the connection; counts its calls.
+    if (pathname === '/api/broken-body') {
+      hits.set('broken-body', (hits.get('broken-body') ?? 0) + 1);
+      req.resume();
+      res.writeHead(200, { 'content-type': 'application/json', 'content-length': '1000' });
+      res.write('{"half":');
+      setTimeout(() => res.destroy(), 20);
+      return;
+    }
+    if (req.method === 'GET' && pathname === '/api/hits') {
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      res.end(String(hits.get(parsedUrl.searchParams.get('name') ?? '') ?? 0));
       return;
     }
 
