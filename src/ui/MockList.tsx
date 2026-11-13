@@ -25,6 +25,7 @@ export interface MockListProps {
   onAddSocket: (scenarioId: string, socket: SocketMock) => void;
   onDuplicateScenario?: (scenarioId: string) => void;
   onExportScenario?: (scenarioId: string) => void;
+  onLoadSample?: () => void;
 }
 
 function loadFoldedIds(projectId: string): string[] {
@@ -95,6 +96,7 @@ export function MockList({
   onAddSocket,
   onDuplicateScenario,
   onExportScenario,
+  onLoadSample,
 }: MockListProps) {
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameText, setRenameText] = useState('');
@@ -461,6 +463,17 @@ export function MockList({
       {totalItems === 0 && (
         <div data-testid="mocks-empty" className="mocks-empty">
           No mocks yet. Click a call in the Log, then Mock this, or import a file.
+          {onLoadSample && (
+            <button
+              type="button"
+              data-testid="sample-load"
+              className="btn-secondary"
+              style={{ display: 'block', margin: '8px auto 0' }}
+              onClick={onLoadSample}
+            >
+              Load the sample
+            </button>
+          )}
         </div>
       )}
 

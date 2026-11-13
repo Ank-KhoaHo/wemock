@@ -925,6 +925,11 @@ body.panel-root {
   font-weight: 500;
 }
 
+.sample-tip-text {
+  color: var(--status-active-color);
+  font-weight: 500;
+}
+
 .import-error-text {
   color: #de350b;
   font-weight: 500;

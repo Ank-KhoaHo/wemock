@@ -99,6 +99,10 @@ Then load `.output/chrome-mv3` the same way. → [Install, in full](guide/instal
 **Then:** open your app on `localhost` (wemock is always on there), open DevTools, and pick the
 **wemock** tab. On any other site, click the wemock toolbar icon and switch it on for that site.
 
+**No app handy?** In the empty Mocks tab, click **Load the sample** (next release): a small shop
+with every kind of mock, three scenarios and a SignalR hub. Then try `GET /api/products/42` in the
+Test bar.
+
 ## Everything it does
 
 | You want to | wemock | Guide |

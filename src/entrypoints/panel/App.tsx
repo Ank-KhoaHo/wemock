@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIsDark } from '../../ui/useIsDark';
 import { exportProject, exportScenario, parseProjectFile, parseScenarioFile } from '../../core/exportFile';
 import { logToHar } from '../../core/harExport';
@@ -6,6 +6,7 @@ import { detectHar, harSummaryText, importHar } from '../../core/harImport';
 import { importMokku } from '../../core/mokkuImport';
 import { detectOpenApi, importOpenApi, openApiSummaryText, parseSpecText } from '../../core/openapiImport';
 import { ensureProject, mockFromLog, scenarioFromLogs } from '../../core/record';
+import { SAMPLE_TIP, sampleProject } from '../../core/sample';
 import { isValidStatus } from '../../core/statusText';
 import { projectForOrigin } from '../../core/scenario';
 import { addScenario, clearProject, deleteScenarios, duplicateMock, duplicateScenario, duplicateSocket, mergeProject, replaceProject } from '../../core/scenarioOps';
@@ -88,6 +89,46 @@ export default function App() {
     message: string;
   } | null>(null);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [sampleTip, setSampleTip] = useState<string | null>(null);
+  const sampleTipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearSampleTip = useCallback(() => {
+    if (sampleTipTimerRef.current) {
+      clearTimeout(sampleTipTimerRef.current);
+      sampleTipTimerRef.current = null;
+    }
+    setSampleTip(null);
+  }, []);
+
+  const showSampleTip = useCallback(() => {
+    if (sampleTipTimerRef.current) {
+      clearTimeout(sampleTipTimerRef.current);
+    }
+    setSampleTip(SAMPLE_TIP);
+    sampleTipTimerRef.current = setTimeout(() => {
+      setSampleTip(null);
+      sampleTipTimerRef.current = null;
+    }, 10000);
+  }, []);
+
+  useEffect(() => {
+    if (!sampleTip) return;
+
+    const onAction = () => {
+      clearSampleTip();
+    };
+
+    const attachTimer = setTimeout(() => {
+      window.addEventListener('click', onAction, { capture: true, once: true });
+      window.addEventListener('keydown', onAction, { capture: true, once: true });
+    }, 50);
+
+    return () => {
+      clearTimeout(attachTimer);
+      window.removeEventListener('click', onAction, { capture: true });
+      window.removeEventListener('keydown', onAction, { capture: true });
+    };
+  }, [sampleTip, clearSampleTip]);
 
   const triggerUndo = (snapshot: Project, message: string) => {
     if (undoTimerRef.current) {
@@ -105,6 +146,9 @@ export default function App() {
     return () => {
       if (undoTimerRef.current) {
         clearTimeout(undoTimerRef.current);
+      }
+      if (sampleTipTimerRef.current) {
+        clearTimeout(sampleTipTimerRef.current);
       }
     };
   }, []);
@@ -941,6 +985,7 @@ export default function App() {
       undoTimerRef.current = null;
     }
     setUndoInfo(null);
+    clearSampleTip();
     await update((s) => ({
       ...s,
       projects: s.projects.map((p) =>
@@ -952,6 +997,34 @@ export default function App() {
     );
     setSelectedMockId(null);
     setSelectedSocketId(null);
+  };
+
+  const handleLoadSample = async () => {
+    let currentProj = project;
+    let baseState = state;
+    if (!currentProj) {
+      if (!baseState) return;
+      const originToClaim = tabOrigin || 'http://localhost';
+      const res = ensureProject(baseState, originToClaim, newId);
+      currentProj = res.project;
+      baseState = res.state;
+    }
+    const snapshot = structuredClone(currentProj);
+    const sample = sampleProject();
+    const merged = mergeProject(currentProj, sample, newId);
+
+    await update((s) => {
+      const exists = s.projects.some((p) => p.id === currentProj!.id);
+      return {
+        ...s,
+        projects: exists
+          ? s.projects.map((p) => (p.id === currentProj!.id ? merged : p))
+          : [...s.projects, merged],
+      };
+    });
+
+    triggerUndo(snapshot, 'Sample added');
+    showSampleTip();
   };
 
   const handleClearAll = () => {
@@ -1487,6 +1560,14 @@ export default function App() {
               </div>
               <button
                 type="button"
+                data-testid="sample-load-toolbar"
+                className="btn-secondary"
+                onClick={handleLoadSample}
+              >
+                Sample
+              </button>
+              <button
+                type="button"
                 data-testid="clear-all"
                 className="btn-secondary"
                 disabled={!project}
@@ -1497,6 +1578,11 @@ export default function App() {
             </div>
 
             <div className="mocks-toolbar-feedback">
+              {sampleTip && (
+                <div data-testid="sample-tip" className="sample-tip-text">
+                  {sampleTip}
+                </div>
+              )}
               {importSummary && (
                 <div data-testid="import-summary" className="import-summary-text">
                   {importSummary}
@@ -1581,6 +1667,7 @@ export default function App() {
                   onUpdateHeaderRules={handleUpdateHeaderRules}
                   onDuplicateScenario={handleDuplicateScenario}
                   onExportScenario={handleExportScenario}
+                  onLoadSample={handleLoadSample}
                 />
               </div>
               <div className="panel-split-right">

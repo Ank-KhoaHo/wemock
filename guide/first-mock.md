@@ -1,5 +1,13 @@
 # Your first mock
 
+## Or start from the sample (next release)
+
+In an empty Mocks tab, click **Load the sample** (or **Sample** in the toolbar, any time). wemock
+adds a small shop to your site's project: products, a cart with a coupon condition, a stock level
+from code, an order status sequence, a Change real mock, a streamed assistant reply, a SignalR
+order hub, and the scenarios "Checkout down" and "Slow network". It never replaces your mocks,
+and Undo takes it away. Try `GET /api/products/42` in the [Test bar](checking.md).
+
 ## Read the Log
 
 Open your app, then the **wemock** tab in DevTools. Every `fetch` and `XMLHttpRequest` call the
