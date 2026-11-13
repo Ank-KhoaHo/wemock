@@ -1,85 +1,141 @@
-# wemock
+<p align="center">
+  <img src=".github/brand/icon.svg" width="150" alt="The wemock mockingbird">
+</p>
 
-![wemock: record real API calls in DevTools, replay them as mocks](.github/banner.png)
+<h1 align="center">wemock</h1>
 
-Record real API calls in Chrome DevTools, then replay them as switchable mock scenarios.
+<p align="center"><em>It hears your API once. Then it answers for it.</em></p>
 
-## What this is
+<p align="center">
+  <a href="https://github.com/Ank-KhoaHo/wemock/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/Ank-KhoaHo/wemock?style=flat-square&color=2563eb"></a>
+  <a href="https://github.com/Ank-KhoaHo/wemock/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Ank-KhoaHo/wemock/ci.yml?branch=main&style=flat-square&label=ci"></a>
+  <img alt="Chrome, Manifest V3" src="https://img.shields.io/badge/Chrome-MV3-2563eb?style=flat-square">
+  <a href="LICENSE"><img alt="MIT licence" src="https://img.shields.io/github/license/Ank-KhoaHo/wemock?style=flat-square&color=2563eb"></a>
+</p>
 
-A Chrome DevTools panel for front-end developers. It shows your page's API calls, turns any
-of them into a mock with one click, and serves those mocks back to the page. Group mocks into
-**scenarios** ("empty list", "500 error", "slow") and switch between them in one click, so
-you can test the states your backend rarely gives you.
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="guide/README.md">Guide</a> ·
+  <a href="https://github.com/Ank-KhoaHo/wemock/releases">Releases</a> ·
+  <a href="ROADMAP.md">Roadmap</a>
+</p>
 
-- **Record, then replay.** "Mock this" on a logged call, or "Save as scenario" on a whole
-  filtered list. A call to another site keeps its host in the mock, so it matches only that
-  site. The Log names the mock that answered each call, with a link to it, and filters by type,
-  method and status. Save the Log as a HAR file to share a session.
-- **Import.** A HAR file from DevTools' Network tab ("Save all as HAR"), an OpenAPI 3 or
-  Swagger 2 file (JSON or YAML), or Mokku's files. Import asks whether to add to your mocks or
-  replace them.
-- **Scenarios.** A project's Default scenario always applies; the active one overrides it.
-  Select, duplicate, delete or clear scenarios, with Undo; duplicate a mock; export one scenario
-  to share it. A filter box and fold arrows keep long lists short.
-- **URL patterns.** `/api/goals/:id`, wildcards (`/files/*rest`), optional host
-  (`https://api.example.com/x`), and GraphQL operation names.
-- **Conditions.** "Match only when" a query parameter, a request header or fields of a JSON
-  body have given values (`*` for "present"). Mocks with conditions are tried first.
-- **Any status from 200 to 599**, headers, a delay, and text or **binary** bodies (images,
-  PDFs, downloads).
-- **Templates.** A body can say `{{params.id}}`, `{{query.page}}`, `{{headers.x-user}}`,
-  `{{body.user.name}}`, `{{uuid}}`, `{{now}}` or `{{timestamp}}`, filled in per call.
-- **Sequences.** Each call to a mock gets the next reply: "pending, pending, done". The count
-  starts over when the page reloads.
-- **Code replies.** A mock can answer with a few lines of JavaScript that read the call's
-  URL parameters, query, body and headers, and set the status. `/doc/:id` with
-  `return { id: params.id }` answers each document by its id. `req.callCount` counts the calls.
-  The editor suggests `req.`, `res.` and the pattern's parameters as you type, and **Run** tries
-  the code on a URL before you save it.
-- **Change real.** Let the real call through, then change its status, headers or JSON fields
-  (`user.flags.beta`, `items.*.price`), to test "the real data, but this one flag off".
-- **WebSocket and SignalR mocks.** A socket mock answers a WebSocket URL with no server:
-  messages on a timeline after connecting, and replies to what the client sends, fixed or from
-  code. For SignalR hubs (JSON protocol) wemock also answers `negotiate`, the handshake and the
-  pings, so `HubConnection.start()`, `on(...)`, `invoke(...)` and `stream(...)` work as with a real
-  hub, errors included.
-  Real sockets appear in the log with their messages; **Mock this socket** turns one
-  connection into a socket mock, with the server's messages and its timing.
-- **Test bar.** Type a URL (and request headers, if you like) in the Mocks tab to see which
-  mock answers and what it returns, without reloading the page.
-- **Console line.** Each mocked call writes one line to the page's Console, such as
-  `[wemock] GET /doc/1 → 200 mock "Doc one" (12 ms)`. A switch in the panel turns it off.
-- **`fetch`, `XMLHttpRequest` and libraries built on them** (axios included).
-- **Keyboard.** Every row, button and field works from the keyboard.
-- **Checked on real apps.** React (fetch), axios (XHR, interceptors), Angular `HttpClient` and a
-  real ASP.NET Core SignalR hub are part of the tests.
+---
 
-Your data stays in your browser (`chrome.storage.local`). wemock sends nothing anywhere.
+A Chrome DevTools panel for front-end developers. It logs your page's API calls, turns any call
+into a mock with one click, and serves that mock back to the page. Group mocks into scenarios,
+"empty list", "server down", "slow network", and switch between them in one click.
 
-## Use it
+A mockingbird copies the calls of other birds. wemock copies your API's.
 
-wemock is not on the Chrome Web Store yet. The easiest way in: download the zip from the
-[latest release](https://github.com/Ank-KhoaHo/wemock/releases/latest), unzip it, open
-`chrome://extensions`, turn on **Developer mode**, choose **Load unpacked**, and pick the
-unzipped folder.
+## Mock a call in three clicks
 
-Or run it from source:
+Click a call in the Log. Click **Mock this**. Reload. The page now gets wemock's answer, and the
+Log marks it `MOCK` and names the mock that answered.
+
+<img src=".github/screens/1-log.png" alt="The wemock Log: real calls and mocked calls, with the details of one call">
+
+Mock a whole filtered list at once with **Save as scenario**. A call to another site keeps its
+host, so the mock answers only that site. → [Your first mock](guide/first-mock.md)
+
+## Every state your backend rarely gives you
+
+The Default scenario always applies. Switch on "Checkout down" and checkout answers 503, while
+everything else keeps working. Switch back with one click.
+
+<img src=".github/screens/5-scenarios.png" alt="Four scenarios as chips at the top; Checkout down is on, and its mock answers 503">
+
+→ [Scenarios](guide/scenarios.md)
+
+## When a fixed body is not enough, answer with code
+
+A few lines of JavaScript read the call's URL parameters, query, body and headers, and set the
+status. `/api/products/:id` answers each product by its id, and 404 past the end of the shop.
+The code runs in a sandbox, for at most one second.
+
+<img src=".github/screens/2-code-mock.png" alt="A code mock: the reply reads req.params.id and answers 404 for unknown products">
+
+Templates (`{{params.id}}`), sequences ("pending, pending, done") and **Change real** (let the
+real call through, then change one field) cover the cases in between. → [Replies](guide/replies.md)
+
+## Know which mock answers, before you reload
+
+Type a URL in the Test bar. wemock shows which mock answers, from which scenario, and exactly
+what it returns. Code mocks really run.
+
+<img src=".github/screens/3-test-bar.png" alt="The Test bar: GET /api/products/42 is answered by Product by id, with status 200 and the JSON body">
+
+Each mocked call also writes one line to the page's Console. → [Checking your mocks](guide/checking.md)
+
+## WebSocket and SignalR, with no server
+
+A socket mock sends messages on a timeline and answers what the client sends. For SignalR hubs
+wemock also speaks negotiate, the handshake and the pings, so `start()`, `on()`, `invoke()` and
+`stream()` work as with a real hub, errors included. Or record a real socket, then **Mock this
+socket**.
+
+<img src=".github/screens/4-signalr.png" alt="A SignalR socket mock: messages on connect, and a reply to Subscribe">
+
+→ [WebSocket and SignalR](guide/sockets.md)
+
+## Install
+
+wemock is not on the Chrome Web Store yet. Until it is:
+
+1. Download `wemock-<version>-chrome.zip` from the
+   [latest release](https://github.com/Ank-KhoaHo/wemock/releases/latest), and unzip it.
+2. Open `chrome://extensions` and turn on **Developer mode**.
+3. Choose **Load unpacked**, and pick the unzipped folder.
+
+Or build it from source:
 
 ```
 npm ci
 npm run build
 ```
 
-Then open `chrome://extensions`, turn on **Developer mode**, choose **Load unpacked**, and
-pick `.output/chrome-mv3`.
+Then load `.output/chrome-mv3` the same way. → [Install, in full](guide/install.md)
 
-1. Open your app. On `localhost` wemock is always on; on any other site, click the wemock
-   toolbar icon, switch it on for that site, and reload the page.
-2. Open DevTools and the **wemock** tab. Calls appear in the log as the page makes them.
-3. Click a call, then **Mock this**. Reload: that call is now served by wemock (badge
-   `MOCK`).
-4. Edit the mock in the **Mocks** tab, or make a new scenario and switch to it from the chips
-   at the top.
+**Then:** open your app on `localhost` (wemock is always on there), open DevTools, and pick the
+**wemock** tab. On any other site, click the wemock toolbar icon and switch it on for that site.
+
+## Everything it does
+
+| You want to | wemock | Guide |
+|---|---|---|
+| Record, then replay | **Mock this** on one call, **Save as scenario** on a list | [First mock](guide/first-mock.md) |
+| Start from a file | Import HAR, OpenAPI 3, Swagger 2 (JSON or YAML) or Mokku's files | [Import and export](guide/import-export.md) |
+| Switch whole states | Scenarios over a Default, with Undo | [Scenarios](guide/scenarios.md) |
+| Match exactly | `:id`, `*rest`, `{optional}`, a host, a GraphQL operation, conditions on query, headers or body | [Matching](guide/matching.md) |
+| Answer anything | Any status 200-599, headers, delays, text or binary bodies | [Replies](guide/replies.md) |
+| Answer per call | Templates, sequences, code, Change real | [Replies](guide/replies.md) |
+| Mock sockets | WebSocket timelines and replies, SignalR hubs | [Sockets](guide/sockets.md) |
+| Check before you reload | Test bar, Console line, Log filters, Save as HAR | [Checking](guide/checking.md) |
+
+Works with `fetch`, `XMLHttpRequest`, and libraries built on them (axios included). Every row,
+button and field works from the keyboard. React, axios, Angular `HttpClient` and a real
+ASP.NET Core SignalR hub are part of the tests.
+
+## FAQ
+
+**Does it send my data anywhere?**
+No. Mocks live in your browser (`chrome.storage.local`). wemock makes no network calls of its own.
+
+**Does it run on every site I visit?**
+No. Only on `localhost`, `127.0.0.1`, and the sites you switch on, one at a time.
+
+**Why does a mocked call not show in the Network tab?**
+It never leaves the page, so the network never sees it. The wemock Log and the Console line do.
+
+**Is code in a code mock safe?**
+It runs in a sandboxed extension page with no access to your page or to wemock, and stops after
+one second. wemock never downloads code.
+
+**Does it replace Mokku?**
+It imports Mokku's files, and adds scenarios, code, sockets and SignalR. Try both.
+
+**Why a mockingbird?**
+It hears a call once and sings it back. That is the whole product.
 
 ## Limits
 
@@ -99,12 +155,14 @@ pick `.output/chrome-mv3`.
 
 | File | What it holds |
 |---|---|
-| [PUBLIC.md](PUBLIC.md) | why some material is deliberately not published here |
+| [guide/](guide/README.md) | how to use every feature, one page each |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | how to build and test it, and what gets rejected |
 | [SECURITY.md](SECURITY.md) | how to report a vulnerability, and what is not one |
 | [ROADMAP.md](ROADMAP.md) | direction, and the things deliberately not coming |
+| [PUBLIC.md](PUBLIC.md) | why some material is deliberately not published here |
 | [LICENSE](LICENSE) | what you may do with this |
 
 ## Status
 
-Version 1.7.0, before its first Store release. Licensed under MIT; see [LICENSE](LICENSE).
+Version 1.7.0, before its first Store release. `main` is ahead of the latest release; the guide
+marks features that are not released yet. Licensed under MIT; see [LICENSE](LICENSE).

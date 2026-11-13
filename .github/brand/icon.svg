@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="wemock">
+  <!-- The wemock mockingbird (A44). A mockingbird copies other birds' calls, as wemock copies your API's.
+       Small sizes (16, 32 px) use icon-small.svg. PNGs: node scripts/brand/render.mjs -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#1d4ed8"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#tile)"/>
+  <path d="M22 96 H104" stroke="#bfdbfe" stroke-width="5" stroke-linecap="round"/>
+  <path d="M44 78 L16 98 L24 102 L52 86 Z" fill="#e5e7eb"/>
+  <ellipse cx="62" cy="70" rx="27" ry="18" transform="rotate(-24 62 70)" fill="#fff"/>
+  <circle cx="80" cy="45" r="15" fill="#fff"/>
+  <path d="M93 41 L110 45 L93 50 Z" fill="#fbbf24"/>
+  <circle cx="84" cy="42" r="3.2" fill="#1d4ed8"/>
+  <path d="M38 70 Q58 58 76 66 Q62 84 40 80 Z" fill="#94a3b8"/>
+  <path d="M48 70 Q58 66 66 69" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path d="M58 86 L56 96 M68 84 L68 96" stroke="#fbbf24" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M112 30 q6 6 0 12" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M118 24 q10 12 0 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" opacity=".6"/>
+</svg>
