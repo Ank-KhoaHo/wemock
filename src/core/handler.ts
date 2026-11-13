@@ -1,4 +1,5 @@
 import { match } from 'path-to-regexp';
+import { splitPattern } from './match';
 import { isValidStatus } from './statusText';
 import type { Mock, MockResponse } from './types';
 
@@ -55,10 +56,7 @@ export interface HandlerReply {
 /** URL parameters of `pattern` in `url`, e.g. `/doc/:id` + `/doc/1` = `{ id: '1' }`. */
 export function matchParams(pattern: string, url: string): Record<string, string | string[]> {
   try {
-    let path = pattern;
-    if (pattern.startsWith('http://') || pattern.startsWith('https://')) {
-      path = new URL(pattern).pathname;
-    }
+    const { path } = splitPattern(pattern);
     const found = match(path, { decode: decodeURIComponent })(new URL(url).pathname);
     if (!found) return {};
     const out: Record<string, string | string[]> = {};

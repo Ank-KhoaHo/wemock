@@ -3,18 +3,25 @@ import { hasConditions, matchConditions } from './conditions';
 import { operationName } from './graphql';
 import type { Mock, RequestFacts } from './types';
 
+// Not new URL(pattern).pathname: it turns `\` into `/` and encodes `{}`, breaking the syntax.
+export function splitPattern(pattern: string): { origin: string | null; path: string } {
+  let origin: string | null = null;
+  let path = pattern;
+
+  const host = /^https?:\/\/[^/?#\\]*/.exec(pattern);
+  if (host) {
+    origin = new URL(host[0]).origin;
+    path = pattern.slice(host[0].length).replace(/(?<!\\)[?#][\s\S]*$/, '') || '/';
+  }
+
+  return { origin, path: path.replaceAll(/[^\x21-\x7E]/gu, (c) => encodeURIComponent(c)) };
+}
+
 export function compilePattern(
   pattern: string,
 ): { ok: true; test(url: URL): boolean } | { ok: false; error: string } {
   try {
-    let expectedOrigin: string | null = null;
-    let path = pattern;
-
-    if (pattern.startsWith('http://') || pattern.startsWith('https://')) {
-      const parsed = new URL(pattern);
-      expectedOrigin = parsed.origin;
-      path = parsed.pathname;
-    }
+    const { origin: expectedOrigin, path } = splitPattern(pattern);
 
     const matchFn = match(path, { decode: decodeURIComponent });
 

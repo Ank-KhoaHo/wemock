@@ -24,6 +24,12 @@ describe('matchParams', () => {
       post: 'b',
     });
   });
+  it('reads params from a host-bound pattern with escapes or an optional group', () => {
+    expect(matchParams(String.raw`https://api.test/v1/:name\:cancel`, 'https://api.test/v1/op7:cancel')).toEqual({
+      name: 'op7',
+    });
+    expect(matchParams('https://api.test/users{/:id}', 'https://api.test/users/5')).toEqual({ id: '5' });
+  });
   it('reads a wildcard as a list of segments', () => {
     expect(matchParams('/files/*rest', 'https://app.test/files/a/b')).toEqual({ rest: ['a', 'b'] });
   });

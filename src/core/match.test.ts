@@ -89,4 +89,33 @@ describe('match', () => {
     const wildcard = mock({ urlPattern: '/static/*path' });
     expect(findMock([wildcard], get('/static/css/app.css'))).toBe(wildcard);
   });
+
+  it('a host-bound pattern keeps its path syntax: escapes and optional groups', () => {
+    const escaped = mock({ urlPattern: String.raw`https://api.b.com/v1/items\:batch` });
+    expect(findMock([escaped], get('https://api.b.com/v1/items:batch'))).toBe(escaped);
+    expect(findMock([escaped], get('https://api.b.com/v1/items/zzz'))).toBeNull();
+
+    const optional = mock({ urlPattern: 'https://api.b.com/users{/:id}' });
+    expect(findMock([optional], get('https://api.b.com/users'))).toBe(optional);
+    expect(findMock([optional], get('https://api.b.com/users/5'))).toBe(optional);
+  });
+
+  it('non-ASCII and spaces in a pattern match the encoded URL, with or without a host', () => {
+    for (const urlPattern of ['/api/café', 'https://a.com/api/café']) {
+      const m = mock({ urlPattern });
+      expect(findMock([m], get('https://a.com/api/caf%C3%A9')), urlPattern).toBe(m);
+    }
+    expect(findMock([mock({ urlPattern: '/a b' })], get('/a%20b'))).not.toBeNull();
+    expect(findMock([mock({ urlPattern: '/😀' })], get('/%F0%9F%98%80'))).not.toBeNull();
+  });
+
+  it('a host-bound pattern ignores its query and fragment, and normalises its host', () => {
+    expect(findMock([mock({ urlPattern: 'https://a.com/x?y=1' })], get('https://a.com/x'))).not.toBeNull();
+    expect(findMock([mock({ urlPattern: 'https://a.com/x#top' })], get('https://a.com/x'))).not.toBeNull();
+    expect(findMock([mock({ urlPattern: 'https://a.com' })], get('https://a.com/'))).not.toBeNull();
+    expect(findMock([mock({ urlPattern: 'https://A.COM:443/x' })], get('https://a.com/x'))).not.toBeNull();
+    expect(findMock([mock({ urlPattern: 'https://a.com:8080/x' })], get('https://a.com:8080/x'))).not.toBeNull();
+    expect(findMock([mock({ urlPattern: 'https://a.com:8080/x' })], get('https://a.com/x'))).toBeNull();
+    expect(compilePattern('https://').ok).toBe(false);
+  });
 });

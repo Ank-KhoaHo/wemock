@@ -69,6 +69,11 @@ describe('socket matching', () => {
     expect(findSocket(s, 'wss://api.test/live')?.id).toBe('c');
     expect(findSocket(s, 'ws://api.test/live')).toBeNull();
   });
+  it('a host-bound socket pattern keeps its escapes', () => {
+    const s = [sock('a', String.raw`wss://api.test/v1/live\:stream`)];
+    expect(findSocket(s, 'wss://api.test/v1/live:stream')?.id).toBe('a');
+    expect(findSocket(s, 'wss://api.test/v1/live/zzz')).toBeNull();
+  });
   it('skips disabled sockets and bad URLs', () => {
     expect(findSocket([sock('a', '/x', { enabled: false })], 'ws://a.test/x')).toBeNull();
     expect(findSocket([sock('a', '/x')], 'not a url')).toBeNull();
