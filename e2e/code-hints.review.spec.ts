@@ -79,6 +79,11 @@ test('Run tries the code as typed, before Save, and shows the answer or the erro
     await expect(out).toContainText('"id":"42"');
     await expect(out).toContainText('"name":"Cy"');
 
+    // A path alone is read against the page's origin, so :id still fills in (found in A36).
+    await panel.getByTestId('code-try-url').fill('/api/users/7');
+    await panel.getByTestId('code-run').click();
+    await expect(out).toContainText('"id":"7"');
+
     // Change the code without saving: Run uses the new text.
     const editor = panel.getByTestId('code-view').locator('.cm-content');
     await editor.click();

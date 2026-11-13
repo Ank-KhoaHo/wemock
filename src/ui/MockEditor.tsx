@@ -367,9 +367,17 @@ export function MockEditor({
         delayMs: Math.max(0, Number(delayInput) || 0),
       };
 
+      // A path alone ("/api/users/7") is read against the page's origin, as the Test bar does;
+      // without it the URL parameters come out empty.
+      let absoluteUrl = tryUrl.trim();
+      try {
+        absoluteUrl = new URL(absoluteUrl, pageOrigin || 'http://localhost').href;
+      } catch {
+        // leave it as typed; the run reports the bad URL
+      }
       const request: HandlerRequest = {
         method: draft.method === 'ANY' ? 'GET' : draft.method,
-        url: tryUrl,
+        url: absoluteUrl,
         headers: {},
         ...(reqBody !== undefined ? { body: reqBody } : {}),
       };
