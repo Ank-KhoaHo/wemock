@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useState } from 'react';
-import { base64ToBytes, bytesToBase64 } from '../core/bodies';
+import { base64ToBytes, bytesToBase64, formatJson, isJsonContainer } from '../core/bodies';
 import type { BodyEncoding } from '../core/types';
 
 const CodeEditor = React.lazy(() => import('./CodeEditor'));
@@ -26,11 +26,21 @@ export function BodyEditor({
   isDark = false,
 }: BodyEditorProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [unformattableBody, setUnformattableBody] = useState<string | null>(null);
+  const isText = bodyEncoding === 'text';
+
+  const handleFormat = () => {
+    if (isJsonContainer(body)) {
+      onChangeBody(formatJson(body), 'text');
+    } else {
+      setUnformattableBody(body);
+    }
+  };
 
   // Validate JSON if content-type contains json and bodyEncoding is text
   let isJsonWarning = false;
   const isJsonType = contentType.toLowerCase().includes('json');
-  if (isJsonType && bodyEncoding === 'text' && body.trim()) {
+  if (isJsonType && isText && body.trim()) {
     try {
       JSON.parse(body);
     } catch {
@@ -106,16 +116,28 @@ export function BodyEditor({
     <div className="body-editor-container">
       <div className="body-editor-toolbar">
         <label className="field-label">Response Body</label>
-        <div className="file-input-wrapper">
-          <button type="button" className="btn-secondary load-file-label">
-            Load file
-          </button>
-          <input
-            type="file"
-            data-testid="load-file"
-            className="overlay-file-input"
-            onChange={handleFilePicked}
-          />
+        <div className="body-editor-actions">
+          {isText && unformattableBody === body && (
+            <output data-testid="body-format-error" className="error-message">
+              Not valid JSON
+            </output>
+          )}
+          {isText && (
+            <button type="button" data-testid="body-format" className="btn-secondary" onClick={handleFormat}>
+              Format
+            </button>
+          )}
+          <div className="file-input-wrapper">
+            <button type="button" className="btn-secondary load-file-label">
+              Load file
+            </button>
+            <input
+              type="file"
+              data-testid="load-file"
+              className="overlay-file-input"
+              onChange={handleFilePicked}
+            />
+          </div>
         </div>
       </div>
 

@@ -8,6 +8,11 @@ Every mock has a **status** (200 to 599), **headers**, a **delay** in millisecon
 The body as text, or as a file. **Load file** takes any file (an image, a PDF, a download), and
 wemock serves its exact bytes.
 
+The editor shows a JSON body over lines, two spaces deep, so it is easy to read. **Save** stores
+it without that spacing, and an exported file has none either, so what is served and shared stays
+compact. Only spaces and line breaks change; every value stays exactly as written. **Format**
+spreads a body again after you edit it, and says "Not valid JSON" when it cannot.
+
 ### Templates
 
 Tick **Fill {{templates}}**, and parts of a text body are filled in for each call:
