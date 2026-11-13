@@ -57,6 +57,69 @@ test('a new manual mock is served after save', async () => {
   }
 });
 
+test('a JSON body shows over lines in the editor but is saved and served without spacing', async () => {
+  const page = await session.context.newPage();
+  const panelPage = await session.context.newPage();
+  try {
+    await page.goto(`${fixture.url}/index.html`);
+    const tabId = await session.tabIdOf(page);
+    const panelUrl = `chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`;
+    await panelPage.goto(panelUrl);
+
+    await panelPage.getByTestId('tab-mocks').click();
+    await panelPage.getByTestId('mock-new').click();
+    await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
+    await panelPage.getByTestId('field-pattern').fill('/api/goals');
+    await panelPage.locator('.cm-content').fill('{ "source": "mock", "n": 12345678901234567890 }');
+    await panelPage.getByTestId('mock-save').click();
+
+    await page.click('#btn-fetch');
+    await expect(page.locator('#out')).toHaveText('{"source":"mock","n":12345678901234567890}');
+
+    await panelPage.goto(panelUrl);
+    await panelPage.getByTestId('tab-mocks').click();
+    await panelPage.getByTestId('mock-row').first().click();
+    await expect(panelPage.locator('.cm-line')).toHaveText(['{', '  "source": "mock",', '  "n": 12345678901234567890', '}']);
+
+    await panelPage.getByTestId('mock-save').click();
+    await page.reload();
+    await page.click('#btn-fetch');
+    await expect(page.locator('#out')).toHaveText('{"source":"mock","n":12345678901234567890}');
+  } finally {
+    await panelPage.close();
+    await page.close();
+  }
+});
+
+test('Format spreads one-line JSON over lines, then stays disabled until there is more to format', async () => {
+  const page = await session.context.newPage();
+  const panelPage = await session.context.newPage();
+  try {
+    await page.goto(`${fixture.url}/index.html`);
+    const tabId = await session.tabIdOf(page);
+    await panelPage.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
+
+    await panelPage.getByTestId('tab-mocks').click();
+    await panelPage.getByTestId('mock-new').click();
+    await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
+
+    await panelPage.locator('.cm-content').fill('{"source":"mock","n":12345678901234567890}');
+    await panelPage.getByTestId('body-format').click();
+
+    await expect(panelPage.locator('.cm-line')).toHaveText(['{', '  "source": "mock",', '  "n": 12345678901234567890', '}']);
+    await expect(panelPage.getByTestId('body-format')).toBeDisabled();
+
+    await panelPage.locator('.cm-content').fill('{"updated":true2}');
+    await expect(panelPage.getByTestId('body-format')).toBeDisabled();
+
+    await panelPage.locator('.cm-content').fill('{"updated":true}');
+    await expect(panelPage.getByTestId('body-format')).toBeEnabled();
+  } finally {
+    await panelPage.close();
+    await page.close();
+  }
+});
+
 test('an invalid pattern shows pattern-error and the call stays real', async () => {
   const page = await session.context.newPage();
   const panelPage = await session.context.newPage();

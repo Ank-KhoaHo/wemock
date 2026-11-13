@@ -1,3 +1,4 @@
+import { compactJson, withBody } from './bodies';
 import { isValidStatus } from './statusText';
 import type { HeaderRule, HttpMethod, Mock, MockMatch, MockPatch, MockResponse, MockSequence, MockStream, Project, Scenario, SocketMock, SocketPush, SocketReply, WemockState } from './types';
 
@@ -430,12 +431,16 @@ function validateScenario(
   };
 }
 
+function compactBodies(scenario: Scenario): Scenario {
+  return { ...scenario, mocks: scenario.mocks.map((m) => withBody(m, compactJson)) };
+}
+
 export function exportScenario(scenario: Scenario): string {
   return JSON.stringify(
     {
       wemock: 'scenario',
       schemaVersion: 1,
-      scenario,
+      scenario: compactBodies(scenario),
     },
     null,
     2,
@@ -476,7 +481,7 @@ export function exportProject(p: Project): string {
       id: p.id,
       name: p.name,
       origins: p.origins,
-      scenarios: p.scenarios,
+      scenarios: p.scenarios.map(compactBodies),
       activeScenarioId: p.activeScenarioId,
       ...(p.headerRules !== undefined ? { headerRules: p.headerRules } : {}),
     },

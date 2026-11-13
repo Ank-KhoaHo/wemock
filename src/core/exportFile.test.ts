@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { exportProject, parseProjectFile, importProject } from './exportFile';
+import { exportProject, exportScenario, parseProjectFile, parseScenarioFile, importProject } from './exportFile';
 import { emptyState, type Project } from './types';
 
 function createSampleProject(): Project {
@@ -57,6 +57,21 @@ describe('exportFile', () => {
         expect(parsed.project.scenarios[0]!.mocks[0]).toMatchObject({ reply: 'code', code: 'return { id: params.id };' });
         expect(parsed.project).toEqual(p);
       }
+    });
+
+    it('writes JSON response bodies without spacing, in a project and in a scenario', () => {
+      const p = createSampleProject();
+      const mock = p.scenarios[0]!.mocks[0]!;
+      mock.response.body = '{\n  "id": 12345678901234567890,\n  "name": "Alice Smith"\n}';
+      const compact = '{"id":12345678901234567890,"name":"Alice Smith"}';
+
+      const fromProject = parseProjectFile(exportProject(p));
+      const fromScenario = parseScenarioFile(exportScenario(p.scenarios[0]!));
+      if (!fromProject.ok || !fromScenario.ok) throw new Error('parse failed');
+
+      expect(fromProject.project.scenarios[0]!.mocks[0]!.response.body).toBe(compact);
+      expect(fromScenario.scenario.mocks[0]!.response.body).toBe(compact);
+      expect(mock.response.body).toContain('\n');
     });
 
     it('rejects a bad reply or code type (A2)', () => {
