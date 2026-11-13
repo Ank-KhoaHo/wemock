@@ -1,6 +1,7 @@
 import { buildInput, errorReply, HANDLER_WAIT_MS, isCodeMock, type HandlerReply, type HandlerRequest } from '../core/handler';
 import { isBridgeHandlerResult, PAGE_SOURCE, type PageRunHandler } from '../core/messages';
 import { pickStep } from '../core/sequence';
+import { streamBodyText } from '../core/stream';
 import { fillTemplate } from '../core/template';
 import type { Mock, RequestFacts } from '../core/types';
 
@@ -14,6 +15,22 @@ export async function resolveReply(
   facts: RequestFacts,
   callCount: number = 1,
 ): Promise<HandlerReply> {
+  if (mock.reply === 'stream') {
+    const stream = mock.stream ?? { chunks: [], gapMs: 0, sse: false };
+    const headers = { ...mock.response.headers };
+    if (stream.sse) {
+      headers['content-type'] = 'text/event-stream';
+    }
+    return {
+      response: {
+        ...mock.response,
+        headers,
+        body: streamBodyText(stream),
+        bodyEncoding: 'text',
+      },
+    };
+  }
+
   if (mock.reply === 'sequence') {
     const response =
       !mock.sequence || !mock.sequence.steps || mock.sequence.steps.length === 0

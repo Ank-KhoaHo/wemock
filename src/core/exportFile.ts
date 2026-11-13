@@ -1,5 +1,5 @@
 import { isValidStatus } from './statusText';
-import type { HeaderRule, HttpMethod, Mock, MockMatch, MockPatch, MockResponse, MockSequence, Project, Scenario, SocketMock, SocketPush, SocketReply, WemockState } from './types';
+import type { HeaderRule, HttpMethod, Mock, MockMatch, MockPatch, MockResponse, MockSequence, MockStream, Project, Scenario, SocketMock, SocketPush, SocketReply, WemockState } from './types';
 
 const VALID_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'ANY']);
 
@@ -190,6 +190,29 @@ function validatePatch(v: unknown): Check<MockPatch> {
   return { ok: true, value: out };
 }
 
+function validateStream(v: unknown): Check<MockStream> {
+  if (!isObj(v)) {
+    return { ok: false, error: 'Mock stream must be an object' };
+  }
+  if (!Array.isArray(v.chunks) || !v.chunks.every((c) => typeof c === 'string')) {
+    return { ok: false, error: 'Mock stream chunks must be an array of strings' };
+  }
+  if (typeof v.gapMs !== 'number' || Number.isNaN(v.gapMs) || v.gapMs < 0) {
+    return { ok: false, error: `Invalid mock stream gapMs: ${String(v.gapMs)}` };
+  }
+  if (typeof v.sse !== 'boolean') {
+    return { ok: false, error: 'Mock stream sse must be a boolean' };
+  }
+  return {
+    ok: true,
+    value: {
+      chunks: v.chunks,
+      gapMs: v.gapMs,
+      sse: v.sse,
+    },
+  };
+}
+
 function validateMock(mock: unknown): { ok: true; mock: Mock } | { ok: false; error: string } {
   if (!mock || typeof mock !== 'object' || Array.isArray(mock)) {
     return { ok: false, error: 'Mock must be an object' };
@@ -213,7 +236,7 @@ function validateMock(mock: unknown): { ok: true; mock: Mock } | { ok: false; er
   if (m.graphqlOperation !== undefined && typeof m.graphqlOperation !== 'string') {
     return { ok: false, error: 'Mock graphqlOperation must be a string if defined' };
   }
-  if (m.reply !== undefined && m.reply !== 'fixed' && m.reply !== 'code' && m.reply !== 'sequence' && m.reply !== 'patch') {
+  if (m.reply !== undefined && m.reply !== 'fixed' && m.reply !== 'code' && m.reply !== 'sequence' && m.reply !== 'patch' && m.reply !== 'stream') {
     return { ok: false, error: `Invalid mock reply: ${String(m.reply)}` };
   }
   if (m.code !== undefined && typeof m.code !== 'string') {
@@ -246,6 +269,13 @@ function validateMock(mock: unknown): { ok: true; mock: Mock } | { ok: false; er
     patch = patchValid.value;
   }
 
+  let stream: MockStream | undefined;
+  if (m.stream !== undefined) {
+    const streamValid = validateStream(m.stream);
+    if (!streamValid.ok) return streamValid;
+    stream = streamValid.value;
+  }
+
   const resValid = validateMockResponse(m.response);
   if (!resValid.ok) return resValid;
 
@@ -260,10 +290,11 @@ function validateMock(mock: unknown): { ok: true; mock: Mock } | { ok: false; er
       graphqlOperation: m.graphqlOperation as string | undefined,
       ...(match !== undefined ? { match } : {}),
       response: resValid.response,
-      ...(m.reply !== undefined ? { reply: m.reply as 'fixed' | 'code' | 'sequence' | 'patch' } : {}),
+      ...(m.reply !== undefined ? { reply: m.reply as 'fixed' | 'code' | 'sequence' | 'patch' | 'stream' } : {}),
       ...(typeof m.code === 'string' ? { code: m.code } : {}),
       ...(sequence !== undefined ? { sequence } : {}),
       ...(patch !== undefined ? { patch } : {}),
+      ...(stream !== undefined ? { stream } : {}),
       source: m.source,
       createdAt: m.createdAt,
     },

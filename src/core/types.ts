@@ -31,6 +31,12 @@ export interface MockPatch {
   remove?: string[];
 }
 
+export interface MockStream {
+  chunks: string[];
+  gapMs: number;
+  sse: boolean;
+}
+
 export interface Mock {
   id: string;
   name?: string;
@@ -47,13 +53,14 @@ export interface Mock {
   fromDefault?: true;
   response: MockResponse;
   /** A2: 'code' runs `code` in the sandbox; absent or 'fixed' serves `response`; 'sequence' serves `sequence`; 'patch' changes the real response. */
-  reply?: 'fixed' | 'code' | 'sequence' | 'patch';
+  reply?: 'fixed' | 'code' | 'sequence' | 'patch' | 'stream';
   /** A2: the body of an async function. See core/handler.ts. */
   code?: string;
   /** A12: the sequence of responses when reply === 'sequence'. */
   sequence?: MockSequence;
   /** A33: changes applied to the real response when reply === 'patch'. */
   patch?: MockPatch;
+  stream?: MockStream;
   /** A13: fill {{...}} in a text body. */
   templates?: boolean;
   source: 'recorded' | 'manual';

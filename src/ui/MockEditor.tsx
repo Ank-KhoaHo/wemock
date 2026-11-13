@@ -5,7 +5,7 @@ import { DEFAULT_CODE, type HandlerReply, type HandlerRequest } from '../core/ha
 import { RUN_HANDLER } from '../core/messages';
 import { compilePattern } from '../core/match';
 import { isValidStatus, statusTextFor, STATUS_TEXT } from '../core/statusText';
-import type { BodyEncoding, HttpMethod, Mock, MockMatch, MockPatch, MockResponse, MockSequence } from '../core/types';
+import type { BodyEncoding, HttpMethod, Mock, MockMatch, MockPatch, MockResponse, MockSequence, MockStream } from '../core/types';
 import { BodyEditor } from './BodyEditor';
 import { HeadersTable } from './HeadersTable';
 
@@ -74,6 +74,16 @@ export function MockEditor({
           body: s.body,
         })),
         after: mock.sequence.after,
+      };
+    }
+    return null;
+  });
+  const [streamDraft, setStreamDraft] = useState<MockStream | null>(() => {
+    if (mock?.stream) {
+      return {
+        chunks: [...mock.stream.chunks],
+        gapMs: mock.stream.gapMs,
+        sse: mock.stream.sse,
       };
     }
     return null;
@@ -173,6 +183,15 @@ export function MockEditor({
       } else {
         setSeqDraft(null);
       }
+      if (mock.stream) {
+        setStreamDraft({
+          chunks: [...mock.stream.chunks],
+          gapMs: mock.stream.gapMs,
+          sse: mock.stream.sse,
+        });
+      } else {
+        setStreamDraft(null);
+      }
     }
   }, [mock?.id]);
 
@@ -201,7 +220,8 @@ export function MockEditor({
   const isCode = draft.reply === 'code';
   const isSequence = draft.reply === 'sequence';
   const isPatch = draft.reply === 'patch';
-  const isFixed = !isCode && !isSequence && !isPatch;
+  const isStream = draft.reply === 'stream';
+  const isFixed = !isCode && !isSequence && !isPatch && !isStream;
 
   const isStatusValid = isValidStatus(Number(statusInput));
   const isDelayValid = !Number.isNaN(Number(delayInput)) && Number(delayInput) >= 0;
@@ -209,6 +229,8 @@ export function MockEditor({
 
   const isPatchStatusValid = !patchStatus.trim() || isValidStatus(Number(patchStatus));
   const isPatchValid = isPatchStatusValid;
+
+  const isStreamValid = isStatusValid && isDelayValid && (!streamDraft || (!Number.isNaN(Number(streamDraft.gapMs)) && Number(streamDraft.gapMs) >= 0));
 
   const isSequenceValid = Boolean(
     seqDraft &&
@@ -224,7 +246,7 @@ export function MockEditor({
   const canSave =
     patternResult.ok &&
     isDelayValid &&
-    (isSequence ? isSequenceValid : isPatch ? isPatchValid : isFixedValid);
+    (isSequence ? isSequenceValid : isPatch ? isPatchValid : isStream ? isStreamValid : isFixedValid);
 
   const getContentType = (): string => {
     const entry = Object.entries(draft.response.headers).find(
@@ -296,7 +318,7 @@ export function MockEditor({
     });
   };
 
-  const setReply = (reply: 'fixed' | 'code' | 'sequence' | 'patch') => {
+  const setReply = (reply: 'fixed' | 'code' | 'sequence' | 'patch' | 'stream') => {
     if (reply === 'sequence') {
       if (!seqDraft || seqDraft.steps.length === 0) {
         setSeqDraft({
@@ -311,11 +333,21 @@ export function MockEditor({
         });
       }
     }
+    if (reply === 'stream') {
+      if (!streamDraft || streamDraft.chunks.length === 0) {
+        setStreamDraft({
+          chunks: [draft.response.body],
+          gapMs: 50,
+          sse: false,
+        });
+      }
+    }
     setDraft((prev) => {
       if (!prev) return prev;
       if (reply === 'fixed') return { ...prev, reply: 'fixed' };
       if (reply === 'sequence') return { ...prev, reply: 'sequence' };
       if (reply === 'patch') return { ...prev, reply: 'patch' };
+      if (reply === 'stream') return { ...prev, reply: 'stream' };
       return { ...prev, reply: 'code', code: prev.code && prev.code.trim() ? prev.code : DEFAULT_CODE };
     });
   };
@@ -488,6 +520,35 @@ export function MockEditor({
       };
 
       delete saved.patch;
+      if (!hasAnyConditions) {
+        delete saved.match;
+      }
+
+      onSave(saved);
+      return;
+    }
+
+    if (draft.reply === 'stream') {
+      const stream: MockStream = {
+        chunks: streamDraft ? streamDraft.chunks : [draft.response.body],
+        gapMs: Math.max(0, Number(streamDraft?.gapMs) || 0),
+        sse: Boolean(streamDraft?.sse),
+      };
+
+      const saved: Mock = {
+        ...draft,
+        reply: 'stream',
+        stream,
+        response: {
+          ...draft.response,
+          status: finalStatus,
+          delayMs: finalDelay,
+        },
+        ...(hasAnyConditions ? { match: matchObj } : {}),
+      };
+
+      delete saved.patch;
+      delete saved.sequence;
       if (!hasAnyConditions) {
         delete saved.match;
       }
@@ -864,6 +925,15 @@ export function MockEditor({
             >
               Change real
             </button>
+            <button
+              type="button"
+              data-testid="reply-stream"
+              className={`reply-btn ${isStream ? 'active' : ''}`}
+              aria-pressed={isStream ? 'true' : 'false'}
+              onClick={() => setReply('stream')}
+            >
+              Stream
+            </button>
           </div>
         </div>
 
@@ -1205,6 +1275,109 @@ export function MockEditor({
                   </button>
                 </div>
               ))}
+            </div>
+          </div>
+        ) : isStream ? (
+          <div className="stream-reply-view" data-testid="stream-view">
+            <p className="field-help">
+              Each chunk is sent gapMs after the one before. fetch reads them as they come; EventSource gets one event per chunk.
+            </p>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label className="field-label">Gap (ms)</label>
+                <input
+                  type="number"
+                  data-testid="stream-gap"
+                    aria-label="Gap between chunks (ms)"
+                  min="0"
+                  className="text-input"
+                  value={streamDraft ? streamDraft.gapMs : 0}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setStreamDraft((prev) => (prev ? { ...prev, gapMs: val } : { chunks: [draft.response.body], gapMs: val, sse: false }));
+                  }}
+                />
+              </div>
+
+              <div className="form-group checkbox-group" style={{ display: 'flex', alignItems: 'center', paddingTop: '1.5rem' }}>
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    data-testid="stream-sse"
+                    checked={Boolean(streamDraft?.sse)}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setStreamDraft((prev) => (prev ? { ...prev, sse: checked } : { chunks: [draft.response.body], gapMs: 50, sse: checked }));
+                    }}
+                  />
+                  As Server-Sent Events
+                </label>
+              </div>
+            </div>
+
+            <div className="stream-chunks-list">
+              {(streamDraft?.chunks ?? []).map((chunk, idx) => (
+                <div key={idx} className="stream-chunk-row form-group" style={{ marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                    <label className="field-label" style={{ margin: 0 }}>Chunk {idx + 1}</label>
+                    <button
+                      type="button"
+                      data-testid="stream-chunk-remove"
+                    aria-label={`Remove chunk ${idx + 1}`}
+                      className="btn-link btn-danger-link stream-chunk-remove-btn"
+                      onClick={() => {
+                        setStreamDraft((prev) => {
+                          if (!prev) return prev;
+                          return {
+                            ...prev,
+                            chunks: prev.chunks.filter((_, i) => i !== idx),
+                          };
+                        });
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <textarea
+                    data-testid="stream-chunk"
+                    aria-label={`Chunk ${idx + 1}`}
+                    className="text-input stream-chunk-textarea"
+                    rows={3}
+                    style={{ fontFamily: 'monospace' }}
+                    value={chunk}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setStreamDraft((prev) => {
+                        if (!prev) return prev;
+                        return {
+                          ...prev,
+                          chunks: prev.chunks.map((c, i) => (i === idx ? val : c)),
+                        };
+                      });
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="stream-actions-row">
+              <button
+                type="button"
+                data-testid="stream-chunk-add"
+                className="btn-secondary stream-chunk-add-btn"
+                onClick={() => {
+                  setStreamDraft((prev) => {
+                    if (!prev) return { chunks: [draft.response.body, ''], gapMs: 50, sse: false };
+                    return {
+                      ...prev,
+                      chunks: [...prev.chunks, ''],
+                    };
+                  });
+                }}
+              >
+                + Add chunk
+              </button>
             </div>
           </div>
         ) : (

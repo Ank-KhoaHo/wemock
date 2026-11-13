@@ -2,6 +2,7 @@ import { encodeBody, mockBodyBytes } from '../core/bodies';
 import { applyHeaderRules, rulesFor } from '../core/headerRules';
 import { findAnyMock } from '../core/sockets';
 import { statusTextFor } from '../core/statusText';
+import { sseFrame, streamBodyText } from '../core/stream';
 import {
   type Badge,
   type BodyEncoding,
@@ -36,6 +37,7 @@ declare global {
     Request: typeof Request;
     Response: typeof Response;
     Headers: typeof Headers;
+    ReadableStream: typeof ReadableStream;
   }
 }
 
@@ -227,6 +229,125 @@ export function installFetchPatch(win: Window, deps: PatchDeps): () => void {
           // Never call the server a second time: a POST would run twice. Fail like a network error.
           throw new TypeError(`wemock could not build the changed response: ${err instanceof Error ? err.message : String(err)}`);
         }
+      }
+
+      if (mock.reply === 'stream') {
+        const streamConfig = mock.stream ?? { chunks: [], gapMs: 0, sse: false };
+        const encoder = new TextEncoder();
+        const chunks = streamConfig.chunks;
+        const gapMs = streamConfig.gapMs;
+        const sse = streamConfig.sse;
+        const fullBodyText = streamBodyText(streamConfig);
+        const status = mock.response.status;
+        const statusText = statusTextFor(status);
+        const headers = new win.Headers(mock.response.headers);
+        if (sse) {
+          headers.set('content-type', 'text/event-stream');
+        }
+
+        const timers: ReturnType<typeof setTimeout>[] = [];
+        const cleanTimers = () => {
+          for (const t of timers) clearTimeout(t);
+          timers.length = 0;
+        };
+
+        let streamEnded = false;
+        let onAbort: (() => void) | null = null;
+
+        const finish = () => {
+          if (streamEnded) return;
+          streamEnded = true;
+          cleanTimers();
+          if (signal && onAbort) signal.removeEventListener('abort', onAbort);
+          const durationMs = deps.now() - startedAt;
+          const loggedHeaders: Record<string, string> = { ...mock.response.headers };
+          if (sse) {
+            loggedHeaders['content-type'] = 'text/event-stream';
+          }
+          safeReport(deps, {
+            method: reqFacts.method,
+            url: reqFacts.url,
+            requestBody: reqFacts.body,
+            status,
+            responseHeaders: loggedHeaders,
+            responseBody: fullBodyText,
+            responseEncoding: 'text',
+            truncated: false,
+            durationMs,
+            badge: 'MOCK',
+            mockId: mock.id,
+            startedAt,
+          });
+          announce(deps.console, gateRes.settings, { method: reqFacts.method, url: reqFacts.url, status, mock, durationMs }, pageOriginOf(win));
+        };
+
+        const StreamCtor = win.ReadableStream ?? ReadableStream;
+        const readable = new StreamCtor({
+          start(controller) {
+            if (signal) {
+              if (signal.aborted) {
+                controller.error(createAbortError(signal.reason));
+                cleanTimers();
+                return;
+              }
+              onAbort = () => {
+                cleanTimers();
+                controller.error(createAbortError(signal.reason));
+              };
+              signal.addEventListener('abort', onAbort);
+            }
+
+            if (chunks.length === 0) {
+              controller.close();
+              finish();
+              return;
+            }
+
+            const sendChunk = (i: number) => {
+              const text = sse ? sseFrame(chunks[i]!) : chunks[i]!;
+              controller.enqueue(encoder.encode(text));
+              if (i === chunks.length - 1) {
+                controller.close();
+                finish();
+              }
+            };
+
+            chunks.forEach((_, i) => {
+              const delay = i * gapMs;
+              if (delay === 0) {
+                sendChunk(i);
+              } else {
+                const t = setTimeout(() => {
+                  try {
+                    sendChunk(i);
+                  } catch {
+                    // Controller may already be closed
+                  }
+                }, delay);
+                timers.push(t);
+              }
+            });
+          },
+          cancel() {
+            cleanTimers();
+            if (signal && onAbort) signal.removeEventListener('abort', onAbort);
+          },
+        });
+
+        const res = new win.Response(readable as unknown as BodyInit, {
+          status,
+          statusText,
+          headers,
+        });
+
+        Object.defineProperty(res, 'url', {
+          value: reqFacts.url,
+          writable: false,
+          enumerable: true,
+          configurable: true,
+        });
+
+        return res;
       }
 
       const isSocket = !gateRes.mocks.includes(mock);

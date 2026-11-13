@@ -4,6 +4,7 @@ import { createCallCounter } from '../patch/callCounter';
 import { installFetchPatch } from '../patch/fetchPatch';
 import { createGate } from '../patch/gate';
 import { createRunHandler } from '../patch/reply';
+import { installEventSourcePatch } from '../patch/eventSourcePatch';
 import { installSocketPatch } from '../patch/socketPatch';
 import { installXhrPatch } from '../patch/xhrPatch';
 
@@ -45,6 +46,7 @@ export default defineContentScript({
       installFetchPatch(window, deps);
       installXhrPatch(window, deps);
       installSocketPatch(window, deps);
+      installEventSourcePatch(window, deps);
 
       window.addEventListener('message', (event) => {
         try {

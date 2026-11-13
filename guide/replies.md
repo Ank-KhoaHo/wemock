@@ -1,7 +1,7 @@
 # Replies
 
 Every mock has a **status** (200 to 599), **headers**, a **delay** in milliseconds, and a
-**Reply**. The Reply is one of four kinds.
+**Reply**. The Reply is one of five kinds.
 
 ## Fixed body
 
@@ -56,5 +56,26 @@ Let the real call through, then change its answer: the status, headers, or JSON 
 - **Remove fields:** a path, such as `user.email`.
 
 Use it to test "the real data, except this one flag".
+
+## Stream (next release)
+
+The body arrives in chunks, a gap apart: an AI chat that types its answer, a progress feed, a
+log tail.
+
+- Add a **chunk** per piece of the body, and set the **Gap (ms)** between them.
+- `fetch`: `res.body.getReader()` and `for await` see each chunk as it arrives; `res.text()`
+  waits for all of them.
+- Tick **As Server-Sent Events**, and each chunk is sent as a `data:` frame with
+  `content-type: text/event-stream`. A chunk that already has `event:` or `id:` lines is sent as
+  written.
+- `EventSource` gets the same mock: `open`, then a `message` (or your `event:` name) per chunk,
+  then the stream closes. It does not reconnect in a loop.
+- `XMLHttpRequest` gets the whole body at the end.
+
+```
+event: token
+id: 1
+data: Hel
+```
 
 ← [Matching](matching.md) · Next: [WebSocket and SignalR](sockets.md) →
