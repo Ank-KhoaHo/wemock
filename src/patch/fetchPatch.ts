@@ -1,4 +1,5 @@
 import { encodeBody, mockBodyBytes } from '../core/bodies';
+import { applyHeaderRules, rulesFor } from '../core/headerRules';
 import { findAnyMock } from '../core/sockets';
 import { statusTextFor } from '../core/statusText';
 import {
@@ -312,7 +313,36 @@ export function installFetchPatch(win: Window, deps: PatchDeps): () => void {
       }
     }
 
-    const realRes = await nativeFetch.call(win, input, init);
+    let realInput: RequestInfo | URL = input;
+    let realInit: RequestInit | undefined = init;
+    let requestHeadersToSend: Record<string, string> = { ...reqFacts.headers };
+    let changedHeadersToSend: string[] = [];
+
+    if (gateRes.headerRules && gateRes.headerRules.length > 0) {
+      try {
+        const matchingRules = rulesFor(gateRes.headerRules, { method: reqFacts.method, url: reqFacts.url });
+        if (matchingRules.length > 0) {
+          const applied = applyHeaderRules(gateRes.headerRules, { method: reqFacts.method, url: reqFacts.url }, reqFacts.headers ?? {});
+          requestHeadersToSend = applied.headers;
+          changedHeadersToSend = applied.changed;
+
+          const newHeaders = new win.Headers(applied.headers);
+          try {
+            realInput = new win.Request(input, {
+              ...(init ? init : {}),
+              headers: newHeaders,
+            });
+            realInit = undefined;
+          } catch {
+            realInit = { ...(init ? init : {}), headers: newHeaders };
+          }
+        }
+      } catch {
+        // Fall back to native call
+      }
+    }
+
+    const realRes = await nativeFetch.call(win, realInput, realInit);
     if (!gateRes.settings.recording) {
       return realRes;
     }
@@ -381,6 +411,8 @@ export function installFetchPatch(win: Window, deps: PatchDeps): () => void {
           method: reqFacts.method,
           url: reqFacts.url,
           requestBody: reqFacts.body,
+          requestHeaders: requestHeadersToSend,
+          changedHeaders: changedHeadersToSend,
           status: clone.status,
           responseHeaders: headersRecord,
           responseBody: body,

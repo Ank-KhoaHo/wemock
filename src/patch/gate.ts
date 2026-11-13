@@ -1,10 +1,11 @@
-import { GATE_TIMEOUT_MS, type Mock, type Settings, type SocketMock } from '../core/types';
+import { GATE_TIMEOUT_MS, type HeaderRule, type Mock, type Settings, type SocketMock } from '../core/types';
 
 /** What the bridge sends: the page's mocks, socket mocks (A5) and settings. */
 export interface GateConfig {
   mocks: Mock[];
   settings: Settings;
   sockets?: SocketMock[];
+  headerRules?: HeaderRule[];
 }
 
 export type GateResult = GateConfig & { late: boolean };

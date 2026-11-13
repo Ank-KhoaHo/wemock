@@ -1,5 +1,5 @@
 import { isValidStatus } from './statusText';
-import type { HttpMethod, Mock, MockMatch, MockPatch, MockResponse, MockSequence, Project, Scenario, SocketMock, SocketPush, SocketReply, WemockState } from './types';
+import type { HeaderRule, HttpMethod, Mock, MockMatch, MockPatch, MockResponse, MockSequence, Project, Scenario, SocketMock, SocketPush, SocketReply, WemockState } from './types';
 
 const VALID_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'ANY']);
 
@@ -270,6 +270,30 @@ function validateMock(mock: unknown): { ok: true; mock: Mock } | { ok: false; er
   };
 }
 
+function validateHeaderRule(v: unknown): Check<HeaderRule> {
+  if (!isObj(v)) return { ok: false, error: 'Header rule must be an object' };
+  if (typeof v.id !== 'string' || !v.id) return { ok: false, error: 'Header rule must have a string id' };
+  if (typeof v.enabled !== 'boolean') return { ok: false, error: 'Header rule enabled must be a boolean' };
+  if (typeof v.method !== 'string' || !VALID_METHODS.has(v.method.toUpperCase())) {
+    return { ok: false, error: `Invalid header rule method: ${String(v.method)}` };
+  }
+  if (typeof v.urlPattern !== 'string') return { ok: false, error: 'Header rule urlPattern must be a string' };
+  if (typeof v.name !== 'string') return { ok: false, error: 'Header rule name must be a string' };
+  if (typeof v.value !== 'string') return { ok: false, error: 'Header rule value must be a string' };
+
+  return {
+    ok: true,
+    value: {
+      id: v.id,
+      enabled: v.enabled,
+      method: v.method.toUpperCase() as HttpMethod,
+      urlPattern: v.urlPattern,
+      name: v.name,
+      value: v.value,
+    },
+  };
+}
+
 function validatePushes(v: unknown, where: string): Check<SocketPush[]> {
   if (!Array.isArray(v)) return { ok: false, error: `${where} must be an array` };
   const out: SocketPush[] = [];
@@ -423,6 +447,7 @@ export function exportProject(p: Project): string {
       origins: p.origins,
       scenarios: p.scenarios,
       activeScenarioId: p.activeScenarioId,
+      ...(p.headerRules !== undefined ? { headerRules: p.headerRules } : {}),
     },
     null,
     2,
@@ -499,6 +524,19 @@ export function parseProjectFile(
       };
     }
 
+    let headerRules: HeaderRule[] | undefined;
+    if (projData.headerRules !== undefined) {
+      if (!Array.isArray(projData.headerRules)) {
+        return { ok: false, error: 'Project headerRules must be an array' };
+      }
+      headerRules = [];
+      for (const r of projData.headerRules) {
+        const valid = validateHeaderRule(r);
+        if (!valid.ok) return valid;
+        headerRules.push(valid.value);
+      }
+    }
+
     return {
       ok: true,
       project: {
@@ -507,6 +545,7 @@ export function parseProjectFile(
         origins: projData.origins,
         scenarios,
         activeScenarioId: projData.activeScenarioId,
+        ...(headerRules !== undefined ? { headerRules } : {}),
       },
     };
   } catch (err) {

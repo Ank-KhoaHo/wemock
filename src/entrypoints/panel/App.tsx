@@ -11,7 +11,7 @@ import { projectForOrigin } from '../../core/scenario';
 import { addScenario, clearProject, deleteScenarios, duplicateMock, duplicateScenario, duplicateSocket, mergeProject, replaceProject } from '../../core/scenarioOps';
 import { siteStatus } from '../../core/siteStatus';
 import { socketFromLogs } from '../../core/socketRecord';
-import { type LogEntry, type Mock, newProject, type Project, type Scenario, type SocketMock } from '../../core/types';
+import { type HeaderRule, type LogEntry, type Mock, newProject, type Project, type Scenario, type SocketMock } from '../../core/types';
 import { newId } from '../../shared/ids';
 import { getInspectedTabId } from '../../shared/inspectedTab';
 import { LogDetail } from '../../ui/LogDetail';
@@ -1183,6 +1183,14 @@ export default function App() {
     })).catch(() => {});
   };
 
+  const handleUpdateHeaderRules = (rules: HeaderRule[]) => {
+    if (!project) return;
+    update((s) => ({
+      ...s,
+      projects: s.projects.map((p) => (p.id === project.id ? { ...p, headerRules: rules } : p)),
+    })).catch(() => {});
+  };
+
   // Find currently selected mock across all scenarios in project
   let selectedMock: Mock | null = null;
   if (project && selectedMockId) {
@@ -1570,6 +1578,7 @@ export default function App() {
                   onDeleteAll={handleClearAll}
                   onAddMock={handleAddMock}
                   onAddSocket={handleAddSocket}
+                  onUpdateHeaderRules={handleUpdateHeaderRules}
                   onDuplicateScenario={handleDuplicateScenario}
                   onExportScenario={handleExportScenario}
                 />

@@ -27,11 +27,13 @@ export default defineContentScript({
         const project = projectForOrigin(state, window.location.origin);
         const mocks = project ? activeMocks(project) : [];
         const sockets = project ? activeSockets(project) : [];
+        const headerRules = project?.headerRules;
         const msg: BridgeToPage = {
           source: BRIDGE_SOURCE,
           type: 'config',
           mocks,
           sockets,
+          headerRules,
           settings: state.settings,
         };
         window.postMessage(msg, '*');

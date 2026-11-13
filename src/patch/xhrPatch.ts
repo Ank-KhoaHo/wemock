@@ -1,7 +1,8 @@
 import { encodeBody, mockBodyBytes } from '../core/bodies';
+import { applyHeaderRules, forbiddenHeaderReason, rulesFor } from '../core/headerRules';
 import { findAnyMock } from '../core/sockets';
 import { statusTextFor } from '../core/statusText';
-import type { Badge, BodyEncoding, LogDraft, Mock, MockResponse, RequestFacts, Settings } from '../core/types';
+import type { Badge, BodyEncoding, HeaderRule, LogDraft, Mock, MockResponse, RequestFacts, Settings } from '../core/types';
 import { announce } from './announce';
 import { patchRealResponse } from './patchReal';
 import { resolveReply } from './reply';
@@ -127,13 +128,24 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
     }
 
     override setRequestHeader(name: string, value: string): void {
-      super.setRequestHeader(name, value);
+      const key = String(name).toLowerCase();
       try {
-        const key = String(name).toLowerCase();
         const prev = this._requestHeaders[key];
         this._requestHeaders[key] = prev === undefined ? String(value) : `${prev}, ${value}`;
       } catch {
         // header capture is best effort
+      }
+
+      let isHandled = false;
+      try {
+        const rules = rulesFor(deps.gate.current()?.headerRules ?? [], { method: this._method, url: this._url });
+        isHandled = rules.some((r) => r.name.toLowerCase() === key && forbiddenHeaderReason(r.name) === null);
+      } catch {
+        isHandled = false;
+      }
+
+      if (!isHandled) {
+        super.setRequestHeader(name, value);
       }
     }
 
@@ -211,7 +223,7 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
           headers: { ...this._requestHeaders },
         };
       } catch {
-        this._passThroughReal(body, startedAt, gateRes.late);
+        this._passThroughReal(body, startedAt, gateRes.late, gateRes.headerRules);
         return;
       }
 
@@ -225,7 +237,7 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
       }
 
       if (!mock) {
-        this._passThroughReal(body, startedAt, gateRes.late);
+        this._passThroughReal(body, startedAt, gateRes.late, gateRes.headerRules);
         return;
       }
 
@@ -233,7 +245,7 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
         this._isMock = true;
         const fetchFn = deps.nativeFetch ?? win.fetch;
         if (!fetchFn) {
-          this._passThroughReal(body, startedAt, gateRes.late);
+          this._passThroughReal(body, startedAt, gateRes.late, gateRes.headerRules);
           return;
         }
 
@@ -291,7 +303,7 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
         await this._serveMock(mock, reqFacts, startedAt, gateRes);
       } catch {
         this._clearMockGetters();
-        this._passThroughReal(body, startedAt, gateRes.late);
+        this._passThroughReal(body, startedAt, gateRes.late, gateRes.headerRules);
       }
     }
 
@@ -299,11 +311,29 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
       body: Document | XMLHttpRequestBodyInit | null | undefined,
       startedAt: number,
       isLate: boolean,
+      headerRules?: HeaderRule[],
     ): void {
       if (this._aborted || this._realSent) {
         return;
       }
       this._realSent = true;
+
+      const applied = applyHeaderRules(
+        headerRules ?? [],
+        { method: this._method, url: this._url },
+        this._requestHeaders,
+      );
+
+      for (const key of applied.changed) {
+        const val = applied.headers[key];
+        if (val !== undefined && val !== '') {
+          try {
+            super.setRequestHeader(key, val);
+          } catch {
+            // Best effort
+          }
+        }
+      }
 
       try {
         const onNativeLoadEnd = () => {
@@ -363,6 +393,8 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
                     method: this._method,
                     url: this._url,
                     requestBody: typeof body === 'string' ? body : undefined,
+                    requestHeaders: applied.headers,
+                    changedHeaders: applied.changed,
                     status: this.status,
                     responseHeaders,
                     responseBody: encoded.body,
@@ -390,6 +422,8 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
               method: this._method,
               url: this._url,
               requestBody: typeof body === 'string' ? body : undefined,
+              requestHeaders: applied.headers,
+              changedHeaders: applied.changed,
               status: this.status,
               responseHeaders,
               responseBody,

@@ -1,5 +1,5 @@
 import type { HandlerReply, HandlerRequest } from './handler';
-import type { LogDraft, Mock, Settings, SocketMock } from './types';
+import type { HeaderRule, LogDraft, Mock, Settings, SocketMock } from './types';
 
 export const PAGE_SOURCE = 'wemock-page';
 export const BRIDGE_SOURCE = 'wemock-bridge';
@@ -38,6 +38,8 @@ export type BridgeToPage = {
   settings: Settings;
   /** A5: socket mocks in effect. */
   sockets?: SocketMock[];
+  /** A39: header rules in effect. */
+  headerRules?: HeaderRule[];
 };
 
 function isObject(val: unknown): val is Record<string, unknown> {
@@ -72,6 +74,19 @@ export function isPageToBridge(data: unknown): data is PageToBridge {
   if (entry.connectionId !== undefined && typeof entry.connectionId !== 'string') return false;
   if (typeof entry.startedAt !== 'number' || Number.isNaN(entry.startedAt)) return false;
 
+  if (entry.requestHeaders !== undefined) {
+    if (!isObject(entry.requestHeaders)) return false;
+    for (const v of Object.values(entry.requestHeaders)) {
+      if (typeof v !== 'string') return false;
+    }
+  }
+
+  if (entry.changedHeaders !== undefined) {
+    if (!Array.isArray(entry.changedHeaders) || !entry.changedHeaders.every((x) => typeof x === 'string')) {
+      return false;
+    }
+  }
+
   return true;
 }
 
@@ -81,6 +96,7 @@ export function isBridgeToPage(data: unknown): data is BridgeToPage {
   if (data.type !== 'config') return false;
   if (!Array.isArray(data.mocks)) return false;
   if (data.sockets !== undefined && !Array.isArray(data.sockets)) return false;
+  if (data.headerRules !== undefined && !Array.isArray(data.headerRules)) return false;
 
   const settings = data.settings;
   if (!isObject(settings)) return false;

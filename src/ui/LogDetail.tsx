@@ -201,6 +201,45 @@ export function LogDetail({
               </section>
             ) : null}
 
+            {entry.requestHeaders && (
+              <section className="detail-section">
+                <h4 className="section-title">Request Headers</h4>
+                <div data-testid="request-headers" className="headers-grid monospace">
+                  {Object.entries(entry.requestHeaders).map(([key, value]) => {
+                    const isChanged = entry.changedHeaders?.some(
+                      (c) => c.toLowerCase() === key.toLowerCase(),
+                    );
+                    return (
+                      <div
+                        key={key}
+                        className={`header-entry ${isChanged ? 'header-changed' : ''}`}
+                        data-testid={isChanged ? 'request-header-changed' : undefined}
+                      >
+                        <span className="header-name">{key}:</span>{' '}
+                        <span className="header-value">{value}</span>
+                        {isChanged && (
+                          <span
+                            className="header-changed-marker"
+                            title="changed by a header rule"
+                          >
+                            {' '}(changed by a header rule)
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {(entry.changedHeaders ?? [])
+                    .filter((c) => !Object.keys(entry.requestHeaders ?? {}).some((k) => k.toLowerCase() === c.toLowerCase()))
+                    .map((c) => (
+                      <div key={`removed-${c}`} className="header-entry header-changed" data-testid="request-header-removed">
+                        <span className="header-name">{c}</span>{' '}
+                        <span className="header-changed-marker">(removed by a header rule)</span>
+                      </div>
+                    ))}
+                </div>
+              </section>
+            )}
+
             <section className="detail-section">
               <h4 className="section-title">Response Headers</h4>
               {Object.keys(entry.responseHeaders).length === 0 ? (

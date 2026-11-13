@@ -54,6 +54,7 @@ export default defineContentScript({
               mocks: event.data.mocks,
               settings: event.data.settings,
               sockets: event.data.sockets ?? [],
+              headerRules: event.data.headerRules ?? [],
             });
           }
         } catch {

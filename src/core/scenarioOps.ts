@@ -33,6 +33,9 @@ export function deleteScenarios(project: Project, ids: string[]): Project {
       sockets: s.sockets ? [...s.sockets] : undefined,
     })),
     activeScenarioId,
+    ...(project.headerRules !== undefined
+      ? { headerRules: project.headerRules.map((r) => ({ ...r })) }
+      : {}),
   };
 }
 
@@ -55,6 +58,9 @@ export function clearProject(project: Project): Project {
     origins: [...project.origins],
     scenarios: [clearedDefault],
     activeScenarioId: clearedDefault.id,
+    ...(project.headerRules !== undefined
+      ? { headerRules: project.headerRules.map((r) => ({ ...r })) }
+      : {}),
   };
 }
 
@@ -146,11 +152,21 @@ export function mergeProject(
     sockets: s.sockets ? [...s.sockets] : undefined,
   }));
 
+  const addedHeaderRules = incoming.headerRules?.map((r) => ({
+    ...r,
+    id: newId(),
+  }));
+  const mergedHeaderRules =
+    target.headerRules || addedHeaderRules
+      ? [...(target.headerRules ?? []), ...(addedHeaderRules ?? [])]
+      : undefined;
+
   return {
     ...target,
     origins: [...target.origins],
     scenarios: [newDefault, ...otherTargetScenarios, ...newScenarios],
     activeScenarioId: target.activeScenarioId,
+    ...(mergedHeaderRules !== undefined ? { headerRules: mergedHeaderRules } : {}),
   };
 }
 
@@ -161,6 +177,10 @@ export function mergeProject(
  * Pure function: does not modify inputs.
  */
 export function replaceProject(target: Project, incoming: Project): Project {
+  const replacedHeaderRules = incoming.headerRules
+    ? incoming.headerRules.map((r) => ({ ...r }))
+    : undefined;
+
   if (incoming.scenarios.length === 0) {
     const defaultScenario: Scenario = {
       id: 'default',
@@ -173,6 +193,7 @@ export function replaceProject(target: Project, incoming: Project): Project {
       origins: [...target.origins],
       activeScenarioId: 'default',
       scenarios: [defaultScenario],
+      ...(replacedHeaderRules !== undefined ? { headerRules: replacedHeaderRules } : {}),
     };
   }
 
@@ -190,6 +211,7 @@ export function replaceProject(target: Project, incoming: Project): Project {
       mocks: [...s.mocks],
       sockets: s.sockets ? [...s.sockets] : undefined,
     })),
+    ...(replacedHeaderRules !== undefined ? { headerRules: replacedHeaderRules } : {}),
   };
 }
 
@@ -243,6 +265,9 @@ export function duplicateMock(
       ...project,
       origins: [...project.origins],
       scenarios: updatedScenarios,
+      ...(project.headerRules !== undefined
+        ? { headerRules: project.headerRules.map((r) => ({ ...r })) }
+        : {}),
     },
     newId: copyId,
   };
@@ -306,6 +331,9 @@ export function duplicateSocket(
       ...project,
       origins: [...project.origins],
       scenarios: updatedScenarios,
+      ...(project.headerRules !== undefined
+        ? { headerRules: project.headerRules.map((r) => ({ ...r })) }
+        : {}),
     },
     newId: copyId,
   };
@@ -372,6 +400,9 @@ export function duplicateScenario(
       origins: [...project.origins],
       scenarios: updatedScenarios,
       activeScenarioId: project.activeScenarioId,
+      ...(project.headerRules !== undefined
+        ? { headerRules: project.headerRules.map((r) => ({ ...r })) }
+        : {}),
     },
     newId: copyScenarioId,
   };
@@ -429,5 +460,8 @@ export function addScenario(
       addedScenario,
     ],
     activeScenarioId: project.activeScenarioId,
+    ...(project.headerRules !== undefined
+      ? { headerRules: project.headerRules.map((r) => ({ ...r })) }
+      : {}),
   };
 }

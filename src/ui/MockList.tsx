@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import { forbiddenHeaderReason } from '../core/headerRules';
+import { compilePattern } from '../core/match';
 import { unreachableMocks } from '../core/reachability';
-import type { Mock, Project, SocketMock } from '../core/types';
+import type { HeaderRule, HttpMethod, Mock, Project, SocketMock } from '../core/types';
 import { newId } from '../shared/ids';
 
 export interface MockListProps {
@@ -13,6 +15,7 @@ export interface MockListProps {
   onSelectSocket: (socketId: string | null) => void;
   onUpdateScenarioMocks: (scenarioId: string, mocks: Mock[]) => void;
   onUpdateScenarioSockets: (scenarioId: string, sockets: SocketMock[]) => void;
+  onUpdateHeaderRules?: (rules: HeaderRule[]) => void;
   onAddScenario: (name: string) => void;
   onRenameScenario: (scenarioId: string, newName: string) => void;
   onDeleteScenario: (scenarioId: string) => void;
@@ -64,6 +67,14 @@ function socketMatches(socket: SocketMock, query: string): boolean {
   );
 }
 
+function getRuleError(rule: HeaderRule): string | null {
+  const forbidden = forbiddenHeaderReason(rule.name);
+  if (forbidden !== null) return forbidden;
+  const compiled = compilePattern(rule.urlPattern);
+  if (!compiled.ok) return compiled.error;
+  return null;
+}
+
 export function MockList({
   project,
   selectedScenarioId,
@@ -74,6 +85,7 @@ export function MockList({
   onSelectSocket,
   onUpdateScenarioMocks,
   onUpdateScenarioSockets,
+  onUpdateHeaderRules,
   onAddScenario,
   onRenameScenario,
   onDeleteScenario,
@@ -90,13 +102,15 @@ export function MockList({
   const [selectedScenarioIds, setSelectedScenarioIds] = useState<string[]>([]);
   const [filterText, setFilterText] = useState('');
   const [foldedIds, setFoldedIds] = useState<string[]>(() => loadFoldedIds(project.id));
+  const [headerRules, setHeaderRules] = useState<HeaderRule[]>(() => project.headerRules ?? []);
 
   useEffect(() => {
     setScenarios(project.scenarios);
     setSelectedScenarioIds((prev) =>
       prev.filter((id) => project.scenarios.some((s) => s.id === id)),
     );
-  }, [project.scenarios]);
+    setHeaderRules(project.headerRules ?? []);
+  }, [project.scenarios, project.headerRules]);
 
   useEffect(() => {
     setFoldedIds(loadFoldedIds(project.id));
@@ -276,6 +290,34 @@ export function MockList({
       prev.map((s) => (s.id === scenarioId ? { ...s, mocks: nextMocks } : s)),
     );
     onUpdateScenarioMocks(scenarioId, nextMocks);
+  };
+
+  const handleAddRule = () => {
+    const newRule: HeaderRule = {
+      id: newId(),
+      enabled: true,
+      method: 'ANY',
+      urlPattern: '',
+      name: '',
+      value: '',
+    };
+    const nextRules = [...headerRules, newRule];
+    setHeaderRules(nextRules);
+    onUpdateHeaderRules?.(nextRules);
+  };
+
+  const handleUpdateRule = (ruleId: string, patch: Partial<HeaderRule>) => {
+    const nextRules = headerRules.map((r) =>
+      r.id === ruleId ? { ...r, ...patch } : r,
+    );
+    setHeaderRules(nextRules);
+    onUpdateHeaderRules?.(nextRules);
+  };
+
+  const handleRemoveRule = (ruleId: string) => {
+    const nextRules = headerRules.filter((r) => r.id !== ruleId);
+    setHeaderRules(nextRules);
+    onUpdateHeaderRules?.(nextRules);
   };
 
   return (
@@ -680,6 +722,107 @@ export function MockList({
             </div>
           );
         })}
+      </div>
+
+      {/* Header rules section */}
+      <div className="header-rules-section">
+        <div className="header-rules-header">
+          <div className="header-rules-title-group">
+            <h3 className="header-rules-title">Header rules</h3>
+            <span className="header-rules-help">
+              Header rules change real calls only; mocks are not affected.
+            </span>
+          </div>
+          <button
+            type="button"
+            data-testid="hrule-add"
+            className="btn-secondary hrule-add-btn"
+            onClick={handleAddRule}
+          >
+            + Add rule
+          </button>
+        </div>
+
+        <div className="header-rules-list">
+          {headerRules.map((rule) => {
+            const error = getRuleError(rule);
+            return (
+              <div key={rule.id} data-testid="hrule-row" className="hrule-row">
+                <div className="hrule-row-inputs">
+                  <input
+                    type="checkbox"
+                    data-testid="hrule-enabled"
+                    aria-label="Rule on"
+                    className="hrule-enabled-checkbox"
+                    checked={rule.enabled}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      handleUpdateRule(rule.id, { enabled: e.target.checked });
+                    }}
+                  />
+                  <select
+                    data-testid="hrule-method"
+                    aria-label="Method"
+                    className="hrule-method-select select-input"
+                    value={rule.method}
+                    onChange={(e) => handleUpdateRule(rule.id, { method: e.target.value as HttpMethod })}
+                  >
+                    <option value="ANY">ANY</option>
+                    <option value="GET">GET</option>
+                    <option value="POST">POST</option>
+                    <option value="PUT">PUT</option>
+                    <option value="PATCH">PATCH</option>
+                    <option value="DELETE">DELETE</option>
+                    <option value="HEAD">HEAD</option>
+                    <option value="OPTIONS">OPTIONS</option>
+                  </select>
+                  <input
+                    type="text"
+                    data-testid="hrule-pattern"
+                    className="hrule-pattern-input text-input monospace"
+                    placeholder="/api/*rest"
+                    aria-label="URL pattern"
+                    value={rule.urlPattern}
+                    onChange={(e) => handleUpdateRule(rule.id, { urlPattern: e.target.value })}
+                  />
+                  <input
+                    type="text"
+                    data-testid="hrule-name"
+                    className="hrule-name-input text-input monospace"
+                    placeholder="Header name"
+                    aria-label="Header name"
+                    value={rule.name}
+                    onChange={(e) => handleUpdateRule(rule.id, { name: e.target.value })}
+                  />
+                  <input
+                    type="text"
+                    data-testid="hrule-value"
+                    className="hrule-value-input text-input monospace"
+                    placeholder="empty = remove"
+                    aria-label="Header value (empty removes it)"
+                    value={rule.value}
+                    onChange={(e) => handleUpdateRule(rule.id, { value: e.target.value })}
+                  />
+                  <button
+                    type="button"
+                    data-testid="hrule-remove"
+                    className="hrule-remove-btn"
+                    title="Remove rule"
+                    aria-label="Remove rule"
+                    onClick={() => handleRemoveRule(rule.id)}
+                  >
+                    ×
+                  </button>
+                </div>
+                {error && (
+                  <div data-testid="hrule-error" className="hrule-error">
+                    {error}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

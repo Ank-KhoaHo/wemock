@@ -109,6 +109,7 @@ Then load `.output/chrome-mv3` the same way. → [Install, in full](guide/instal
 | Match exactly | `:id`, `*rest`, `{optional}`, a host, a GraphQL operation, conditions on query, headers or body | [Matching](guide/matching.md) |
 | Answer anything | Any status 200-599, headers, delays, text or binary bodies | [Replies](guide/replies.md) |
 | Answer per call | Templates, sequences, code, Change real | [Replies](guide/replies.md) |
+| Change real calls | Add, change or remove request headers (next release) | [Request headers](guide/headers.md) |
 | Mock sockets | WebSocket timelines and replies, SignalR hubs | [Sockets](guide/sockets.md) |
 | Check before you reload | Test bar, Console line, Log filters, Save as HAR | [Checking](guide/checking.md) |
 

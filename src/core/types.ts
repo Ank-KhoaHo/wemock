@@ -106,12 +106,22 @@ export interface Scenario {
   sockets?: SocketMock[];
 }
 
+export interface HeaderRule {
+  id: string;
+  enabled: boolean;
+  method: HttpMethod;
+  urlPattern: string;
+  name: string;
+  value: string;
+}
+
 export interface Project {
   id: string;
   name: string;
   origins: string[];
   scenarios: Scenario[];
   activeScenarioId: string; // scenarios[0] is Default
+  headerRules?: HeaderRule[];
 }
 
 export interface Settings {
@@ -142,6 +152,8 @@ export interface LogEntry {
   method: string;
   url: string;
   requestBody?: string;
+  requestHeaders?: Record<string, string>;
+  changedHeaders?: string[];
   status: number;
   responseHeaders: Record<string, string>;
   responseBody: string | null;

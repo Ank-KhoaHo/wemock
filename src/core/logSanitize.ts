@@ -114,19 +114,19 @@ export function sanitizeLogDraft(raw: unknown): LogDraft | null {
       if (typeof v !== 'string') return null;
       reqHeaders[k] = v;
     }
-    (result as Record<string, unknown>).requestHeaders = reqHeaders;
+    result.requestHeaders = reqHeaders;
   }
 
   if (r.changedHeaders !== undefined) {
-    if (!r.changedHeaders || typeof r.changedHeaders !== 'object' || Array.isArray(r.changedHeaders)) {
+    if (!Array.isArray(r.changedHeaders)) {
       return null;
     }
-    const changed: Record<string, string> = {};
-    for (const [k, v] of Object.entries(r.changedHeaders as Record<string, unknown>)) {
-      if (typeof v !== 'string') return null;
-      changed[k] = v;
+    const changed: string[] = [];
+    for (const item of r.changedHeaders) {
+      if (typeof item !== 'string') return null;
+      changed.push(item);
     }
-    (result as Record<string, unknown>).changedHeaders = changed;
+    result.changedHeaders = changed;
   }
 
   return result;
