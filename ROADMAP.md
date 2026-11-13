@@ -46,6 +46,13 @@ checked against a real ASP.NET Core hub.
 
 Change a real response instead of replacing it, and hints plus a Run button for code mocks.
 
+## M1.8 — Streams, header rules, and a sample (done in source, 1.8.0)
+
+Streamed replies, Server-Sent Events and EventSource; header rules on real calls; mock selected
+Log rows; a mark on mocks that never answer; a sample project; a security and correctness review
+with its fixes; host patterns that keep their escapes (a first outside contribution); a new
+README, guide pages and icon.
+
 ## M2 — Hardening
 
 The rough edges found by daily use of 1.0.0, closed one at a time.

@@ -1,6 +1,6 @@
 # Your first mock
 
-## Or start from the sample (next release)
+## Or start from the sample
 
 In an empty Mocks tab, click **Load the sample** (or **Sample** in the toolbar, any time). wemock
 adds a small shop to your site's project: products, a cart with a coupon condition, a stock level
@@ -42,7 +42,7 @@ answers only that site, never a same-named path on another one.
 
 - **Save as scenario** turns every call in the (filtered) Log into one new scenario. Filter to
   `/api/`, save it as "Happy path", and you have a snapshot of your backend.
-- **Mock selected (next release):** tick the rows you want, then **Mock selected**.
+- **Mock selected:** tick the rows you want, then **Mock selected**.
 
 ## Mock a socket
 

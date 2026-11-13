@@ -22,8 +22,8 @@ conditions hold.
 - `:` `*` `(` `)` `{` `}` and `\` have a meaning in a pattern. Write `\:` for a literal `:`.
   Recording escapes them for you.
 - Paths with spaces or non-ASCII letters, such as `/api/café`, work as typed.
-- **(next release)** A pattern with a host keeps its escapes and `{optional}` parts. Before, only
-  path-only patterns did. Thanks to @ThanggDuongg for this fix.
+- Since 1.8, a pattern with a host keeps its escapes and `{optional}` parts, as a path-only
+  pattern does. Thanks to @ThanggDuongg for this fix.
 
 ## GraphQL
 
@@ -50,7 +50,7 @@ When several mocks match, wemock picks in this order:
 
 The first match answers. Calls no mock matches go to the server.
 
-**(next release)** A mock that can never answer, because one above it always matches first, gets
+A mock that can never answer, because one above it always matches first, gets
 a **Never answers** mark in the list. Hover over it to see which mock wins.
 
 To see the answer for a URL without reloading, use the [Test bar](checking.md).

@@ -99,7 +99,7 @@ Then load `.output/chrome-mv3` the same way. → [Install, in full](guide/instal
 **Then:** open your app on `localhost` (wemock is always on there), open DevTools, and pick the
 **wemock** tab. On any other site, click the wemock toolbar icon and switch it on for that site.
 
-**No app handy?** In the empty Mocks tab, click **Load the sample** (next release): a small shop
+**No app handy?** In the empty Mocks tab, click **Load the sample**: a small shop
 with every kind of mock, three scenarios and a SignalR hub. Then try `GET /api/products/42` in the
 Test bar.
 
@@ -113,8 +113,8 @@ Test bar.
 | Match exactly | `:id`, `*rest`, `{optional}`, a host, a GraphQL operation, conditions on query, headers or body | [Matching](guide/matching.md) |
 | Answer anything | Any status 200-599, headers, delays, text or binary bodies | [Replies](guide/replies.md) |
 | Answer per call | Templates, sequences, code, Change real | [Replies](guide/replies.md) |
-| Stream an answer | Chunks over time, Server-Sent Events, `EventSource` (next release) | [Replies](guide/replies.md#stream-next-release) |
-| Change real calls | Add, change or remove request headers (next release) | [Request headers](guide/headers.md) |
+| Stream an answer | Chunks over time, Server-Sent Events, `EventSource` | [Replies](guide/replies.md#stream) |
+| Change real calls | Add, change or remove request headers | [Request headers](guide/headers.md) |
 | Mock sockets | WebSocket timelines and replies, SignalR hubs | [Sockets](guide/sockets.md) |
 | Check before you reload | Test bar, Console line, Log filters, Save as HAR | [Checking](guide/checking.md) |
 
@@ -145,8 +145,8 @@ It hears a call once and sings it back. That is the whole product.
 
 ## Limits
 
-- Calls made by Service Workers are not seen. Server-Sent Events can be mocked (next release), but
-  real ones are not logged.
+- Calls made by Service Workers are not seen. Server-Sent Events can be mocked, but real ones are
+  not logged.
 - A real socket logs at most 200 messages. "Mock this socket" replays a plain socket's
   messages on a timeline; it cannot tell which message answered which.
 - SignalR mocks speak the JSON hub protocol only, not MessagePack.
@@ -171,5 +171,4 @@ It hears a call once and sings it back. That is the whole product.
 
 ## Status
 
-Version 1.7.0, before its first Store release. `main` is ahead of the latest release; the guide
-marks features that are not released yet. Licensed under MIT; see [LICENSE](LICENSE).
+Version 1.8.0, before its first Store release. Licensed under MIT; see [LICENSE](LICENSE).

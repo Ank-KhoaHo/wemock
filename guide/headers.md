@@ -1,4 +1,4 @@
-# Request headers on real calls (next release)
+# Request headers on real calls
 
 Header rules change the headers of calls that go to the server: add a token, switch a feature
 flag, or drop a header, without touching your app's code. Mocked calls are not affected.

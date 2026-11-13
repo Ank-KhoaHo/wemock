@@ -57,7 +57,7 @@ Let the real call through, then change its answer: the status, headers, or JSON 
 
 Use it to test "the real data, except this one flag".
 
-## Stream (next release)
+## Stream
 
 The body arrives in chunks, a gap apart: an AI chat that types its answer, a progress feed, a
 log tail.
