@@ -58,6 +58,20 @@ export function clearProject(project: Project): Project {
   };
 }
 
+/** A43: a socket copy whose pushes and reply rules get new ids too. */
+function cloneSocketWithNewIds(socket: SocketMock, newId: () => string): SocketMock {
+  return {
+    ...socket,
+    id: newId(),
+    onConnect: socket.onConnect.map((p) => ({ ...p, id: newId() })),
+    replies: socket.replies.map((r) => ({
+      ...r,
+      id: newId(),
+      pushes: r.pushes.map((p) => ({ ...p, id: newId() })),
+    })),
+  };
+}
+
 /**
  * Returns a name that is not present in `taken`.
  * If `name` is already taken, tries `${name} (2)`, `${name} (3)`, etc.
@@ -92,10 +106,7 @@ export function mergeProject(
       }))
     : [];
   const addedDefaultSockets: SocketMock[] = incomingDefault?.sockets
-    ? incomingDefault.sockets.map((s) => ({
-        ...s,
-        id: newId(),
-      }))
+    ? incomingDefault.sockets.map((s) => cloneSocketWithNewIds(s, newId))
     : [];
 
   const targetDefault = target.scenarios[0] ?? {
@@ -119,7 +130,7 @@ export function mergeProject(
     currentNames.push(name);
     const id = newId();
     const mocks = sc.mocks.map((m) => ({ ...m, id: newId() }));
-    const sockets = sc.sockets?.map((s) => ({ ...s, id: newId() }));
+    const sockets = sc.sockets?.map((s) => cloneSocketWithNewIds(s, newId));
     newScenarios.push({
       ...sc,
       id,

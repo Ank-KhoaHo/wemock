@@ -253,17 +253,7 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
           if (this._aborted) {
             return;
           }
-          this._defineMockGetters();
-          this._mockReadyState = 4;
-          this._mockStatus = 0;
-          this._mockStatusText = '';
-          this._mockHeaders = {};
-          this._mockResponseText = '';
-          this._mockJson = null;
-          this.dispatchEvent(new win.Event('readystatechange'));
-          this.dispatchEvent(new win.ProgressEvent('error', { lengthComputable: false, loaded: 0, total: 0 }));
-          this.dispatchEvent(new win.ProgressEvent('loadend', { lengthComputable: false, loaded: 0, total: 0 }));
-          this._mockCompleted = true;
+          this._failNetworkError();
           return;
         }
 
@@ -275,7 +265,10 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
         try {
           patchedResponse = await patchRealResponse(realRes, mock);
         } catch {
-          this._passThroughReal(body, startedAt, gateRes.late);
+          if (this._aborted) {
+            return;
+          }
+          this._failNetworkError();
           return;
         }
 
@@ -286,7 +279,10 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
         try {
           await this._serveMock(mock, reqFacts, startedAt, gateRes, patchedResponse);
         } catch {
-          this._passThroughReal(body, startedAt, gateRes.late);
+          if (this._aborted) {
+            return;
+          }
+          this._failNetworkError();
         }
         return;
       }
@@ -294,6 +290,7 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
       try {
         await this._serveMock(mock, reqFacts, startedAt, gateRes);
       } catch {
+        this._clearMockGetters();
         this._passThroughReal(body, startedAt, gateRes.late);
       }
     }
@@ -641,6 +638,29 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
       };
     }
 
+    private _failNetworkError(): void {
+      if (this._aborted || this._mockCompleted) {
+        return;
+      }
+      if (this._delayTimer !== null) {
+        clearTimeout(this._delayTimer);
+        this._delayTimer = null;
+      }
+      this._defineMockGetters();
+      this._mockReadyState = 4;
+      this._mockStatus = 0;
+      this._mockStatusText = '';
+      this._mockHeaders = {};
+      this._mockResponseText = '';
+      this._mockJson = null;
+      this._mockBlob = null;
+      this._mockArrayBuffer = null;
+      this.dispatchEvent(new win.Event('readystatechange'));
+      this.dispatchEvent(new win.ProgressEvent('error', { lengthComputable: false, loaded: 0, total: 0 }));
+      this.dispatchEvent(new win.ProgressEvent('loadend', { lengthComputable: false, loaded: 0, total: 0 }));
+      this._mockCompleted = true;
+    }
+
     private _clearMockGetters(): void {
       if (!this._gettersDefined) return;
       this._gettersDefined = false;
@@ -652,9 +672,19 @@ export function installXhrPatch(win: Window, deps: PatchDeps): () => void {
           // own property only; the prototype's native accessor remains
         }
       }
+      if (this._delayTimer !== null) {
+        clearTimeout(this._delayTimer);
+        this._delayTimer = null;
+      }
       this._mockHeaders = {};
       this._mockStatus = 0;
       this._mockStatusText = '';
+      this._mockResponseText = '';
+      this._mockJson = null;
+      this._mockBlob = null;
+      this._mockArrayBuffer = null;
+      this._mockCompleted = false;
+      this._isMock = false;
     }
 
     private _getHeader(name: string): string | null {

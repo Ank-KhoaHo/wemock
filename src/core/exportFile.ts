@@ -3,6 +3,13 @@ import type { HttpMethod, Mock, MockMatch, MockPatch, MockResponse, MockSequence
 
 const VALID_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'ANY']);
 
+const BASE64_RE = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+
+export function isValidBase64(s: string): boolean {
+  if (s.length % 4 !== 0) return false;
+  return BASE64_RE.test(s);
+}
+
 type Check<T> = { ok: true; value: T } | { ok: false; error: string };
 
 function isObj(v: unknown): v is Record<string, unknown> {
@@ -80,6 +87,9 @@ function validateMockResponse(
   }
   if (r.bodyEncoding !== 'text' && r.bodyEncoding !== 'base64') {
     return { ok: false, error: `Invalid mock response bodyEncoding: ${r.bodyEncoding}` };
+  }
+  if (r.bodyEncoding === 'base64' && !isValidBase64(r.body)) {
+    return { ok: false, error: 'Mock response body is not valid base64' };
   }
   if (typeof r.delayMs !== 'number' || Number.isNaN(r.delayMs) || r.delayMs < 0) {
     return { ok: false, error: `Invalid mock response delayMs: ${r.delayMs}` };
@@ -458,6 +468,26 @@ export function parseProjectFile(
       const valid = validateScenario(sc);
       if (!valid.ok) return valid;
       scenarios.push(valid.scenario);
+    }
+    const seenReplyIds = new Set<string>();
+    for (const sc of scenarios) {
+      if (!sc.sockets) continue;
+      for (const socket of sc.sockets) {
+        for (const reply of socket.replies) {
+          if (!seenReplyIds.has(reply.id)) {
+            seenReplyIds.add(reply.id);
+          } else {
+            let counter = 2;
+            let candidate = `${reply.id}-${counter}`;
+            while (seenReplyIds.has(candidate)) {
+              counter++;
+              candidate = `${reply.id}-${counter}`;
+            }
+            seenReplyIds.add(candidate);
+            reply.id = candidate;
+          }
+        }
+      }
     }
     if (typeof projData.activeScenarioId !== 'string') {
       return { ok: false, error: 'Project activeScenarioId must be a string' };

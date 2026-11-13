@@ -19,6 +19,22 @@ const DROPPED_HEADERS = new Set([
   'set-cookie',
 ]);
 
+const HTTP_METHODS: ReadonlySet<string> = new Set<HttpMethod>([
+  'GET',
+  'POST',
+  'PUT',
+  'PATCH',
+  'DELETE',
+  'HEAD',
+  'OPTIONS',
+  'ANY',
+]);
+
+function toHttpMethod(method: string): HttpMethod {
+  const upper = method.toUpperCase();
+  return HTTP_METHODS.has(upper) ? (upper as HttpMethod) : 'ANY';
+}
+
 function extractPathname(url: string): string {
   try {
     const parsed = new URL(url);
@@ -80,7 +96,7 @@ export function mockFromLog(entry: LogEntry, id: string, now: number, pageOrigin
   const mock: Mock = {
     id,
     enabled: true,
-    method: entry.method.toUpperCase() as HttpMethod,
+    method: toHttpMethod(entry.method),
     urlPattern,
     ...(op ? { graphqlOperation: op } : {}),
     response,

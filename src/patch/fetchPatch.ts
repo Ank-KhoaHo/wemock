@@ -1,7 +1,15 @@
 import { encodeBody, mockBodyBytes } from '../core/bodies';
 import { findAnyMock } from '../core/sockets';
 import { statusTextFor } from '../core/statusText';
-import type { Badge, LogDraft, Mock, RequestFacts, Settings } from '../core/types';
+import {
+  type Badge,
+  type BodyEncoding,
+  BODY_CAP_BYTES,
+  type LogDraft,
+  type Mock,
+  type RequestFacts,
+  type Settings,
+} from '../core/types';
 import { announce, type PageConsole } from './announce';
 import type { CallCounter } from './callCounter';
 import { patchRealResponse } from './patchReal';
@@ -40,8 +48,8 @@ function getSignal(input: RequestInfo | URL, init?: RequestInit): AbortSignal | 
   return undefined;
 }
 
-function createAbortError(reason?: unknown): DOMException {
-  if (reason instanceof DOMException && reason.name === 'AbortError') {
+function createAbortError(reason?: unknown): unknown {
+  if (reason !== undefined) {
     return reason;
   }
   return new DOMException('The operation was aborted.', 'AbortError');
@@ -305,21 +313,69 @@ export function installFetchPatch(win: Window, deps: PatchDeps): () => void {
     }
 
     const realRes = await nativeFetch.call(win, input, init);
+    if (!gateRes.settings.recording) {
+      return realRes;
+    }
+
     const durationMs = deps.now() - startedAt;
     const badge: Badge = gateRes.late ? 'LATE' : 'real';
 
     void (async () => {
       try {
         const clone = realRes.clone();
-        const buffer = await clone.arrayBuffer();
-        const bytes = new Uint8Array(buffer);
-        const contentType = clone.headers.get('content-type');
-        const { body, encoding, truncated } = encodeBody(bytes, contentType);
-
         const headersRecord: Record<string, string> = {};
         clone.headers.forEach((val, key) => {
           headersRecord[key.toLowerCase()] = val;
         });
+        const contentType = clone.headers.get('content-type');
+
+        let body: string | null = null;
+        let encoding: BodyEncoding = 'text';
+        let truncated = false;
+
+        if (clone.body && typeof clone.body.getReader === 'function') {
+          const reader = clone.body.getReader();
+          const chunks: Uint8Array[] = [];
+          let totalBytes = 0;
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value) {
+              chunks.push(value);
+              totalBytes += value.byteLength;
+              if (totalBytes > BODY_CAP_BYTES) {
+                truncated = true;
+                void reader.cancel().catch(() => {});
+                break;
+              }
+            }
+          }
+
+          if (truncated) {
+            const enc = encodeBody(new Uint8Array(0), contentType);
+            encoding = enc.encoding;
+            body = null;
+          } else {
+            const combined = new Uint8Array(totalBytes);
+            let offset = 0;
+            for (const chunk of chunks) {
+              combined.set(chunk, offset);
+              offset += chunk.byteLength;
+            }
+            const enc = encodeBody(combined, contentType);
+            body = enc.body;
+            encoding = enc.encoding;
+            truncated = enc.truncated;
+          }
+        } else {
+          const buffer = await clone.arrayBuffer();
+          const bytes = new Uint8Array(buffer);
+          const enc = encodeBody(bytes, contentType);
+          body = enc.body;
+          encoding = enc.encoding;
+          truncated = enc.truncated;
+        }
 
         deps.report({
           method: reqFacts.method,
