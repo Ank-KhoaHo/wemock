@@ -47,6 +47,13 @@ function state(origin: string): WemockState {
             }),
             mk('m5', 'Signed-in user', 'GET', '/api/me', res(200, { id: 'u1', name: 'Anna', plan: 'pro' }), { match: { headers: { authorization: '*' } } }),
             mk('m6', 'Guest', 'GET', '/api/me', res(401, { error: 'Sign in first' })),
+            // A36: the newer reply kinds, so the lists show them.
+            mk('m7', 'Reviews, real but hidden', 'GET', '/api/reviews', res(200, ''), {
+              reply: 'patch', patch: { set: [{ path: 'items.*.visible', value: 'false' }] },
+            }),
+            mk('m8', 'Assistant, streamed', 'GET', '/api/assistant', res(200, ''), {
+              reply: 'stream', stream: { chunks: ['Green tea ', 'is in stock, ', '12 left.'], gapMs: 300, sse: true },
+            }),
           ],
           sockets: [{
             id: 's1', name: 'Notifications hub', enabled: true, kind: 'signalr', urlPattern: '/hubs/notifications', createdAt: 0,
@@ -130,6 +137,7 @@ test('store images', async () => {
     await panel.getByTestId('tab-mocks').click();
     await panel.getByTestId('mock-row').filter({ hasText: 'Product by id' }).first().click();
     await expect(panel.locator('.cm-content').first()).toBeVisible();
+    // Not Run: its answer sits below the 800 px frame, and running scrolls the editor's header away (A36).
     await shot(panel, 'screenshot-2-code-mock');
 
     // 4: a SignalR hub (taken before the Test bar runs, so no result shows).
@@ -152,7 +160,8 @@ test('store images', async () => {
     await shot(panel, 'screenshot-5-scenarios');
 
     // Promo images, drawn from the icon and screenshot 1.
-    const icon = fs.readFileSync(path.resolve('public/icon/128.png')).toString('base64');
+    // A44: the mockingbird, as SVG so it stays sharp at any size.
+    const iconSvg = fs.readFileSync(path.resolve('.github/brand/icon.svg')).toString('base64');
     const log = fs.readFileSync(path.join(OUT, 'screenshot-1-log.png')).toString('base64');
     const art = await s.context.newPage();
     const promo = (w: number, h: number, body: string) => `<!doctype html><html><head><meta charset="utf-8"><style>
@@ -171,7 +180,7 @@ test('store images', async () => {
     await art.setViewportSize({ width: 440, height: 280 });
     await art.setContent(promo(440, 280, `
       <div style="padding:34px 32px;display:flex;flex-direction:column;gap:18px;height:100%">
-        <div class="brand"><img src="data:image/png;base64,${icon}" width="64" height="64"><span class="name" style="font-size:44px">wemock</span></div>
+        <div class="brand"><img src="data:image/svg+xml;base64,${iconSvg}" width="64" height="64"><span class="name" style="font-size:44px">wemock</span></div>
         <div class="tag" style="font-size:22px;line-height:1.25">Record real API calls.<br>Replay them as mocks.</div>
         <div class="chips" style="margin-top:auto"><span class="chip">Scenarios</span><span class="chip">Code replies</span><span class="chip">SignalR</span></div>
       </div>`));
@@ -181,7 +190,7 @@ test('store images', async () => {
     await art.setContent(promo(1400, 560, `
       <div style="display:flex;height:100%;align-items:center;padding:0 0 0 72px;gap:56px">
         <div style="flex:0 0 440px;display:flex;flex-direction:column;gap:22px">
-          <div class="brand"><img src="data:image/png;base64,${icon}" width="76" height="76"><span class="name" style="font-size:56px">wemock</span></div>
+          <div class="brand"><img src="data:image/svg+xml;base64,${iconSvg}" width="76" height="76"><span class="name" style="font-size:56px">wemock</span></div>
           <div class="tag" style="font-size:30px;line-height:1.25">Mock any API from Chrome DevTools.</div>
           <div style="font-size:19px;opacity:.92;line-height:1.45">Record calls, switch scenarios in one click, answer with code, and mock WebSocket and SignalR.</div>
           <div class="chips"><span class="chip">Free</span><span class="chip">Open source</span><span class="chip">Nothing leaves your browser</span></div>
@@ -197,7 +206,7 @@ test('store images', async () => {
     await art.setContent(promo(1280, 640, `
       <div style="display:flex;height:100%;align-items:center;padding:0 0 0 64px;gap:48px">
         <div style="flex:0 0 420px;display:flex;flex-direction:column;gap:22px">
-          <div class="brand"><img src="data:image/png;base64,${icon}" width="76" height="76"><span class="name" style="font-size:58px">wemock</span></div>
+          <div class="brand"><img src="data:image/svg+xml;base64,${iconSvg}" width="76" height="76"><span class="name" style="font-size:58px">wemock</span></div>
           <div class="tag" style="font-size:30px;line-height:1.25">Mock any API from Chrome DevTools.</div>
           <div class="chips"><span class="chip">Free</span><span class="chip">MIT</span><span class="chip">WebSocket and SignalR</span></div>
           <div style="font-size:18px;opacity:.9">github.com/Ank-KhoaHo/wemock</div>
@@ -213,7 +222,7 @@ test('store images', async () => {
     await art.setContent(promo(1280, 320, `
       <div style="display:flex;height:100%;align-items:center;padding:0 0 0 64px;gap:48px">
         <div style="flex:0 0 520px;display:flex;flex-direction:column;gap:18px">
-          <div class="brand"><img src="data:image/png;base64,${icon}" width="72" height="72"><span class="name" style="font-size:56px">wemock</span></div>
+          <div class="brand"><img src="data:image/svg+xml;base64,${iconSvg}" width="72" height="72"><span class="name" style="font-size:56px">wemock</span></div>
           <div class="tag" style="font-size:26px;line-height:1.25">Record real API calls in DevTools.<br>Replay them as mocks.</div>
         </div>
         <img class="shot" src="data:image/png;base64,${log}" style="width:640px;margin-top:150px;align-self:flex-start">
