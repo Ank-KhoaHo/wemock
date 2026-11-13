@@ -1,4 +1,5 @@
 import { hasConditions } from './conditions';
+import { splitPattern } from './match';
 import type { Mock } from './types';
 
 function isWildcard(seg: string): boolean {
@@ -27,21 +28,19 @@ export function patternCovers(a: string, b: string): boolean {
     return false;
   }
 
-  let pathA = a;
-  let pathB = b;
-
-  if (isAbsA && isAbsB) {
-    try {
-      const urlA = new URL(a);
-      const urlB = new URL(b);
-      if (urlA.origin !== urlB.origin) {
-        return false;
-      }
-      pathA = urlA.pathname;
-      pathB = urlB.pathname;
-    } catch {
+  // splitPattern, not new URL(): the URL parser turns `\:` into `/:`, which reads as a parameter.
+  let pathA: string;
+  let pathB: string;
+  try {
+    const sa = splitPattern(a);
+    const sb = splitPattern(b);
+    if (sa.origin !== sb.origin) {
       return false;
     }
+    pathA = sa.path;
+    pathB = sb.path;
+  } catch {
+    return false;
   }
 
   const aSegments = getSegments(pathA);

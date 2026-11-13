@@ -35,6 +35,11 @@ describe('patternCovers', () => {
     expect(patternCovers('/api{/:id}', '/api/1')).toBe(false);
     expect(patternCovers('/v1\\:batch', '/v1\\:batch')).toBe(true);
   });
+  it('a host-bound pattern keeps its escapes (PR #1): \\: is a literal colon, not a parameter', () => {
+    expect(patternCovers(String.raw`https://a.test/v1/items\:batch`, 'https://a.test/v1/items/7')).toBe(false);
+    expect(patternCovers(String.raw`https://a.test/v1/items\:batch`, String.raw`https://a.test/v1/items\:batch`)).toBe(true);
+    expect(patternCovers('https://A.TEST:443/x/:id', 'https://a.test/x/1')).toBe(true);
+  });
 });
 
 describe('unreachableMocks', () => {
