@@ -1,5 +1,5 @@
-import React, { Suspense, useEffect, useState } from 'react';
-import { base64ToBytes, bytesToBase64 } from '../core/bodies';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
+import { base64ToBytes, bytesToBase64, formatJson } from '../core/bodies';
 import type { BodyEncoding } from '../core/types';
 
 const CodeEditor = React.lazy(() => import('./CodeEditor'));
@@ -26,11 +26,14 @@ export function BodyEditor({
   isDark = false,
 }: BodyEditorProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const isText = bodyEncoding === 'text';
+  const formattedBody = useMemo(() => (isText ? formatJson(body) : body), [body, isText]);
+  const canFormat = formattedBody !== body;
 
   // Validate JSON if content-type contains json and bodyEncoding is text
   let isJsonWarning = false;
   const isJsonType = contentType.toLowerCase().includes('json');
-  if (isJsonType && bodyEncoding === 'text' && body.trim()) {
+  if (isJsonType && isText && body.trim()) {
     try {
       JSON.parse(body);
     } catch {
@@ -106,16 +109,30 @@ export function BodyEditor({
     <div className="body-editor-container">
       <div className="body-editor-toolbar">
         <label className="field-label">Response Body</label>
-        <div className="file-input-wrapper">
-          <button type="button" className="btn-secondary load-file-label">
-            Load file
-          </button>
-          <input
-            type="file"
-            data-testid="load-file"
-            className="overlay-file-input"
-            onChange={handleFilePicked}
-          />
+        <div className="body-editor-actions">
+          {isText && (
+            <button
+              type="button"
+              data-testid="body-format"
+              className="btn-secondary"
+              disabled={!canFormat}
+              title={canFormat ? undefined : 'Nothing to format: the body is already formatted or is not valid JSON'}
+              onClick={() => onChangeBody(formattedBody, 'text')}
+            >
+              Format
+            </button>
+          )}
+          <div className="file-input-wrapper">
+            <button type="button" className="btn-secondary load-file-label">
+              Load file
+            </button>
+            <input
+              type="file"
+              data-testid="load-file"
+              className="overlay-file-input"
+              onChange={handleFilePicked}
+            />
+          </div>
         </div>
       </div>
 

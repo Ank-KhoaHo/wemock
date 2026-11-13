@@ -140,10 +140,10 @@ describe('mockFileImport', () => {
       });
 
       const mocks = r.result.project.scenarios[0]!.mocks;
-      // mock-file: body object -> JSON.stringify(body, null, 2); response_body_type binary -> bodyEncoding base64
+      // mock-file: body object -> compact JSON; response_body_type binary -> bodyEncoding base64
       const restMock = mocks.find((m) => m.name === 'Static REST Mock');
       expect(restMock).toBeDefined();
-      expect(restMock?.response.body).toBe(JSON.stringify({ items: [] }, null, 2));
+      expect(restMock?.response.body).toBe('{"items":[]}');
       expect(restMock?.response.bodyEncoding).toBe('text');
 
       const binaryMock = mocks.find((m) => m.name === 'Wildcard Binary Mock');
@@ -170,7 +170,15 @@ describe('mockFileImport', () => {
       });
       const mocks = r.result.project.scenarios[0]!.mocks;
       expect(mocks).toHaveLength(1);
-      expect(mocks[0]?.response.body).toBe(JSON.stringify({ items: [] }, null, 2));
+      expect(mocks[0]?.response.body).toBe('{"items":[]}');
+    });
+
+    it('keeps a string body exactly as the file has it', () => {
+      const body = '{ "id": 12345678901234567890 }';
+      const r = importMockFile({ ...mockFile, response: { ...mockFile.response, body } }, 'http://localhost:3000', ids(), 1);
+      if (!r.ok) throw new Error(r.error);
+
+      expect(r.result.project.scenarios[0]!.mocks[0]?.response.body).toBe(body);
     });
 
     it('returns error when data is invalid or unrecognized', () => {

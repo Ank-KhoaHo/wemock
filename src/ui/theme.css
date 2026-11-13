@@ -1576,7 +1576,8 @@ body.panel-root {
   object-fit: contain;
 }
 
-.binary-actions {
+.binary-actions,
+.body-editor-actions {
   display: flex;
   align-items: center;
   gap: 8px;

@@ -6,6 +6,8 @@ import {
   encodeBody,
   mockBodyBytes,
   capBody,
+  formatJson,
+  compactJson,
 } from './bodies';
 import { BODY_CAP_BYTES, type MockResponse } from './types';
 
@@ -148,5 +150,66 @@ describe('bodies', () => {
       const b64 = bytesToBase64(png);
       expect(mockBodyBytes({ ...baseResp, body: b64, bodyEncoding: 'base64' })).toEqual(png);
     });
+  });
+
+  describe('formatJson', () => {
+    it('spreads one-line JSON over lines with 2-space indent', () => {
+      expect(formatJson('{"id":"DOC-011","tags":["a","b"],"n":1}')).toBe(
+        '{\n  "id": "DOC-011",\n  "tags": [\n    "a",\n    "b"\n  ],\n  "n": 1\n}',
+      );
+    });
+
+    it('keeps numbers exactly as written', () => {
+      expect(formatJson('{"big":12345678901234567890,"f":1.0,"e":1E+2}')).toBe(
+        '{\n  "big": 12345678901234567890,\n  "f": 1.0,\n  "e": 1E+2\n}',
+      );
+    });
+
+    it('leaves strings alone, including escapes and JSON-looking text', () => {
+      expect(formatJson('{"s":"a, b: {c} [d] \\" \\\\","u":"\\u00e9 é"}')).toBe(
+        '{\n  "s": "a, b: {c} [d] \\" \\\\",\n  "u": "\\u00e9 é"\n}',
+      );
+    });
+
+    it('keeps empty objects and arrays on one line', () => {
+      expect(formatJson('{"a":{},"b":[ ],"c":[{}]}')).toBe(
+        '{\n  "a": {},\n  "b": [],\n  "c": [\n    {}\n  ]\n}',
+      );
+    });
+
+    it('re-indents JSON that already has other whitespace', () => {
+      expect(formatJson('{\n    "a" :  [1 ,2]\n}\n')).toBe('{\n  "a": [\n    1,\n    2\n  ]\n}');
+    });
+
+    it.each(['', 'hello', '{"a":', '{"id":{{params.id}}}', '"str"', '42', 'null', '<x/>'])(
+      'returns %j unchanged',
+      (text) => {
+        expect(formatJson(text)).toBe(text);
+      },
+    );
+  });
+
+  describe('compactJson', () => {
+    it('drops the whitespace between tokens and keeps it inside strings', () => {
+      expect(compactJson('{\n  "s": "a, b: { c }",\n  "tags": [ 1 , 2 ],\n  "e": {}\n}\n')).toBe(
+        '{"s":"a, b: { c }","tags":[1,2],"e":{}}',
+      );
+    });
+
+    it('keeps numbers exactly as written', () => {
+      expect(compactJson('{ "big": 12345678901234567890, "f": 1.0 }')).toBe('{"big":12345678901234567890,"f":1.0}');
+    });
+
+    it('undoes formatJson', () => {
+      const text = '{"id":"DOC-011","items":[{"n":1},{"n":2}],"none":[],"ok":true}';
+      expect(compactJson(formatJson(text))).toBe(text);
+    });
+
+    it.each(['', 'hello', '{"a":', '{ "id": {{params.id}} }', '"str"', ' 42 ', '<x/>'])(
+      'returns %j unchanged',
+      (text) => {
+        expect(compactJson(text)).toBe(text);
+      },
+    );
   });
 });

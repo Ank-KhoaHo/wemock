@@ -308,7 +308,7 @@ export function importMockFile(
         }
       } else {
         if (typeof rawBody === 'object' && rawBody !== null) {
-          body = JSON.stringify(rawBody, null, 2);
+          body = JSON.stringify(rawBody);
         } else if (typeof rawBody === 'string') {
           body = rawBody;
         } else if (rawBody !== undefined && rawBody !== null) {

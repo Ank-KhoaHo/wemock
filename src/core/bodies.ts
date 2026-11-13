@@ -1,4 +1,4 @@
-import { type BodyEncoding, BODY_CAP_BYTES, type MockResponse } from './types';
+import { type BodyEncoding, BODY_CAP_BYTES, type Mock, type MockResponse } from './types';
 
 export function isTextual(contentType: string | null | undefined): boolean {
   if (!contentType) return true;
@@ -49,6 +49,47 @@ export function encodeBody(
 
   const body = bytesToBase64(bytes);
   return { body, encoding: 'base64', truncated: false };
+}
+
+const JSON_INDENT = '  ';
+const JSON_TOKEN = /"(?:[^"\\]|\\.)*"|[{}[\],:]|[^\s{}[\],:"]+/g;
+const JSON_OPENERS = new Set(['{', '[']);
+const JSON_CLOSERS = new Set(['}', ']']);
+
+function jsonContainerTokens(text: string): string[] | null {
+  try {
+    const value: unknown = JSON.parse(text);
+    return typeof value === 'object' && value !== null ? (text.match(JSON_TOKEN) ?? []) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function compactJson(text: string): string {
+  return jsonContainerTokens(text)?.join('') ?? text;
+}
+
+export function withBody(mock: Mock, transform: (body: string) => string): Mock {
+  return { ...mock, response: { ...mock.response, body: transform(mock.response.body) } };
+}
+
+export function formatJson(text: string): string {
+  const tokens = jsonContainerTokens(text);
+  if (!tokens) return text;
+
+  const parts: string[] = [];
+  let depth = 0;
+  let prev = '';
+  for (const token of tokens) {
+    const closes = JSON_CLOSERS.has(token);
+    if (closes) depth--;
+    const startsLine = prev === ',' || JSON_OPENERS.has(prev) !== closes;
+    if (startsLine) parts.push('\n', JSON_INDENT.repeat(depth));
+    parts.push(token === ':' ? ': ' : token);
+    if (JSON_OPENERS.has(token)) depth++;
+    prev = token;
+  }
+  return parts.join('');
 }
 
 export function mockBodyBytes(r: MockResponse): Uint8Array {
