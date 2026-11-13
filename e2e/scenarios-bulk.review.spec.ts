@@ -235,20 +235,20 @@ test('Import, Replace all: same project, the file scenarios, no old project left
   }
 });
 
-test('a Mokku file also asks, and Replace all uses it', async () => {
+test('a mock file also asks, and Replace all uses it', async () => {
   const { page, panel } = await openMocks();
   try {
-    // Shaped like src/core/fixtures/mokku-v1-store.json.
-    const mokku = {
+    // Shaped like src/core/fixtures/mock-file-v1-store.json.
+    const file = {
       totalMocksCreated: 1,
       collections: [],
-      mocks: [{ id: 'm1', name: 'One', method: 'GET', url: '/api/mokku', status: 200, response: '{"m":1}', delay: 0,
+      mocks: [{ id: 'm1', name: 'One', method: 'GET', url: '/api/imported', status: 200, response: '{"m":1}', delay: 0,
         active: true, dynamic: false, description: '', headers: {} }],
     };
-    await panel.getByTestId('import').setInputFiles({ name: 'mokku.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(mokku)) });
+    await panel.getByTestId('import').setInputFiles({ name: 'mocks.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
     await expect(panel.getByTestId('import-choice')).toBeVisible();
     await panel.getByTestId('import-replace').click();
-    await expect.poll(async () => (await readState()).projects[0]!.scenarios.flatMap((sc) => sc.mocks.map((m) => m.urlPattern))).toEqual(['/api/mokku']);
+    await expect.poll(async () => (await readState()).projects[0]!.scenarios.flatMap((sc) => sc.mocks.map((m) => m.urlPattern))).toEqual(['/api/imported']);
     expect((await readState()).projects).toHaveLength(1);
   } finally {
     await panel.close();

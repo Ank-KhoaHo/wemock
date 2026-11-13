@@ -268,7 +268,7 @@ test('importing a malformed file shows import-error and changes nothing', async 
     // Initial project count is 1
     await expect(panelPage.getByTestId('project-picker').locator('option')).toHaveCount(1);
 
-    const buffer = Buffer.from('{"not":"a valid wemock or mokku file"}');
+    const buffer = Buffer.from('{"not":"a valid wemock or mock file"}');
     await panelPage.getByTestId('import').setInputFiles({
       name: 'malformed.json',
       mimeType: 'application/json',
@@ -283,7 +283,7 @@ test('importing a malformed file shows import-error and changes nothing', async 
   }
 });
 
-test('importing the Mokku v2 fixture makes a project for this site and serves its mock', async () => {
+test('importing the v2 mock file fixture makes a project for this site and serves its mock', async () => {
   const page = await session.context.newPage();
   const panelPage = await session.context.newPage();
   try {
@@ -293,16 +293,16 @@ test('importing the Mokku v2 fixture makes a project for this site and serves it
 
     await panelPage.getByTestId('tab-mocks').click();
 
-    // Read Mokku v2 fixture and modify in memory (do not edit fixture file)
-    const fixturePath = path.resolve('src/core/fixtures/mokku-v2-export.json');
+    // Read the v2 fixture and modify in memory (do not edit fixture file)
+    const fixturePath = path.resolve('src/core/fixtures/mock-file-v2-export.json');
     const raw = await fs.promises.readFile(fixturePath, 'utf-8');
-    const mokkuData = JSON.parse(raw);
+    const fileData = JSON.parse(raw);
     // Point static mock url to /api/goals
-    mokkuData.mocks[0].url = '/api/goals';
+    fileData.mocks[0].url = '/api/goals';
 
-    const buffer = Buffer.from(JSON.stringify(mokkuData));
+    const buffer = Buffer.from(JSON.stringify(fileData));
     await panelPage.getByTestId('import').setInputFiles({
-      name: 'mokku-v2.json',
+      name: 'mocks-v2.json',
       mimeType: 'application/json',
       buffer,
     });
@@ -320,7 +320,7 @@ test('importing the Mokku v2 fixture makes a project for this site and serves it
   }
 });
 
-test('a Mokku import shows import-summary with the code mock count', async () => {
+test('a mock file import shows import-summary with the code mock count', async () => {
   const page = await session.context.newPage();
   const panelPage = await session.context.newPage();
   try {
@@ -330,12 +330,12 @@ test('a Mokku import shows import-summary with the code mock count', async () =>
 
     await panelPage.getByTestId('tab-mocks').click();
 
-    const fixturePath = path.resolve('src/core/fixtures/mokku-v2-export.json');
+    const fixturePath = path.resolve('src/core/fixtures/mock-file-v2-export.json');
     const raw = await fs.promises.readFile(fixturePath, 'utf-8');
     const buffer = Buffer.from(raw);
 
     await panelPage.getByTestId('import').setInputFiles({
-      name: 'mokku-v2.json',
+      name: 'mocks-v2.json',
       mimeType: 'application/json',
       buffer,
     });

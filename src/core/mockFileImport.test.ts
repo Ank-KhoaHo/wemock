@@ -1,57 +1,57 @@
 import { describe, expect, it } from 'vitest';
 import { compilePattern } from './match';
-import { detectMokku, importMokku, mokkuUrlToPattern } from './mokkuImport';
+import { detectMockFile, importMockFile, mockFileUrlToPattern } from './mockFileImport';
 import { isValidStatus } from './statusText';
-import v2 from './fixtures/mokku-v2-export.json';
-import v1 from './fixtures/mokku-v1-store.json';
-import mockFile from './fixtures/mokku-mock-file.json';
-import mockFileList from './fixtures/mokku-mock-file-list.json';
+import v2 from './fixtures/mock-file-v2-export.json';
+import v1 from './fixtures/mock-file-v1-store.json';
+import mockFile from './fixtures/mock-file.json';
+import mockFileList from './fixtures/mock-file-list.json';
 
 function ids(): () => string {
   let counter = 0;
   return () => `id-${++counter}`;
 }
 
-describe('mokkuImport', () => {
-  describe('detectMokku', () => {
-    it('detects the three Mokku shapes correctly', () => {
-      expect(detectMokku(v2)).toBe('mokku-v2');
-      expect(detectMokku(v1)).toBe('mokku-v1');
-      expect(detectMokku(mockFile)).toBe('mokku-mock-file');
-      expect(detectMokku(mockFileList)).toBe('mokku-mock-file');
+describe('mockFileImport', () => {
+  describe('detectMockFile', () => {
+    it('detects the three mock file shapes correctly', () => {
+      expect(detectMockFile(v2)).toBe('export-v2');
+      expect(detectMockFile(v1)).toBe('store-v1');
+      expect(detectMockFile(mockFile)).toBe('mock-file');
+      expect(detectMockFile(mockFileList)).toBe('mock-file');
     });
 
     it('returns null for wemock project or unknown shapes', () => {
-      expect(detectMokku({ wemock: 'project', schemaVersion: 1 })).toBeNull();
-      expect(detectMokku({ foo: 1 })).toBeNull();
-      expect(detectMokku(null)).toBeNull();
-      expect(detectMokku('string')).toBeNull();
-      expect(detectMokku({ mocks: 'not-an-array' })).toBeNull();
+      expect(detectMockFile({ wemock: 'project', schemaVersion: 1 })).toBeNull();
+      expect(detectMockFile({ foo: 1 })).toBeNull();
+      expect(detectMockFile(null)).toBeNull();
+      expect(detectMockFile('string')).toBeNull();
+      expect(detectMockFile({ mocks: 'not-an-array' })).toBeNull();
     });
   });
 
-  describe('mokkuUrlToPattern', () => {
+  describe('mockFileUrlToPattern', () => {
     it('strips query parameters from full URLs', () => {
-      expect(mokkuUrlToPattern('https://a.com/api/goals?x=1')).toBe('https://a.com/api/goals');
+      expect(mockFileUrlToPattern('https://a.com/api/goals?x=1')).toBe('https://a.com/api/goals');
     });
 
     it('removes host when host starts with no protocol', () => {
-      expect(mokkuUrlToPattern('localhost:3000/api/goals/:id')).toBe('/api/goals/:id');
+      expect(mockFileUrlToPattern('localhost:3000/api/goals/:id')).toBe('/api/goals/:id');
     });
 
     it('converts (.*) to *rest wildcard syntax compatible with path-to-regexp 8', () => {
-      expect(mokkuUrlToPattern('/api/files/(.*)')).toBe('/api/files/*rest');
-      expect(compilePattern(mokkuUrlToPattern('/api/files/(.*)')).ok).toBe(true);
+      expect(mockFileUrlToPattern('/api/files/(.*)')).toBe('/api/files/*rest');
+      expect(compilePattern(mockFileUrlToPattern('/api/files/(.*)')).ok).toBe(true);
     });
   });
 
-  describe('importMokku', () => {
-    it('imports Mokku v2 export correctly', () => {
-      const r = importMokku(v2, 'http://localhost:3000', ids(), 1);
+  describe('importMockFile', () => {
+    it('imports v2 mock export correctly', () => {
+      const r = importMockFile(v2, 'http://localhost:3000', ids(), 1);
       expect(r.ok).toBe(true);
       if (!r.ok) return;
 
-      expect(r.result.shape).toBe('mokku-v2');
+      expect(r.result.shape).toBe('export-v2');
       expect(r.result.project.name).toBe('My app');
       expect(r.result.project.origins).toEqual(['http://localhost:3000']);
       expect(r.result.project.activeScenarioId).toBe('default');
@@ -94,12 +94,12 @@ describe('mokkuImport', () => {
       expect(fnMock?.code?.trim().length).toBeGreaterThan(0);
     });
 
-    it('imports Mokku v1 store correctly', () => {
-      const r = importMokku(v1, 'http://localhost:3000', ids(), 1);
+    it('imports v1 mock store correctly', () => {
+      const r = importMockFile(v1, 'http://localhost:3000', ids(), 1);
       expect(r.ok).toBe(true);
       if (!r.ok) return;
 
-      expect(r.result.shape).toBe('mokku-v1');
+      expect(r.result.shape).toBe('store-v1');
       expect(r.result.summary).toEqual({
         mocks: 6,
         mocksSkipped: 1,
@@ -126,12 +126,12 @@ describe('mokkuImport', () => {
       }
     });
 
-    it('imports Mokku mock-file list correctly', () => {
-      const r = importMokku(mockFileList, 'http://localhost:3000', ids(), 1);
+    it('imports mock-file list correctly', () => {
+      const r = importMockFile(mockFileList, 'http://localhost:3000', ids(), 1);
       expect(r.ok).toBe(true);
       if (!r.ok) return;
 
-      expect(r.result.shape).toBe('mokku-mock-file');
+      expect(r.result.shape).toBe('mock-file');
       expect(r.result.summary).toEqual({
         mocks: 6,
         mocksSkipped: 1,
@@ -156,12 +156,12 @@ describe('mokkuImport', () => {
       expect(fnMock?.reply).toBe('code');
     });
 
-    it('imports single Mokku mock-file correctly', () => {
-      const r = importMokku(mockFile, 'http://localhost:3000', ids(), 1);
+    it('imports single mock-file correctly', () => {
+      const r = importMockFile(mockFile, 'http://localhost:3000', ids(), 1);
       expect(r.ok).toBe(true);
       if (!r.ok) return;
 
-      expect(r.result.shape).toBe('mokku-mock-file');
+      expect(r.result.shape).toBe('mock-file');
       expect(r.result.summary).toEqual({
         mocks: 1,
         mocksSkipped: 0,
@@ -174,15 +174,15 @@ describe('mokkuImport', () => {
     });
 
     it('returns error when data is invalid or unrecognized', () => {
-      expect(importMokku({ mocks: 'x' }, 'http://a', ids(), 1).ok).toBe(false);
-      expect(importMokku(null, 'http://a', ids(), 1).ok).toBe(false);
-      expect(importMokku('not an object', 'http://a', ids(), 1).ok).toBe(false);
-      expect(importMokku({ foo: 'bar' }, 'http://a', ids(), 1).ok).toBe(false);
+      expect(importMockFile({ mocks: 'x' }, 'http://a', ids(), 1).ok).toBe(false);
+      expect(importMockFile(null, 'http://a', ids(), 1).ok).toBe(false);
+      expect(importMockFile('not an object', 'http://a', ids(), 1).ok).toBe(false);
+      expect(importMockFile({ foo: 'bar' }, 'http://a', ids(), 1).ok).toBe(false);
     });
   });
 });
 
-describe('importMokku: review cases', () => {
+describe('importMockFile: review cases', () => {
   const base = {
     name: 'Leftover', active: true, dynamic: false, requestType: 'REST', method: 'GET',
     url: '/api/x', status: 200, response: '{}', headers: [], delay: 0,
@@ -191,7 +191,7 @@ describe('importMokku: review cases', () => {
   it('a v2 STATIC mock with leftover function source stays a fixed mock', () => {
     const data = { projects: [{ name: 'P' }], headers: [],
       mocks: [{ ...base, responseType: 'STATIC', function: 'return 1' }] };
-    const r = importMokku(data, 'http://a', ids(), 1);
+    const r = importMockFile(data, 'http://a', ids(), 1);
     if (!r.ok) throw new Error(r.error);
     const m = r.result.project.scenarios[0]!.mocks[0]!;
     expect(m.enabled).toBe(true);
@@ -202,17 +202,17 @@ describe('importMokku: review cases', () => {
   it('a v2 FUNCTION mock with source becomes a code mock with that source (A2)', () => {
     const data = { projects: [{ name: 'P' }], headers: [],
       mocks: [{ ...base, responseType: 'FUNCTION', function: 'return { id: urlParams.id };' }] };
-    const r = importMokku(data, 'http://a', ids(), 1);
+    const r = importMockFile(data, 'http://a', ids(), 1);
     if (!r.ok) throw new Error(r.error);
     const m = r.result.project.scenarios[0]!.mocks[0]!;
     expect(m).toMatchObject({ enabled: true, reply: 'code', code: 'return { id: urlParams.id };' });
     expect(r.result.summary.codeMocks).toBe(1);
   });
 
-  it('a v2 FUNCTION mock with empty source serves its static response, as Mokku does', () => {
+  it('a v2 FUNCTION mock with empty source serves its static response, as the original tool does', () => {
     const data = { projects: [{ name: 'P' }], headers: [],
       mocks: [{ ...base, responseType: 'FUNCTION', function: '  ' }] };
-    const r = importMokku(data, 'http://a', ids(), 1);
+    const r = importMockFile(data, 'http://a', ids(), 1);
     if (!r.ok) throw new Error(r.error);
     expect(r.result.project.scenarios[0]!.mocks[0]!.reply).toBeUndefined();
     expect(r.result.summary.codeMocks).toBe(0);
@@ -221,18 +221,18 @@ describe('importMokku: review cases', () => {
   it('a mock-file function_source becomes a code mock and keeps enabled false', () => {
     const data = { schema_version: 1, name: 'F', type: 'rest', method: 'GET', url_pattern: '/a/:id',
       enabled: false, response: { status: 200, headers: {}, body: null }, function_source: 'return 2;' };
-    const r = importMokku(data, 'http://a', ids(), 1);
+    const r = importMockFile(data, 'http://a', ids(), 1);
     if (!r.ok) throw new Error(r.error);
     const m = r.result.project.scenarios[0]!.mocks[0]!;
     expect(m).toMatchObject({ enabled: false, reply: 'code', code: 'return 2;' });
   });
 
   it('keeps an inactive mock inactive: v2 active false, mock-file enabled false', () => {
-    const v2r = importMokku({ projects: [{ name: 'P' }], headers: [],
+    const v2r = importMockFile({ projects: [{ name: 'P' }], headers: [],
       mocks: [{ ...base, active: false, responseType: 'STATIC' }] }, 'http://a', ids(), 1);
     if (!v2r.ok) throw new Error(v2r.error);
     expect(v2r.result.project.scenarios[0]!.mocks[0]!.enabled).toBe(false);
-    const fileR = importMokku({ schema_version: 1, name: 'F', type: 'rest', method: 'GET',
+    const fileR = importMockFile({ schema_version: 1, name: 'F', type: 'rest', method: 'GET',
       url_pattern: '/api/y', enabled: false, response: { status: 200 } }, 'http://a', ids(), 1);
     if (!fileR.ok) throw new Error(fileR.error);
     expect(fileR.result.project.scenarios[0]!.mocks[0]!.enabled).toBe(false);
@@ -240,7 +240,7 @@ describe('importMokku: review cases', () => {
 
   it('counts a mock with an unusable pattern as skipped', () => {
     const data = { mocks: [{ ...base, url: '/api/:id?' }, base] };
-    const r = importMokku(data, 'http://a', ids(), 1);
+    const r = importMockFile(data, 'http://a', ids(), 1);
     if (!r.ok) throw new Error(r.error);
     expect(r.result.summary.mocks + r.result.summary.mocksSkipped).toBe(2);
   });

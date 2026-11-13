@@ -12,7 +12,7 @@ One page per feature. Start at the top if you are new; jump in anywhere if you a
 | [Request headers](headers.md) | add, change or remove headers on calls that go to the server |
 | [WebSocket and SignalR](sockets.md) | mock sockets and SignalR hubs with no server |
 | [Checking your mocks](checking.md) | see which mock answers before you reload, and after |
-| [Import and export](import-export.md) | start from HAR, OpenAPI or Mokku, and share your mocks |
+| [Import and export](import-export.md) | start from HAR, OpenAPI or a JSON mock file, and share your mocks |
 
 Something missing or wrong? [Open an issue](https://github.com/Ank-KhoaHo/wemock/issues).
 

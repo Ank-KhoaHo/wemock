@@ -9,7 +9,7 @@
 | a wemock file | its scenarios and mocks |
 | a HAR file (DevTools Network tab: "Save all as HAR") | one mock per call |
 | OpenAPI 3 or Swagger 2, JSON or YAML | one mock per operation, from its examples |
-| Mokku's export, or a Mokku mock file | its mocks; Mokku's function mocks become code mocks |
+| a JSON mock file or mock export | its mocks; function mocks become code mocks |
 
 Then choose:
 

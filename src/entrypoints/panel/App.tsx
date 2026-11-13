@@ -3,7 +3,7 @@ import { useIsDark } from '../../ui/useIsDark';
 import { exportProject, exportScenario, parseProjectFile, parseScenarioFile } from '../../core/exportFile';
 import { logToHar } from '../../core/harExport';
 import { detectHar, harSummaryText, importHar } from '../../core/harImport';
-import { importMokku } from '../../core/mokkuImport';
+import { importMockFile } from '../../core/mockFileImport';
 import { detectOpenApi, importOpenApi, openApiSummaryText, parseSpecText } from '../../core/openapiImport';
 import { ensureProject, mockFromLog, scenarioFromLogs } from '../../core/record';
 import { SAMPLE_TIP, sampleProject } from '../../core/sample';
@@ -811,7 +811,7 @@ export default function App() {
         const parsed = parseSpecText(text);
         if (!parsed || typeof parsed !== 'object') {
           setImportError(
-            'Unrecognized file format: expected wemock, HAR, OpenAPI, or Mokku',
+            'Unrecognized file format: expected wemock, HAR, OpenAPI or a JSON mock file',
           );
           setPendingImport(null);
           e.target.value = '';
@@ -854,13 +854,13 @@ export default function App() {
             return;
           }
         } else {
-          const mokkuResult = importMokku(parsed, tabOrigin, newId, Date.now());
-          if (mokkuResult.ok) {
-            importedProject = mokkuResult.result.project;
-            summaryText = formatImportSummary(mokkuResult.result.summary);
+          const fileResult = importMockFile(parsed, tabOrigin, newId, Date.now());
+          if (fileResult.ok) {
+            importedProject = fileResult.result.project;
+            summaryText = formatImportSummary(fileResult.result.summary);
           } else {
             setImportError(
-              'Unrecognized file format: expected wemock, HAR, OpenAPI, or Mokku',
+              'Unrecognized file format: expected wemock, HAR, OpenAPI or a JSON mock file',
             );
             setPendingImport(null);
             e.target.value = '';

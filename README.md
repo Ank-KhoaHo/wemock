@@ -108,7 +108,7 @@ Test bar.
 | You want to | wemock | Guide |
 |---|---|---|
 | Record, then replay | **Mock this** on one call, **Save as scenario** on a list | [First mock](guide/first-mock.md) |
-| Start from a file | Import HAR, OpenAPI 3, Swagger 2 (JSON or YAML) or Mokku's files | [Import and export](guide/import-export.md) |
+| Start from a file | Import HAR, OpenAPI 3, Swagger 2 (JSON or YAML) or JSON mock files | [Import and export](guide/import-export.md) |
 | Switch whole states | Scenarios over a Default, with Undo | [Scenarios](guide/scenarios.md) |
 | Match exactly | `:id`, `*rest`, `{optional}`, a host, a GraphQL operation, conditions on query, headers or body | [Matching](guide/matching.md) |
 | Answer anything | Any status 200-599, headers, delays, text or binary bodies | [Replies](guide/replies.md) |
@@ -136,9 +136,6 @@ It never leaves the page, so the network never sees it. The wemock Log and the C
 **Is code in a code mock safe?**
 It runs in a sandboxed extension page with no access to your page or to wemock, and stops after
 one second. wemock never downloads code.
-
-**Does it replace Mokku?**
-It imports Mokku's files, and adds scenarios, code, sockets and SignalR. Try both.
 
 **Why a mockingbird?**
 It hears a call once and sings it back. That is the whole product.

@@ -3,16 +3,16 @@ import { compilePattern } from './match';
 import { isValidStatus } from './statusText';
 import { type HttpMethod, type Mock, newProject, type Project } from './types';
 
-export type MokkuShape = 'mokku-v2' | 'mokku-v1' | 'mokku-mock-file';
+export type MockFileShape = 'export-v2' | 'store-v1' | 'mock-file';
 
-export interface MokkuImport {
-  shape: MokkuShape;
+export interface MockFileImport {
+  shape: MockFileShape;
   project: Project;
   summary: {
     mocks: number;
     /** Mocks dropped: no URL, a pattern wemock cannot use, or a status outside 200-599. */
     mocksSkipped: number;
-    /** A2: Mokku function mocks, imported as code mocks. */
+    /** Function mocks, imported as code mocks. */
     codeMocks: number;
     headerRulesSkipped: number;
   };
@@ -20,7 +20,7 @@ export interface MokkuImport {
 
 const VALID_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'ANY']);
 
-export function detectMokku(data: unknown): MokkuShape | null {
+export function detectMockFile(data: unknown): MockFileShape | null {
   if (!data || typeof data !== 'object') {
     return null;
   }
@@ -30,7 +30,7 @@ export function detectMokku(data: unknown): MokkuShape | null {
     return null;
   }
 
-  // Mokku mock-file array check
+  // Mock-file array check
   if (Array.isArray(data)) {
     if (data.length === 0) {
       return null;
@@ -44,7 +44,7 @@ export function detectMokku(data: unknown): MokkuShape | null {
         'endpoint' in rec ||
         'response_body_type' in rec
       ) {
-        return 'mokku-mock-file';
+        return 'mock-file';
       }
     }
     return null;
@@ -52,30 +52,30 @@ export function detectMokku(data: unknown): MokkuShape | null {
 
   const obj = data as Record<string, unknown>;
 
-  // Mokku v2: has both projects array and mocks array
+  // Export v2: has both projects array and mocks array
   if ('projects' in obj && Array.isArray(obj.projects) && 'mocks' in obj && Array.isArray(obj.mocks)) {
-    return 'mokku-v2';
+    return 'export-v2';
   }
 
-  // Mokku v1: has mocks array without projects
+  // Store v1: has mocks array without projects
   if ('mocks' in obj && Array.isArray(obj.mocks) && !('projects' in obj)) {
-    return 'mokku-v1';
+    return 'store-v1';
   }
 
-  // Mokku single mock-file: schema_version: 1 or specific mock-file fields
+  // Single mock file: schema_version: 1 or specific mock-file fields
   if (
     ('schema_version' in obj && obj.schema_version === 1) ||
     'response_body_type' in obj ||
     ('url_pattern' in obj && 'response' in obj) ||
     ('endpoint' in obj && 'response' in obj)
   ) {
-    return 'mokku-mock-file';
+    return 'mock-file';
   }
 
   return null;
 }
 
-export function mokkuUrlToPattern(url: string): string {
+export function mockFileUrlToPattern(url: string): string {
   if (typeof url !== 'string') return '';
   let cleaned = url.trim();
   if (!cleaned) return '';
@@ -119,16 +119,16 @@ export function mokkuUrlToPattern(url: string): string {
   return cleaned;
 }
 
-export function importMokku(
+export function importMockFile(
   data: unknown,
   origin: string,
   newId: () => string,
   now: number,
-): { ok: true; result: MokkuImport } | { ok: false; error: string } {
+): { ok: true; result: MockFileImport } | { ok: false; error: string } {
   try {
-    const shape = detectMokku(data);
+    const shape = detectMockFile(data);
     if (!shape) {
-      return { ok: false, error: 'Unrecognized Mokku format' };
+      return { ok: false, error: 'Unrecognized mock file format' };
     }
 
     const project = newProject(newId(), origin);
@@ -140,7 +140,7 @@ export function importMokku(
     let headerRulesSkipped = 0;
     let rawMocks: unknown[] = [];
 
-    if (shape === 'mokku-v2') {
+    if (shape === 'export-v2') {
       const v2 = data as {
         projects?: Array<{ name?: string }>;
         mocks?: unknown[];
@@ -158,13 +158,13 @@ export function importMokku(
       if (Array.isArray(v2.mocks)) {
         rawMocks = v2.mocks;
       }
-    } else if (shape === 'mokku-v1') {
+    } else if (shape === 'store-v1') {
       const v1 = data as { mocks?: unknown[] };
       if (Array.isArray(v1.mocks)) {
         rawMocks = v1.mocks;
       }
     } else {
-      // mokku-mock-file: single object or array
+      // mock-file: single object or array
       rawMocks = Array.isArray(data) ? data : [data];
     }
 
@@ -194,7 +194,7 @@ export function importMokku(
         continue;
       }
 
-      const urlPattern = mokkuUrlToPattern(rawUrl);
+      const urlPattern = mockFileUrlToPattern(rawUrl);
       if (!urlPattern) {
         mocksSkipped++;
         continue;
@@ -235,8 +235,7 @@ export function importMokku(
       const method: HttpMethod = VALID_METHODS.has(rawMethod) ? (rawMethod as HttpMethod) : 'GET';
 
       // Function mock detection
-      // Mokku 2.x says which in responseType; a STATIC mock may keep old function source.
-      // Mokku runs the function only when its source is not empty; otherwise it serves the
+      // The function runs only when its source is not empty; otherwise it serves the
       // static response. 2.x also says which in responseType, and a STATIC mock may keep old source.
       const source =
         typeof m.function === 'string' && m.function.trim().length > 0
@@ -263,7 +262,7 @@ export function importMokku(
       // Headers mapping: array of { name, value } or object of { key: value }
       const headers: Record<string, string> = {};
       const rawHeaders =
-        shape === 'mokku-mock-file' && resObj?.headers !== undefined ? resObj.headers : m.headers;
+        shape === 'mock-file' && resObj?.headers !== undefined ? resObj.headers : m.headers;
 
       if (Array.isArray(rawHeaders)) {
         for (const h of rawHeaders) {

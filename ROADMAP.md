@@ -12,7 +12,7 @@ The repository, the MIT licence, the build, and CI.
 ## M1 — First usable version (done in source, 1.0.0)
 
 Record calls in a DevTools panel, replay them as mocks, group mocks into scenarios, edit them,
-and import or export projects, including Mokku's files.
+and import or export projects, including JSON mock files.
 
 ## M1.1 — Code replies, Test bar, Console line (done in source, 1.1.0)
 
