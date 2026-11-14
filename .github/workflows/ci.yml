@@ -15,85 +15,59 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  guard:
-    name: docs guard
+  gate:
+    name: local gate
     runs-on: ubuntu-latest
     steps:
+      # PINNED BY COMMIT HASH, NOT BY TAG. A tag can be moved to other code after it was
+      # reviewed; a commit hash cannot. The comment beside each hash is the version it was
+      # read from. .github/dependabot.yml proposes newer ones, and updates both together.
+      # tests/test_workflows.py fails on an action pinned any other way.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
 
+      # Whatever the gate's steps need goes here, before the gate runs.
       - name: Install
         run: python -m pip install --upgrade pip pytest
 
-      # The skip check is the point of this step, not decoration. A test that
+      # A browser extension is built and tested with Node. `npm ci` installs exactly what
+      # package-lock.json names, and the browser tests need one browser.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install the extension's tools
+        run: npm ci
+
+      - name: Install the browser the tests drive
+        run: npx playwright install --with-deps chromium
+
+      # ONE SCRIPT, RUN HERE AND ON A CONTRIBUTOR'S OWN MACHINE. scripts/check.py
+      # is the local gate: every check this repo has, in order. CI runs it rather
+      # than listing checks of its own, so "passes locally" and "passes in CI"
+      # can never come to mean different steps -- which is how a check ends up
+      # in one place and not the other. tests/test_local_gate.py fails if this
+      # file starts running a check itself.
+      #
+      # The gate fails on a SKIPPED test, not only on a failed one. A test that
       # skips reports success having asserted nothing, which is the exact
       # silent-success shape tests/test_docs_integrity.py exists to catch.
-      # Nothing in the guard has a legitimate reason to skip, so any skip is
-      # a failure.
       #
       # This runs in CI MODE: the maintainer's working half is gitignored, so
       # the runner cannot see docs/, CLAUDE.md or BACKLOG.html. The guard knows,
       # and inverts -- instead of checking the page's contents it checks the
       # page is absent and that git confirms that is deliberate. Do not "fix" a
       # [CI] line in the output; it is the guard reporting which half it saw.
-      - name: Docs guard
-        shell: bash
-        run: |
-          # Both, explicitly. GitHub runs `shell: bash` steps with -eo pipefail
-          # already, and this script RELIES on the -e: a genuine test failure
-          # must abort at the pipe. Without it the `if` below evaluates false
-          # and the step exits 0, masking the failure. Stated here so copying
-          # this step somewhere with a different shell cannot resurrect that.
-          #
-          # Every Python test in tests/: the docs guard and the tests of the
-          # gate's own scripts. None of them needs Node or the extension's
-          # dependencies; the extension's suites run in the job below.
-          set -eo pipefail
-          pytest -v -rs tests/ | tee pytest.out
-          if grep -qE '[0-9]+ skipped' pytest.out; then
-            echo "::error::Tests were skipped — the suite may be vacuous."
-            exit 1
-          fi
+      - name: Local gate
+        run: python scripts/check.py
 
-  extension:
-    name: extension (typecheck, unit, build, end to end)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: "24"
-          cache: npm
-
-      - name: Install
-        run: npm ci
-
-      - name: Install Chromium for Playwright
-        run: npx playwright install --with-deps chromium
-
-      # The test steps run through scripts/extension_step.py, as the local gate does: a
-      # time limit on each, a skipped test fails it, and what it started is stopped by ID.
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
-        with:
-          python-version: "3.12"
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      # Build before unit tests: src/manifest.test.ts reads the built manifest.
-      - name: Build
-        run: npm run build
-
-      # Reads what the build wrote: sites asked for at install, the version in package.json,
-      # VERSION and the built manifest, and the bundler's sources archive switched off.
-      - name: Extension checks
-        run: python scripts/extension_step.py checks
-
-      # Same skip rule as the docs guard: a skip is an assertion that did not run.
-      - name: Unit tests
-        run: python scripts/extension_step.py unit
-
-      - name: End-to-end tests
-        run: python scripts/extension_step.py browser
+  # ---------------------------------------------------------------------
+  # YOUR PROJECT'S CHECKS DO NOT GO IN THIS FILE. They go in scripts/check.py,
+  # as steps after the first one, and this job then runs them unchanged.
+  # What does go here is whatever those steps need installed: add it to the
+  # "Install" step above.
+  # ---------------------------------------------------------------------

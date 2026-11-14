@@ -8,17 +8,17 @@ just the mechanics of building and testing it.
 
 ## Building and testing
 
-You need Node 22 or newer.
+You need Node 22 or newer, and Python 3.12 with pytest.
 
 ```
 npm ci
 npx playwright install chromium
-bash scripts/check.sh
+python scripts/check.py
 ```
 
-`scripts/check.sh` runs the typecheck, the build, the unit tests (Vitest), the browser tests
-(Playwright, real Chromium with the unpacked build) and the docs guard. It fails on any
-skipped test. CI runs the same steps.
+`scripts/check.py` runs the Python tests, the typecheck, the build, the extension checks, the
+unit tests (Vitest) and the browser tests (Playwright, real Chromium with the unpacked build).
+Every step has a time limit, and a skipped test fails it. CI runs this same script.
 
 One rule above all: **the page patch must never break the page.** Code that runs inside a
 web page (`src/patch/`) catches every error and falls back to the browser's own `fetch` or
