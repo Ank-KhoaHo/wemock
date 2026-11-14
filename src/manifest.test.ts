@@ -1,4 +1,4 @@
-// Reads the BUILT manifest, so run `npm run build` first. scripts/check.sh does.
+// Reads the BUILT manifest, so run `npm run build` first. scripts/check.py does.
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 

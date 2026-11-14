@@ -19,6 +19,8 @@ python scripts/check.py
 `scripts/check.py` runs the Python tests, the typecheck, the build, the extension checks, the
 unit tests (Vitest) and the browser tests (Playwright, real Chromium with the unpacked build).
 Every step has a time limit, and a skipped test fails it. CI runs this same script.
+Passing it here is still not passing in CI: CI runs on another operating system, where a path
+separator, a line ending or the case of a file name can differ.
 
 One rule above all: **the page patch must never break the page.** Code that runs inside a
 web page (`src/patch/`) catches every error and falls back to the browser's own `fetch` or
@@ -39,6 +41,9 @@ git pull --rebase origin main
 
 Explain **why** a change was made, not just what changed — the diff already says what. Never
 add a `Co-Authored-By` trailer.
+
+**A commit message may name a ticket; code may not.** A ticket number in a comment or a test
+name points at notes a reader cannot open. Say in the comment what the code does and why.
 
 **Never summarise what a change hid.** If a commit touches anything this repository keeps
 private — see [PUBLIC.md](PUBLIC.md) — its message describes the change, not the material. A
