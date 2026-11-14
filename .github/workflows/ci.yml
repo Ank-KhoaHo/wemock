@@ -48,15 +48,11 @@ jobs:
           # and the step exits 0, masking the failure. Stated here so copying
           # this step somewhere with a different shell cannot resurrect that.
           #
-          # The path is explicit, not bare `pytest`: this job guards the docs
-          # and must not collect the project's own tests. Once a project adds
-          # tests/test_*.py, a bare `pytest -v -rs` here would run them too --
-          # without the project's dependencies installed, and failing this job
-          # on any legitimate project-test skip while blaming the docs guard
-          # for it. The project's suite gets its own job below, with its own
-          # dependencies.
+          # Every Python test in tests/: the docs guard and the tests of the
+          # gate's own scripts. None of them needs Node or the extension's
+          # dependencies; the extension's suites run in the job below.
           set -eo pipefail
-          pytest -v -rs tests/test_docs_integrity.py | tee pytest.out
+          pytest -v -rs tests/ | tee pytest.out
           if grep -qE '[0-9]+ skipped' pytest.out; then
             echo "::error::Tests were skipped — the suite may be vacuous."
             exit 1
@@ -79,6 +75,12 @@ jobs:
       - name: Install Chromium for Playwright
         run: npx playwright install --with-deps chromium
 
+      # The test steps run through scripts/extension_step.py, as the local gate does: a
+      # time limit on each, a skipped test fails it, and what it started is stopped by ID.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Typecheck
         run: npm run typecheck
 
@@ -88,21 +90,7 @@ jobs:
 
       # Same skip rule as the docs guard: a skip is an assertion that did not run.
       - name: Unit tests
-        shell: bash
-        run: |
-          set -eo pipefail
-          npx vitest run | tee vitest.out
-          if grep -qiE '[0-9]+ (skipped|todo)' vitest.out; then
-            echo "::error::Unit tests were skipped."
-            exit 1
-          fi
+        run: python scripts/extension_step.py unit
 
       - name: End-to-end tests
-        shell: bash
-        run: |
-          set -eo pipefail
-          npx playwright test | tee e2e.out
-          if grep -qiE '[0-9]+ skipped' e2e.out; then
-            echo "::error::End-to-end tests were skipped."
-            exit 1
-          fi
+        run: python scripts/extension_step.py browser
