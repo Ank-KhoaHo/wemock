@@ -1,0 +1,45 @@
+name: codeql
+
+# Code scanning. Free on a public repository; it reads the code for known shapes of
+# vulnerability and reports them under Security > Code scanning, not as a failed check.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly as well: a new query finds an old problem in code nobody has touched.
+    - cron: "23 4 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write    # to upload what it finds; nothing else is granted
+    strategy:
+      fail-fast: false
+      matrix:
+        # `actions` scans these workflow files themselves. `python` scans scripts/ and tests/.
+        # `javascript-typescript` scans the extension in src/; it needs no build step.
+        language: [actions, python, javascript-typescript]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+
+      - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          category: "/language:${{ matrix.language }}"

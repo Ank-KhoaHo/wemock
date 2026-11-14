@@ -1,0 +1,25 @@
+# Dependabot opens a pull request when something this repository depends on has a newer version.
+# Each one arrives with a CI run, so an update is judged by evidence, not by its version number.
+version: 2
+updates:
+  # The actions the workflows use. They are pinned by commit hash; Dependabot moves the hash
+  # and the version comment beside it together.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      # One pull request a week for all of them, not one each.
+      actions:
+        patterns: ["*"]
+
+  # The extension's own dependencies, from package.json and package-lock.json.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      # Patch and minor updates together, one pull request a week. A major update comes on its
+      # own: it may change how the extension builds or behaves.
+      npm-minor:
+        update-types: ["minor", "patch"]
