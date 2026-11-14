@@ -1,0 +1,84 @@
+name: release
+
+# A VERSION TAG IS THE RELEASE. Push `v1.2.3` and this checks the tag against VERSION and
+# the changelog, runs every check, builds from the tag, records where the files were built,
+# and attaches them to a release.
+#
+# IT STOPS AT A DRAFT. A release is public the moment it is published and cannot be taken
+# back, so publishing stays a person's decision: open the draft, read it, press Publish.
+# tests/test_workflows.py fails if this file ever publishes by itself.
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: draft a release
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # ONLY WHAT THIS JOB NEEDS, and only here. The top of the file grants read access, so a
+    # job added later starts with nothing more.
+    permissions:
+      contents: write       # create the draft and attach the files
+      id-token: write       # sign the statement of where the files were built
+      attestations: write   # store that statement
+    steps:
+      # Pinned by commit hash, like every action in this repository: ci.yml says why.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      # The same steps as in ci.yml: whatever the gate's steps need installed. The extension
+      # is built and tested with Node; `npm ci` installs exactly what package-lock.json names,
+      # and the browser tests need one browser.
+      - name: Install
+        run: python -m pip install --upgrade pip pytest
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install the extension's tools
+        run: npm ci
+
+      - name: Install the browser the tests drive
+        run: npx playwright install --with-deps chromium
+
+      # THE TAG'S NAME COMES FROM THE ENVIRONMENT, NEVER FROM AN EXPRESSION INSIDE A COMMAND.
+      # A tag is text that whoever pushes it chooses. Pasted into a command line by the
+      # workflow, it would be run as part of the command. Every command is one line, so that
+      # tests/test_workflows.py can read each of them.
+      #
+      # The notes are written outside the checkout: a file left inside it would be one more
+      # file for the docs guard to walk.
+      - name: The tag, VERSION and the changelog agree
+        run: python scripts/release_notes.py "$GITHUB_REF_NAME" --out "$RUNNER_TEMP/release-notes.md"
+
+      - name: Every check passes
+        run: python scripts/check.py
+
+      - name: Build from the tag
+        run: python scripts/build_release.py "$GITHUB_REF_NAME"
+
+      # A signed statement that these exact files were built by this workflow, from this
+      # commit. Anyone can check a download against it: `gh attestation verify <file>`.
+      - name: Record where the files were built
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/*
+
+      # The files attached are the files the statement above names: both read dist/.
+      - name: Draft the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --draft --verify-tag --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/release-notes.md"

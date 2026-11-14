@@ -17,6 +17,9 @@ python scripts/extension_step.py typecheck
 step "build"
 python scripts/extension_step.py build > .check/build.out
 
+step "extension checks (site access, version, sources archive)"
+python scripts/extension_step.py checks
+
 step "unit (vitest)"
 python scripts/extension_step.py unit 2>&1 | tee .check/vitest.out
 

@@ -291,7 +291,7 @@ def test_each_step_gives_up_before_the_gate_does():
         # a step the shell gate starts directly, outside this script and its limit.
         text = shell_gate.read_text(encoding="utf-8")
         called = set(re.findall(r"scripts/extension_step\.py (\w+)", text))
-        assert {"typecheck", "build", "unit", "browser"} <= called, called
+        assert {"typecheck", "build", "checks", "unit", "browser"} <= called, called
         for direct in ("npx vitest", "npx playwright", "npm run"):
             assert direct not in text, f"the shell gate starts {direct!r} itself, outside the step's time limit"
         return

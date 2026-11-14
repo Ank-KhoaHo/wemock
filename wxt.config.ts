@@ -6,6 +6,9 @@ import { defineConfig } from 'wxt';
 export default defineConfig({
   srcDir: 'src',
   modules: ['@wxt-dev/module-react'],
+  // The bundler's own sources archive packs the whole folder, gitignored notes included.
+  // The release's source archive comes from what git tracks instead (scripts/build_release.py).
+  zip: { zipSources: false },
   manifest: {
     name: 'wemock',
     description:

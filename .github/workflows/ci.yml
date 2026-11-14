@@ -86,6 +86,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Reads what the build wrote: sites asked for at install, the version in package.json,
+      # VERSION and the built manifest, and the bundler's sources archive switched off.
+      - name: Extension checks
+        run: python scripts/extension_step.py checks
+
       # Same skip rule as the docs guard: a skip is an assertion that did not run.
       - name: Unit tests
         run: python scripts/extension_step.py unit
