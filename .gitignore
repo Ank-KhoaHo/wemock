@@ -45,7 +45,11 @@ Thumbs.db
 /DEVELOPMENT-CHECKLIST.md
 /BACKLOG.html
 /AGENTS.md
+/QUESTIONS.md
 .check/
+
+# Read by scripts/check_leaks.py. Local to each maintainer, like the rules above.
+/.leak-patterns.local
 
 # A27: .NET build output of the real-hub check, if it is ever built outside its container.
 scripts/real-hub/hub/bin/
