@@ -35,10 +35,12 @@ through, and why the LOCAL link floor is set high enough that a hatch this
 wide has somewhere to be caught.
 """
 
+import functools
 import posixpath
 import re
 import subprocess
 import sys
+import warnings
 from pathlib import Path
 
 import pytest
@@ -92,36 +94,66 @@ def _read(rel: str) -> str:
 
 
 _LINK_RE = re.compile(r"\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
-_FENCE_RE = re.compile(r"^\s*(?:```|~~~)")
+_FENCE_START_RE = re.compile(r"^\s*(```+|~~~+)(.*)$")
+_FENCE_END_RE = re.compile(r"^\s*(```+|~~~+)\s*$")
 
 
 def _iter_markdown_links(text: str):
-    """Yield (line_number, target) for every link OUTSIDE a fenced code block.
+    """Yield (line_number, target) for markdown links in text.
 
-    Fences are skipped deliberately: a design document that illustrates a
-    file's shape with a fenced example routinely links to something that does
-    not exist yet, and such a link is an illustration, not a claim -- it is not
-    clickable anywhere.
+    Links outside fences, inside untagged fences, and inside fences tagged `md`
+    or `markdown` (case-insensitive) are yielded. Fences tagged with any other
+    word (e.g. `python`, `bash`, `text`) are considered code and are not scanned.
 
-    THE HOLE THIS LEAVES, named rather than discovered later: a genuinely stale
-    link inside a fence goes unchecked. The regex is also blind to
-    reference-style links `[text][ref]`, angle-bracket targets, single-quoted
-    titles, and untitled targets containing a space; those produce zero matches
-    rather than a false pass, so they undercount rather than lie. Ticket D2
-    carries the decision about whether any of this matters here.
+    If the line directly above the opening fence is `<!-- illustrative -->`,
+    that fence is skipped: a design document that shows a file's shape in a
+    fenced example routinely links to something that does not exist yet, and
+    such a link is an illustration, not a claim. A blank line between the
+    marker and the fence means the marker does not apply. Fences opened with
+    `~~~` follow the same rules as ```. Line numbers match those of the file.
+
+    STILL BLIND, named rather than discovered later: reference-style links
+    `[text][ref]`, angle-bracket targets, single-quoted titles, and untitled
+    targets containing a space. Those produce zero matches rather than a false
+    pass, so they undercount rather than lie.
     """
     in_fence = False
+    fence_char = ""
+    fence_len = 0
+    scan_fence = False
+    prev_line = None
+
     for lineno, line in enumerate(text.split("\n"), 1):
-        if _FENCE_RE.match(line):
-            # Assumes fence markers are balanced; an unbalanced count silently
-            # stops scanning the rest of the file without raising (guarded
-            # only by the MIN_LINKS floor).
-            in_fence = not in_fence
-            continue
-        if in_fence:
-            continue
-        for target in _LINK_RE.findall(line):
-            yield lineno, target
+        if not in_fence:
+            m = _FENCE_START_RE.match(line)
+            if m:
+                in_fence = True
+                fence_delim = m.group(1)
+                fence_char = fence_delim[0]
+                fence_len = len(fence_delim)
+                info = m.group(2).strip()
+                tag = info.split()[0].lower() if info else ""
+                marker_above = (prev_line is not None and prev_line.strip() == "<!-- illustrative -->")
+                if marker_above:
+                    scan_fence = False
+                else:
+                    scan_fence = (tag == "" or tag in ("md", "markdown"))
+                prev_line = line
+                continue
+            for target in _LINK_RE.findall(line):
+                yield lineno, target
+        else:
+            m_end = _FENCE_END_RE.match(line)
+            if m_end and m_end.group(1)[0] == fence_char and len(m_end.group(1)) >= fence_len:
+                in_fence = False
+                scan_fence = False
+                prev_line = line
+                continue
+            if scan_fence:
+                for target in _LINK_RE.findall(line):
+                    yield lineno, target
+
+        prev_line = line
 
 
 _ROW_RE = re.compile(r'<tr data-id="([^"]+)"><td class="id"><a href="([^"]+)"')
@@ -143,7 +175,11 @@ def _local_mode() -> bool:
     return (_repo_root() / SPECS_DIR).is_dir()
 
 
+@functools.lru_cache(maxsize=None)
 def _check_ignore(path: str) -> bool:
+    # Cached for the life of one run: the answer depends only on the ignore rules,
+    # which no test changes, and the floors helper asks about every link in the repo.
+    # Uncached, that is two git processes per link and over a second per walk.
     r = subprocess.run(["git", "check-ignore", "-q", "--no-index", path],
                        cwd=_repo_root(), capture_output=True, text=True,
                        encoding="utf-8", errors="replace")
@@ -183,11 +219,33 @@ def _deliberately_unpublished(rel: str) -> bool:
     return False
 
 
-MIN_MD_FILES = 5
-MIN_LINKS_LOCAL = 12
-MIN_LINKS_CI = 6
-MIN_ROWS = 8
+# Floors, not targets: each is three quarters of the real count on the day it was
+# set. Run `python scripts/set_floors.py` after a large addition. Two of the four
+# can be measured only with the working half on disk; in a tree without it (any
+# clone) the helper sets MIN_MD_FILES and MIN_LINKS_CI and leaves the other two.
+# A DROP below these means the walk broke, not that the repo shrank.
+MIN_MD_FILES = 12
+MIN_LINKS_LOCAL = 51
+MIN_LINKS_CI = 51
+MIN_ROWS = 46
 PUBLIC_MD_MAX_LINES = 35
+
+
+# "docs/" and ".superpowers/", trailing slash and all: they name directories,
+# and _deliberately_unpublished() needs that spelled out on a CI checkout,
+# where neither exists on disk to tell it that itself.
+#
+# .superpowers/ is listed alongside the four rules under the public/private
+# banner in .gitignore even though its own rule sits above that banner: it is
+# the same class of leak (real working material -- this very branch's ledgers
+# and review diffs), and a hardcoded list that covers only the four banner
+# rules would stay green while a maintainer removed .superpowers/'s rule and
+# committed the directory. Neither this assertion nor check_leaks.py catches
+# that by any OTHER means -- check_leaks.py's patterns are shaped to match
+# credential and inventory PROSE, not "a previously-ignored path is now
+# tracked", so this hardcoded list is the only place that check lives.
+WORKING_MATERIAL = ("docs/", "CLAUDE.md", "AGENTS.md", "QUESTIONS.md", "DEVELOPMENT-CHECKLIST.md",
+                    "BACKLOG.html", ".superpowers/")
 
 
 def test_the_working_material_is_never_tracked():
@@ -210,8 +268,7 @@ def test_the_working_material_is_never_tracked():
     them into two functions would not change what either one verifies.
     """
     out = subprocess.run(
-        ["git", "ls-files", "--", "docs/", "CLAUDE.md",
-         "DEVELOPMENT-CHECKLIST.md", "BACKLOG.html", ".superpowers/"],
+        ["git", "ls-files", "--", *WORKING_MATERIAL],
         cwd=_repo_root(), capture_output=True, check=True, text=True,
         encoding="utf-8", errors="replace",
     ).stdout or ""
@@ -219,20 +276,7 @@ def test_the_working_material_is_never_tracked():
     assert tracked == [], (
         "working material is TRACKED and publishes on the next push: " + ", ".join(tracked)
     )
-    # "docs/" and ".superpowers/", trailing slash and all: they name directories,
-    # and _deliberately_unpublished() needs that spelled out on a CI checkout,
-    # where neither exists on disk to tell it that itself.
-    #
-    # .superpowers/ is listed alongside the four rules under the public/private
-    # banner in .gitignore even though its own rule sits above that banner: it is
-    # the same class of leak (real working material -- this very branch's ledgers
-    # and review diffs), and a hardcoded list that covers only the four banner
-    # rules would stay green while a maintainer removed .superpowers/'s rule and
-    # committed the directory. Neither this assertion nor check_leaks.py catches
-    # that by any OTHER means -- check_leaks.py's patterns are shaped to match
-    # credential and inventory PROSE, not "a previously-ignored path is now
-    # tracked", so this hardcoded list is the only place that check lives.
-    for p in ("docs/", "CLAUDE.md", "DEVELOPMENT-CHECKLIST.md", "BACKLOG.html", ".superpowers/"):
+    for p in WORKING_MATERIAL:
         assert _deliberately_unpublished(p), f"{p} is no longer covered by .gitignore"
 
     # F2: PUBLIC.md is the highest-risk file in this repo -- the one whose whole
@@ -248,20 +292,23 @@ def test_the_working_material_is_never_tracked():
     )
 
 
-def test_every_markdown_link_resolves():
-    """Resolution, from each file's own directory -- and in CI, an honest count
-    of what could not be resolved because its target is unpublished.
+def _count_markdown_files() -> int:
+    return len(_scannable("*.md"))
 
-    The escape hatch is the dangerous part. Skipping every link whose target is
-    ignored would make this vacuous in BOTH modes at once while reporting
-    success, because in this repo most such targets ARE ignored. So the skipped
-    ones are COUNTED and asserted on, not waved through.
+
+def _walk_markdown_links(count_for_a_clone: bool = False) -> tuple[list[str], int, int, int | None]:
+    """Resolve every relative markdown link. One walk, shared with scripts/set_floors.py.
+
+    Returns (broken, checked, unpublished, clone_checked).
+
+    `clone_checked` is how many of the checked links a CLONE could resolve: every
+    checked link except those whose target exists here but is one git ignores.
+    It is computed only on request. It asks git about every link, which takes
+    over a second, and the link test never needs it. The floors helper does: on
+    the maintainer's disk it has to set the CI floor without being in CI.
     """
-    files = _scannable("*.md")
-    assert len(files) >= MIN_MD_FILES, f"only {len(files)} markdown files — the walk is broken"
-
-    broken, checked, unpublished = [], 0, 0
-    for rel in files:
+    broken, checked, unpublished, clone_checked = [], 0, 0, 0
+    for rel in _scannable("*.md"):
         if rel.startswith(SEED_PREFIX):
             # template/seed/ is scaffolding payload, installed by init_project.py to a
             # path two directories shallower than where it currently sits tracked (e.g.
@@ -296,7 +343,31 @@ def test_every_markdown_link_resolves():
                     unpublished += 1
                     continue
                 broken.append(f"{rel}:{lineno} -> {target}")
+                clone_checked += 1      # a broken link is counted as checked in a clone too
+            elif count_for_a_clone and not _deliberately_unpublished(resolved):
+                clone_checked += 1
             checked += 1
+    return broken, checked, unpublished, (clone_checked if count_for_a_clone else None)
+
+
+def _backlog_rows() -> list[tuple[str, str]]:
+    """(ticket id, href) for every row of the page. Only callable with the working half on disk."""
+    return _ROW_RE.findall(_read("BACKLOG.html"))
+
+
+def test_every_markdown_link_resolves():
+    """Resolution, from each file's own directory -- and in CI, an honest count
+    of what could not be resolved because its target is unpublished.
+
+    The escape hatch is the dangerous part. Skipping every link whose target is
+    ignored would make this vacuous in BOTH modes at once while reporting
+    success, because in this repo most such targets ARE ignored. So the skipped
+    ones are COUNTED and asserted on, not waved through.
+    """
+    num_files = _count_markdown_files()
+    assert num_files >= MIN_MD_FILES, f"only {num_files} markdown files — the walk is broken"
+
+    broken, checked, unpublished, _ = _walk_markdown_links()
 
     floor = MIN_LINKS_LOCAL if _local_mode() else MIN_LINKS_CI
     mode = "LOCAL" if _local_mode() else "CI"
@@ -323,8 +394,7 @@ def test_every_backlog_row_links_to_a_spec_that_exists():
         print("[CI] no page to parse rows from — visibility rule checked instead")
         return
 
-    page = _read("BACKLOG.html")
-    rows = _ROW_RE.findall(page)
+    rows = _backlog_rows()
     assert len(rows) >= MIN_ROWS, (
         f"only {len(rows)} backlog rows parsed — the page may have lost rows "
         f"or changed shape"
@@ -434,8 +504,13 @@ def test_the_index_still_agrees_with_its_source():
     )
 
 
-PLACEHOLDERS = ("<PROJECT_NAME>", "<PROJECT_ONE_LINE>", "<GITHUB_OWNER>",
-                "<CONTACT_EMAIL>", "<YYYY-MM-DD>")
+PLACEHOLDERS = ("<PRODUCT_NAME>", "<PROJECT_NAME>", "<PROJECT_ONE_LINE>", "<PROJECT_AUDIENCE>",
+                "<PROJECT_PRICE>", "<GITHUB_OWNER>", "<CONTACT_EMAIL>", "<YYYY-MM-DD>",
+                # The same two answers, written so that they are safe inside an HTML
+                # attribute and inside a JSON string. A quote typed in an answer would
+                # otherwise end the attribute, or make the JSON unreadable.
+                "<PRODUCT_NAME_HTML>", "<PRODUCT_NAME_JSON>",
+                "<PROJECT_ONE_LINE_HTML>", "<PROJECT_ONE_LINE_JSON>")
 LICENCE_TOKEN = "<LICENCE_NOT_CHOSEN>"
 
 PLACEHOLDER_EXEMPT = frozenset({
@@ -474,5 +549,8 @@ def test_a_licence_has_been_chosen():
     """
     assert LICENCE_TOKEN not in _read("LICENSE"), (
         "LICENSE still holds " + LICENCE_TOKEN + " — choose one and replace the whole file. "
-        "See ticket D5. An unlicensed public repo grants no rights at all."
+        "An unlicensed public repo grants no rights at all."
     )
+
+
+# ---------------------------------------------------------------- open questions
