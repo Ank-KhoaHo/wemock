@@ -186,6 +186,35 @@ test('store images', async () => {
       </div>`));
     await art.screenshot({ path: path.join(OUT, 'promo-small-440x280.png') });
 
+    // The cover: the picture the store page and a shared link show, at the store's small tile
+    // size. Three looks are drawn so one can be chosen; COVER names the one committed as
+    // art/cover.png. a: the mark and two lines. b: the mark over the real Log. c: the real Log,
+    // with the mark as a badge.
+    const COVER = 'a';
+    const covers: Record<string, string> = {
+      a: `<div style="padding:34px 32px;display:flex;flex-direction:column;gap:18px;height:100%">
+        <div class="brand"><img src="data:image/svg+xml;base64,${iconSvg}" width="64" height="64"><span class="name" style="font-size:44px">wemock</span></div>
+        <div class="tag" style="font-size:22px;line-height:1.25">Record real API calls.<br>Replay them as mocks.</div>
+        <div class="chips" style="margin-top:auto"><span class="chip">Scenarios</span><span class="chip">Code replies</span><span class="chip">SignalR</span></div>
+      </div>`,
+      b: `<div style="position:relative;height:100%;padding:26px 28px">
+        <div class="brand"><img src="data:image/svg+xml;base64,${iconSvg}" width="54" height="54"><span class="name" style="font-size:38px">wemock</span></div>
+        <div class="tag" style="font-size:17px;margin-top:10px">Record real API calls. Replay them as mocks.</div>
+        <img class="shot" src="data:image/png;base64,${log}" style="position:absolute;width:520px;left:28px;top:150px">
+      </div>`,
+      c: `<div style="position:relative;height:100%">
+        <img src="data:image/png;base64,${log}" style="position:absolute;width:640px;left:-8px;top:-6px">
+        <div style="position:absolute;inset:auto 0 0 0;height:118px;background:linear-gradient(180deg,rgba(11,87,208,0) 0%,rgba(11,87,208,.96) 42%)"></div>
+        <div class="brand" style="position:absolute;left:24px;bottom:22px"><img src="data:image/svg+xml;base64,${iconSvg}" width="52" height="52"><span class="name" style="font-size:36px">wemock</span></div>
+      </div>`,
+    };
+    for (const [key, body] of Object.entries(covers)) {
+      await art.setContent(promo(440, 280, body));
+      await art.screenshot({ path: path.join(OUT, `cover-${key}-440x280.png`) });
+    }
+    fs.mkdirSync(path.resolve('art'), { recursive: true });
+    fs.copyFileSync(path.join(OUT, `cover-${COVER}-440x280.png`), path.resolve('art/cover.png'));
+
     await art.setViewportSize({ width: 1400, height: 560 });
     await art.setContent(promo(1400, 560, `
       <div style="display:flex;height:100%;align-items:center;padding:0 0 0 72px;gap:56px">
