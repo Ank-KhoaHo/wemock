@@ -554,3 +554,312 @@ def test_a_licence_has_been_chosen():
 
 
 # ---------------------------------------------------------------- open questions
+
+
+def _outside_fences(text: str):
+    """Yield (line_number, line) for every line that is not inside a fenced block.
+
+    QUESTIONS.md and CHANGELOG.md both show their own shape in a fenced example. A heading
+    inside that example is an illustration, not a question or a release.
+    """
+    in_fence = False
+    fence_char = ""
+    fence_len = 0
+    for lineno, line in enumerate(text.split("\n"), 1):
+        opening = _FENCE_START_RE.match(line)
+        if not in_fence:
+            if opening:
+                in_fence = True
+                fence_char = opening.group(1)[0]
+                fence_len = len(opening.group(1))
+                continue
+            yield lineno, line
+        elif (opening and opening.group(1)[0] == fence_char
+              and len(opening.group(1)) >= fence_len and not opening.group(2).strip()):
+            in_fence = False
+
+
+_QUESTION_RE = re.compile(r"^##\s+Q(\d+)\b")
+_DEFAULT_LINE = "**Default taken:**"
+
+
+def _question_problems(text: str) -> list[str]:
+    """What is wrong with the questions in a QUESTIONS.md, as sentences. Empty when sound.
+
+    A question that names no default stops the work until someone answers, which is the one
+    thing the file exists to prevent. A number used twice makes `Q7` in an old ticket point at
+    two things.
+    """
+    problems: list[str] = []
+    seen: dict[str, int] = {}
+    current: str | None = None
+    has_default = False
+
+    def close() -> None:
+        if current is not None and not has_default:
+            problems.append(f"Q{current} names no default: add a `{_DEFAULT_LINE}` line")
+
+    for lineno, line in _outside_fences(text):
+        heading = _QUESTION_RE.match(line)
+        if heading:
+            close()
+            current, has_default = heading.group(1), False
+            if current in seen:
+                problems.append(f"Q{current} is used twice (lines {seen[current]} and {lineno})")
+            seen[current] = lineno
+        elif line.startswith("## ") or line.startswith("# "):
+            close()
+            current = None
+        elif current is not None and line.strip().startswith(_DEFAULT_LINE):
+            # The line must say something after the label; a bare label is not a default.
+            has_default = bool(line.strip()[len(_DEFAULT_LINE):].strip())
+    close()
+    return problems
+
+
+def test_every_open_question_names_its_default():
+    """QUESTIONS.md, if the project keeps one. A project may delete it."""
+    if not (_repo_root() / "QUESTIONS.md").exists():
+        return
+    problems = _question_problems(_read("QUESTIONS.md"))
+    assert problems == [], "QUESTIONS.md: " + "; ".join(problems)
+
+
+# ---------------------------------------------------------------- the changelog and the version
+
+_RELEASE_RE = re.compile(r"^##\s+(\d+\.\d+\.\d+)\b")
+_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
+
+
+def _released_versions(changelog: str) -> list[str]:
+    """The versions of the released blocks of a changelog, in the order they appear."""
+    return [m.group(1) for _, line in _outside_fences(changelog)
+            if (m := _RELEASE_RE.match(line))]
+
+
+def _version_problems(changelog: str, version_file: str) -> list[str]:
+    """What is wrong between a changelog and a VERSION file, as sentences. Empty when sound.
+
+    A build that left this machine has a number. If the changelog's newest block and the
+    VERSION file disagree, one of them describes a build that does not exist.
+    """
+    problems: list[str] = []
+    version = version_file.strip()
+    if not _VERSION_RE.match(version):
+        problems.append(f"VERSION holds {version!r}, not a version like 0.1.0")
+    released = _released_versions(changelog)
+    keys = [tuple(int(part) for part in v.split(".")) for v in released]
+    if len(set(released)) != len(released):
+        problems.append("CHANGELOG.md has two blocks for one version")
+    elif keys != sorted(keys, reverse=True):
+        problems.append("CHANGELOG.md is not newest first")
+    if released and _VERSION_RE.match(version) and released[0] != version:
+        problems.append(
+            f"CHANGELOG.md's newest released block is {released[0]} and VERSION says {version}"
+        )
+    return problems
+
+
+def test_the_changelog_and_the_version_file_agree():
+    """Only when the project keeps both files. One whose stack holds the version elsewhere
+    (a manifest, a project file) deletes VERSION, and this has nothing to compare."""
+    root = _repo_root()
+    if not ((root / "CHANGELOG.md").exists() and (root / "VERSION").exists()):
+        return
+    problems = _version_problems(_read("CHANGELOG.md"), _read("VERSION"))
+    assert problems == [], "; ".join(problems)
+
+
+# ---------------------------------------------------------------- headings with nothing under them
+
+_HEADING_RE = re.compile(r"^(#{1,6})(?:[ \t]+.*)?$")
+
+
+def _empty_headings(text: str) -> list[str]:
+    """Heading lines (stripped) that have no content before the next same/higher heading or EOF.
+
+    A heading is filled by content in its own section or any sub-heading under it,
+    and is empty if neither holds content. Blank lines are not content; fenced blocks are.
+    """
+    all_headings: list[dict] = []
+    stack: list[dict] = []
+    in_fence = False
+    fence_char = ""
+    fence_len = 0
+
+    for line in text.splitlines():
+        if not in_fence:
+            m_fence = _FENCE_START_RE.match(line)
+            if m_fence:
+                in_fence = True
+                fence_char = m_fence.group(1)[0]
+                fence_len = len(m_fence.group(1))
+                # The opening fence line is content
+                for entry in stack:
+                    entry["has_content"] = True
+                continue
+
+            stripped = line.strip()
+            m_heading = _HEADING_RE.match(stripped)
+            if m_heading:
+                level = len(m_heading.group(1))
+                # Close any headings at the same or higher level (numerically >= level)
+                while stack and stack[-1]["level"] >= level:
+                    stack.pop()
+                heading_entry = {"text": stripped, "level": level, "has_content": False}
+                all_headings.append(heading_entry)
+                stack.append(heading_entry)
+            elif stripped:
+                # Non-blank line outside fence is content
+                for entry in stack:
+                    entry["has_content"] = True
+        else:
+            close_pattern = r"^\s*" + re.escape(fence_char) + r"{" + str(fence_len) + r",}\s*$"
+            if re.match(close_pattern, line):
+                in_fence = False
+            # Lines inside fence are content (and never headings)
+            for entry in stack:
+                entry["has_content"] = True
+
+    return [entry["text"] for entry in all_headings if not entry["has_content"]]
+
+
+def test_the_readme_has_no_empty_heading():
+    """README.md has no heading with nothing under it.
+
+    A README is always present; every heading must have content under it so
+    a reader finds what they came for rather than an empty placeholder.
+    """
+    text = _read("README.md")
+    empty = _empty_headings(text)
+    assert empty == [], (
+        f"README.md has a heading with nothing under it: {', '.join(empty)}. "
+        f"Fill it in, or take the heading out"
+    )
+
+
+# ---------------------------------------------------------------- size caps
+
+CLAUDE_MD_MAX_LINES = 300
+
+
+def test_claude_md_stays_short():
+    """Every session reads CLAUDE.md whole. One project's had grown to 2,031 lines.
+
+    Moving history and detail into docs/ keeps the file focused on standing rules.
+    """
+    path = _repo_root() / "CLAUDE.md"
+    if not path.exists():
+        return
+    text = _read("CLAUDE.md")
+    lines = text.splitlines()
+    assert len(lines) <= CLAUDE_MD_MAX_LINES, (
+        f"CLAUDE.md has {len(lines)} lines, exceeding the cap of {CLAUDE_MD_MAX_LINES}. "
+        f"Move history and detail into docs/, and keep the rules"
+    )
+
+
+SOURCE_FILE_WARN_LINES = 2000
+NON_SOURCE_EXTENSIONS = frozenset({
+    ".md", ".html", ".json", ".csv", ".tsv", ".txt", ".svg", ".lock",
+})
+
+
+def _long_source_files(limit: int = SOURCE_FILE_WARN_LINES) -> list[tuple[str, int]]:
+    """Every source file with more than limit lines, as (path, line count), sorted by path.
+
+    The files come from _scannable() called with no glob, so every file git tracks
+    or is about to. Left out: anything that is not UTF-8 text, and, by extension, prose,
+    generated pages and data. Workflows (.yml) and code are source.
+    """
+    long_files: list[tuple[str, int]] = []
+    for rel in _scannable():
+        if Path(rel).suffix.lower() in NON_SOURCE_EXTENSIONS:
+            continue
+        try:
+            with (_repo_root() / rel).open("rb") as handle:
+                # A NUL byte in the first block means a binary file. Stop there: a repository
+                # can hold hundreds of megabytes of models and textures, and this runs with
+                # every run of the guard.
+                data = handle.read(8192)
+                if b"\0" in data:
+                    continue
+                data += handle.read()
+            text = data.decode("utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        count = len(text.splitlines())
+        if count > limit:
+            long_files.append((rel, count))
+    long_files.sort(key=lambda item: item[0])
+    return long_files
+
+
+def test_no_source_file_has_grown_past_two_thousand_lines():
+    """A very long source file is warned about, but never fails the guard.
+
+    Splitting a file is a decision for a person; the guard's job is to make
+    sure the decision is seen rather than blocking the build.
+    """
+    long_files = _long_source_files(SOURCE_FILE_WARN_LINES)
+    if not long_files:
+        return
+    details = ", ".join(f"{path} ({lines} lines)" for path, lines in long_files)
+    warnings.warn(
+        f"Source files exceeding {SOURCE_FILE_WARN_LINES} lines: {details}",
+        UserWarning,
+    )
+
+
+# ---------------------------------------------------------------- finished tickets
+
+# Ticket IDs that were DONE before this rule existed. A project that adopts the guard late
+# lists them here once, and never adds to the list afterwards.
+LESSONS_EXEMPT: frozenset[str] = frozenset()
+
+_TICKET_HEADING_RE = re.compile(r"^#\s+([A-Za-z0-9-]+)\s*$")
+_STATUS_LINE_RE = re.compile(r"^\*\*Status:\*\*\s*(.+?)\s*$", re.M)
+_LESSONS_HEADING_RE = re.compile(r"^##\s+Lessons\s*$")
+
+
+def _done_tickets_without_lessons() -> list[str]:
+    """The IDs, sorted, of tickets whose status is DONE and whose spec has no `## Lessons`
+    heading with something under it.
+
+    Most lessons were found buried in the review notes of a ticket, where nobody looks. A
+    finished ticket says what it taught, in one place, under one heading.
+    """
+    specs_dir = _repo_root() / SPECS_DIR
+    if not specs_dir.is_dir():
+        return []
+    offenders: list[str] = []
+    for path in sorted(specs_dir.glob("*.md")):
+        if re.match(r"^20[0-9]{2}-", path.name):
+            continue  # a dated design or plan document is not a ticket
+        text = path.read_text(encoding="utf-8")
+        heading = _TICKET_HEADING_RE.match(text.split("\n", 1)[0])
+        if not heading or heading.group(1) in LESSONS_EXEMPT:
+            continue
+        status = _STATUS_LINE_RE.search(text)
+        if not status or status.group(1).strip() != "DONE":
+            continue
+        written = sum(1 for _, line in _outside_fences(text) if _LESSONS_HEADING_RE.match(line.strip()))
+        # Counted, not looked up by name: two headings read the same, so a set would call a
+        # spec empty when one of its two `## Lessons` is filled.
+        empty = sum(1 for line in _empty_headings(text) if _LESSONS_HEADING_RE.match(line))
+        if empty >= written:
+            offenders.append(heading.group(1))
+    return sorted(offenders)
+
+
+def test_every_done_ticket_says_what_it_taught():
+    """LOCAL: every DONE spec has a filled `## Lessons`. CI: the specs are not published, so
+    there is nothing to read here, and this says so instead of passing in silence."""
+    if not _local_mode():
+        print("[CI] no specs on this disk — finished tickets were not checked for their lessons")
+        return
+    missing = _done_tickets_without_lessons()
+    assert missing == [], (
+        f"DONE tickets that do not say what they taught: {', '.join(missing)}. "
+        "Add `## Lessons` to the spec, with one line under it; \"None.\" is an answer"
+    )

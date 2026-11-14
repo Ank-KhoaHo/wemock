@@ -22,7 +22,7 @@
 
 ---
 
-A Chrome DevTools panel for front-end developers. It logs your page's API calls, turns any call
+A free, open-source Chrome DevTools panel for front-end developers. It logs your page's API calls, turns any call
 into a mock with one click, and serves that mock back to the page. Group mocks into scenarios,
 "empty list", "server down", "slow network", and switch between them in one click.
 
@@ -154,6 +154,17 @@ It hears a call once and sings it back. That is the whole product.
 - A call made before wemock has loaded its mocks waits up to 200 ms, then goes through and is
   marked `LATE`.
 - Only Chrome (and Chromium browsers) for now.
+
+## Alternatives
+
+wemock is a panel in your own browser. Something else is the better choice when:
+
+- **The mocks must run in CI or for the whole team.** Put a mock layer in the app's code or
+  test setup, so every run gets the same answers without an extension.
+- **Another device must see them,** such as a phone or another browser. Use a mock server or
+  a proxy that every client calls.
+- **You only need to change one file the page loads.** Chrome's own Local Overrides, in the
+  Sources panel, do that with nothing to install.
 
 ## Where things live
 
