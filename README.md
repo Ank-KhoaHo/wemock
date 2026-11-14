@@ -1,5 +1,5 @@
 <p align="center">
-  <img src=".github/brand/icon.svg" width="150" alt="The wemock mockingbird">
+  <img src=".github/banner.png" alt="wemock, the mockingbird mark: record real API calls in DevTools, replay them as mocks. Beside it, the real wemock Log with mocked and real calls.">
 </p>
 
 <h1 align="center">wemock</h1>
