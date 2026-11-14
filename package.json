@@ -27,7 +27,7 @@
     "yaml": "2.9.1"
   },
   "devDependencies": {
-    "@microsoft/signalr": "10.0.11",
+    "@microsoft/signalr": "11.0.0",
     "@playwright/test": "1.65.0",
     "@types/node": "24.19.2",
     "@types/react": "19.3.0",
