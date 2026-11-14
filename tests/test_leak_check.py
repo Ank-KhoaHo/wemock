@@ -225,3 +225,16 @@ def test_a_code_only_pattern_is_not_an_everywhere_pattern(tmp_path):
     path.write_text("bluebird\ncode: (unclosed\n", encoding="utf-8", newline="\n")
     with pytest.raises(ValueError, match="line 2"):
         check_leaks.load_code_patterns(path)
+
+
+def test_the_backlog_builders_samples_are_not_citations(tmp_path, monkeypatch, capsys):
+    """Its test needs IDs of every length a real one has, so they overlap this project's own.
+    It is spared the ticket scan, and nothing else."""
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    repo =_repo_with_a_backlog(tmp_path / "a", {"tests/test_backlog_builder.py": "ids = ['Z34', 'Z2']\n"})
+    code, out = _scan(repo, monkeypatch, capsys)
+    assert code == 0 and "cites ticket" not in out, out
+    repo = _repo_with_a_backlog(tmp_path / "b", {"tests/test_other.py": "ids = ['Z34']\n"})
+    code, out = _scan(repo, monkeypatch, capsys)
+    assert code == 1 and "cites ticket Z34" in out, out

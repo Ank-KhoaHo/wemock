@@ -241,6 +241,13 @@ def _is_code_file(path_str: str) -> bool:
     return p.suffix.lower() not in NON_CODE_EXTENSIONS
 
 
+# Files whose subject IS the shape of a ticket ID. The IDs in them are sample data for
+# the code that reads IDs, not citations of this project's tickets, and the samples need
+# every length a real ID has. They are spared the ticket-ID scan only; every other scan
+# still reads them.
+ID_SAMPLE_FILES = {"tests/test_backlog_builder.py"}
+
+
 def load_ticket_ids(specs_dir: Path) -> list[str]:
     """Load ticket IDs from ticket spec files in specs_dir.
 
@@ -296,7 +303,7 @@ def _scan_staged_code(
             if not current_file or not _is_code_file(current_file):
                 continue
             line_content = line[1:]
-            for tid, rx in ticket_regexes:
+            for tid, rx in ([] if current_file in ID_SAMPLE_FILES else ticket_regexes):
                 if rx.search(line_content):
                     # Never print the line that matched, only the file and the cited ticket ID.
                     findings.append(f"staged code: {current_file} cites ticket {tid}")

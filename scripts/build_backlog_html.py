@@ -27,7 +27,8 @@ SPECS = ROOT / "docs" / "superpowers" / "specs"
 
 # Workflow order, unchanged from the order CLAUDE.md and the page footer
 # already document: it exists so DONE and DROPPED are never adjacent.
-GROUP_ORDER = ("OPEN", "ACCEPTED", "DONE", "SUSPENDED", "DROPPED")
+# BUILT sits between ACCEPTED and DONE: written, checked, and waiting to be judged.
+GROUP_ORDER = ("OPEN", "ACCEPTED", "BUILT", "DONE", "SUSPENDED", "DROPPED")
 # DONE is usually the largest group by far and would otherwise bury the
 # handful of rows that are actually actionable.
 COLLAPSED = {"DONE"}
@@ -49,7 +50,14 @@ _SUMMARY_RE = re.compile(r"^## Detail\s*\n+\*\*(.+?)\*\*\s*$", re.M)
 # input's DOM id, and a keyword -- would break that guard against the script's own
 # FUNCTIONAL code, where no rewording could rescue it. Widen this deliberately if
 # the convention ever changes; do not widen it to make one spec parse.
-_TICKET_ID_RE = re.compile(r"^[ABCD][0-9]{1,2}(?:-[A-Za-z0-9]+)?$")
+_TICKET_ID_RE = re.compile(r"^([ABCD])([0-9]{1,3})(?:-([A-Za-z0-9]+))?$")
+
+
+def _ticket_sort_key(ticket: tuple[str, ...]) -> tuple[str, int, str]:
+    m = _TICKET_ID_RE.match(ticket[0])
+    if m:
+        return (m.group(1), int(m.group(2)), m.group(3) or "")
+    return (ticket[0], 0, "")
 
 
 def _collect_tickets() -> list[tuple[str, str, str, str, str]]:
@@ -85,7 +93,7 @@ def _collect_tickets() -> list[tuple[str, str, str, str, str]]:
         status_value = status.group(1).strip()
         if status_value not in GROUP_ORDER:
             raise SystemExit(
-                f"{path.name}: status {status_value!r} is not one of the five "
+                f"{path.name}: status {status_value!r} is not one of the six "
                 f"valid statuses: {', '.join(GROUP_ORDER)}"
             )
 
@@ -112,6 +120,7 @@ def _collect_tickets() -> list[tuple[str, str, str, str, str]]:
     if len({t[0] for t in tickets}) != len(tickets):
         raise SystemExit("duplicate ticket IDs")
 
+    tickets.sort(key=_ticket_sort_key)
     return tickets
 
 

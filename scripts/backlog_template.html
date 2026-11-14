@@ -4,9 +4,9 @@
 <title>wemock backlog</title>
 <style>
 :root{--bg:#fff;--fg:#1a1a1a;--mut:#666;--line:#e0e0e0;
-      --open:#b45309;--accepted:#2563eb;--done:#15803d;--suspended:#6b6b70;--dropped:#b91c1c}
+      --open:#b45309;--accepted:#2563eb;--built:#7c3aed;--done:#15803d;--suspended:#6b6b70;--dropped:#b91c1c}
 @media (prefers-color-scheme:dark){:root{--bg:#161616;--fg:#e8e8e8;--mut:#999;--line:#333;
-      --open:#d97706;--accepted:#3b82f6;--done:#16a34a;--suspended:#9d9da3;--dropped:#ef4444}}
+      --open:#d97706;--accepted:#3b82f6;--built:#a855f7;--done:#16a34a;--suspended:#9d9da3;--dropped:#ef4444}}
 *{box-sizing:border-box}
 body{margin:0;padding:1.5rem;background:var(--bg);color:var(--fg);
      font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif}
@@ -27,8 +27,9 @@ a{color:inherit}
 .chip{display:inline-block;padding:.05rem .5rem;border-radius:999px;
       font-size:.78rem;color:#fff;white-space:nowrap}
 .chip-open{background:var(--open)}.chip-accepted{background:var(--accepted)}
-.chip-done{background:var(--done)}.chip-suspended{background:var(--suspended)}
-.chip-dropped{background:var(--dropped)}.chip-unknown{background:#e11d48}
+.chip-built{background:var(--built)}.chip-done{background:var(--done)}
+.chip-suspended{background:var(--suspended)}.chip-dropped{background:var(--dropped)}
+.chip-unknown{background:#e11d48}
 footer{color:var(--mut);font-size:.9rem;margin-top:1.5rem;border-top:1px solid var(--line);
        padding-top:.8rem}
 </style></head>
@@ -39,7 +40,8 @@ footer{color:var(--mut);font-size:.9rem;margin-top:1.5rem;border-top:1px solid v
 <input type="search" id="q" placeholder="Search IDs and summaries...">
 <!--GROUPS-->
 <footer>
-Five statuses, ordered so <strong>DONE</strong> and <strong>DROPPED</strong> are never adjacent.
+Six statuses, ordered so <strong>DONE</strong> and <strong>DROPPED</strong> are never adjacent.
+<strong>BUILT</strong> means written and passing every check, and waiting for a person to judge it.
 <strong>SUSPENDED</strong> means the assistant closed it; <strong>DROPPED</strong> means the
 maintainer did &mdash; same outcome, different authority, and that is what tells you how hard it
 is to reopen. Conventions live in <code>CLAUDE.md</code>.
