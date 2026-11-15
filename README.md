@@ -1,32 +1,65 @@
-<p align="center">
-  <img src=".github/banner.png" alt="wemock, the mockingbird mark: record real API calls in DevTools, replay them as mocks. Beside it, the real wemock Log with mocked and real calls.">
-</p>
+![wemock, the mockingbird mark: record real API calls in DevTools, replay them as mocks. Beside it, the real wemock Log with mocked and real calls.](.github/banner.png)
 
-<h1 align="center">wemock</h1>
+# wemock
 
-<p align="center"><em>It hears your API once. Then it answers for it.</em></p>
+<a href="https://github.com/Ank-KhoaHo/wemock/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/Ank-KhoaHo/wemock?style=flat-square&color=2563eb"></a>
+<a href="https://github.com/Ank-KhoaHo/wemock/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Ank-KhoaHo/wemock/ci.yml?branch=main&style=flat-square&label=ci"></a>
+<img alt="Chrome, Manifest V3" src="https://img.shields.io/badge/Chrome-MV3-2563eb?style=flat-square">
+<a href="LICENSE"><img alt="MIT licence" src="https://img.shields.io/github/license/Ank-KhoaHo/wemock?style=flat-square&color=2563eb"></a>
 
-<p align="center">
-  <a href="https://github.com/Ank-KhoaHo/wemock/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/Ank-KhoaHo/wemock?style=flat-square&color=2563eb"></a>
-  <a href="https://github.com/Ank-KhoaHo/wemock/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Ank-KhoaHo/wemock/ci.yml?branch=main&style=flat-square&label=ci"></a>
-  <img alt="Chrome, Manifest V3" src="https://img.shields.io/badge/Chrome-MV3-2563eb?style=flat-square">
-  <a href="LICENSE"><img alt="MIT licence" src="https://img.shields.io/github/license/Ank-KhoaHo/wemock?style=flat-square&color=2563eb"></a>
-</p>
+*It hears your API once. Then it answers for it.*
 
-<p align="center">
-  <a href="#install">Install</a> ·
-  <a href="guide/README.md">Guide</a> ·
-  <a href="https://github.com/Ank-KhoaHo/wemock/releases">Releases</a> ·
-  <a href="ROADMAP.md">Roadmap</a>
-</p>
-
----
+## What it is
 
 A free, open-source Chrome DevTools panel for front-end developers. It logs your page's API calls, turns any call
 into a mock with one click, and serves that mock back to the page. Group mocks into scenarios,
 "empty list", "server down", "slow network", and switch between them in one click.
 
 A mockingbird copies the calls of other birds. wemock copies your API's.
+
+## Get started
+
+wemock is not on the Chrome Web Store yet. Until it is:
+
+1. Download `wemock-<version>-chrome.zip` from the
+   [latest release](https://github.com/Ank-KhoaHo/wemock/releases/latest), and unzip it.
+2. Open `chrome://extensions` and turn on **Developer mode**.
+3. Choose **Load unpacked**, and pick the unzipped folder.
+
+Or build it from source:
+
+```
+npm ci
+npm run build
+```
+
+Then load `.output/chrome-mv3` the same way. → [Install, in full](guide/install.md)
+
+**Then:** open your app on `localhost` (wemock is always on there), open DevTools, and pick the
+**wemock** tab. On any other site, click the wemock toolbar icon and switch it on for that site.
+
+**No app handy?** In the empty Mocks tab, click **Load the sample**: a small shop
+with every kind of mock, three scenarios and a SignalR hub. Then try `GET /api/products/42` in the
+Test bar.
+
+## How to use it
+
+| You want to | wemock | Guide |
+|---|---|---|
+| Record, then replay | **Mock this** on one call, **Save as scenario** on a list | [First mock](guide/first-mock.md) |
+| Start from a file | Import HAR, OpenAPI 3, Swagger 2 (JSON or YAML) or JSON mock files | [Import and export](guide/import-export.md) |
+| Switch whole states | Scenarios over a Default, with Undo | [Scenarios](guide/scenarios.md) |
+| Match exactly | `:id`, `*rest`, `{optional}`, a host, a GraphQL operation, conditions on query, headers or body | [Matching](guide/matching.md) |
+| Answer anything | Any status 200-599, headers, delays, text or binary bodies | [Replies](guide/replies.md) |
+| Answer per call | Templates, sequences, code, Change real | [Replies](guide/replies.md) |
+| Stream an answer | Chunks over time, Server-Sent Events, `EventSource` | [Replies](guide/replies.md#stream) |
+| Change real calls | Add, change or remove request headers | [Request headers](guide/headers.md) |
+| Mock sockets | WebSocket timelines and replies, SignalR hubs | [Sockets](guide/sockets.md) |
+| Check before you reload | Test bar, Console line, Log filters, Save as HAR | [Checking](guide/checking.md) |
+
+Works with `fetch`, `XMLHttpRequest`, and libraries built on them (axios included). Every row,
+button and field works from the keyboard. React, axios, Angular `HttpClient` and a real
+ASP.NET Core SignalR hub are part of the tests.
 
 ## Mock a call in three clicks
 
@@ -78,67 +111,9 @@ socket**.
 
 → [WebSocket and SignalR](guide/sockets.md)
 
-## Install
+## Status
 
-wemock is not on the Chrome Web Store yet. Until it is:
-
-1. Download `wemock-<version>-chrome.zip` from the
-   [latest release](https://github.com/Ank-KhoaHo/wemock/releases/latest), and unzip it.
-2. Open `chrome://extensions` and turn on **Developer mode**.
-3. Choose **Load unpacked**, and pick the unzipped folder.
-
-Or build it from source:
-
-```
-npm ci
-npm run build
-```
-
-Then load `.output/chrome-mv3` the same way. → [Install, in full](guide/install.md)
-
-**Then:** open your app on `localhost` (wemock is always on there), open DevTools, and pick the
-**wemock** tab. On any other site, click the wemock toolbar icon and switch it on for that site.
-
-**No app handy?** In the empty Mocks tab, click **Load the sample**: a small shop
-with every kind of mock, three scenarios and a SignalR hub. Then try `GET /api/products/42` in the
-Test bar.
-
-## Everything it does
-
-| You want to | wemock | Guide |
-|---|---|---|
-| Record, then replay | **Mock this** on one call, **Save as scenario** on a list | [First mock](guide/first-mock.md) |
-| Start from a file | Import HAR, OpenAPI 3, Swagger 2 (JSON or YAML) or JSON mock files | [Import and export](guide/import-export.md) |
-| Switch whole states | Scenarios over a Default, with Undo | [Scenarios](guide/scenarios.md) |
-| Match exactly | `:id`, `*rest`, `{optional}`, a host, a GraphQL operation, conditions on query, headers or body | [Matching](guide/matching.md) |
-| Answer anything | Any status 200-599, headers, delays, text or binary bodies | [Replies](guide/replies.md) |
-| Answer per call | Templates, sequences, code, Change real | [Replies](guide/replies.md) |
-| Stream an answer | Chunks over time, Server-Sent Events, `EventSource` | [Replies](guide/replies.md#stream) |
-| Change real calls | Add, change or remove request headers | [Request headers](guide/headers.md) |
-| Mock sockets | WebSocket timelines and replies, SignalR hubs | [Sockets](guide/sockets.md) |
-| Check before you reload | Test bar, Console line, Log filters, Save as HAR | [Checking](guide/checking.md) |
-
-Works with `fetch`, `XMLHttpRequest`, and libraries built on them (axios included). Every row,
-button and field works from the keyboard. React, axios, Angular `HttpClient` and a real
-ASP.NET Core SignalR hub are part of the tests.
-
-## FAQ
-
-**Does it send my data anywhere?**
-No. Mocks live in your browser (`chrome.storage.local`). wemock makes no network calls of its own.
-
-**Does it run on every site I visit?**
-No. Only on `localhost`, `127.0.0.1`, and the sites you switch on, one at a time.
-
-**Why does a mocked call not show in the Network tab?**
-It never leaves the page, so the network never sees it. The wemock Log and the Console line do.
-
-**Is code in a code mock safe?**
-It runs in a sandboxed extension page with no access to your page or to wemock, and stops after
-one second. wemock never downloads code.
-
-**Why a mockingbird?**
-It hears a call once and sings it back. That is the whole product.
+Version 1.8.0, before its first Store release.
 
 ## Limits
 
@@ -166,7 +141,25 @@ wemock is a panel in your own browser. Something else is the better choice when:
 - **You only need to change one file the page loads.** Chrome's own Local Overrides, in the
   Sources panel, do that with nothing to install.
 
-## Where things live
+## FAQ
+
+**Does it send my data anywhere?**
+No. Mocks live in your browser (`chrome.storage.local`). wemock makes no network calls of its own.
+
+**Does it run on every site I visit?**
+No. Only on `localhost`, `127.0.0.1`, and the sites you switch on, one at a time.
+
+**Why does a mocked call not show in the Network tab?**
+It never leaves the page, so the network never sees it. The wemock Log and the Console line do.
+
+**Is code in a code mock safe?**
+It runs in a sandboxed extension page with no access to your page or to wemock, and stops after
+one second. wemock never downloads code.
+
+**Why a mockingbird?**
+It hears a call once and sings it back. That is the whole product.
+
+## Documentation
 
 | File | What it holds |
 |---|---|
@@ -177,6 +170,6 @@ wemock is a panel in your own browser. Something else is the better choice when:
 | [PUBLIC.md](PUBLIC.md) | why some material is deliberately not published here |
 | [LICENSE](LICENSE) | what you may do with this |
 
-## Status
+## Licence
 
-Version 1.8.0, before its first Store release. Licensed under MIT; see [LICENSE](LICENSE).
+Licensed under MIT; see [LICENSE](LICENSE).
