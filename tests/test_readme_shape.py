@@ -2,9 +2,9 @@
 
 Four rules, each one something a project made from this template had to go back and fix:
 
-* it keeps the sections a reader looks for before trusting a tool: Status, Limits,
-  Alternatives and FAQ
-* its first paragraph says what the thing is, before any badge, heading or instruction
+* it has the one shape every README here has: the same sections, by the same names, in the
+  same order, so a reader who has seen one knows where to look in the next
+* its first section says what the thing is, in plain sentences
 * it stays short enough to scan
 * its sentences stay short: the average, and the longest
 
@@ -17,7 +17,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-REQUIRED_SECTIONS = ("Status", "Limits", "Alternatives", "FAQ")
 README_MAX_LINES = 300
 README_MAX_AVERAGE_WORDS = 18
 README_MAX_SENTENCE_WORDS = 30
@@ -88,6 +87,134 @@ def _readme() -> str:
     return (ROOT / "README.md").read_text(encoding="utf-8")
 
 
+# ---------------------------------------------------------------- the README's shape
+
+README_BEFORE = ("What it is", "Get started", "How to use it")
+README_AFTER = ("Status", "Limits", "Alternatives", "FAQ", "Documentation", "Licence")
+README_REQUIRED = ("What it is", "Get started", "Status", "Documentation")
+README_REQUIRED_PUBLIC = README_REQUIRED + ("Limits", "Alternatives", "FAQ", "Licence")
+
+_ITALIC_RE = re.compile(r"^\*[^*].*[^*]\*$")
+
+
+def readme_shape_problems(text: str, public: bool = False, banner: bool = False) -> list[str]:
+    """Return every way this README leaves the standard shape, one sentence each.
+
+    Every README in this template and projects made from it shares one outline so
+    a reader who has seen one knows where to look in the next.
+    """
+    lines = text.splitlines()
+    in_fence = False
+    fence_char = ""
+
+    top_raw: list[str] = []
+    sections: list[tuple[str, list[str]]] = []
+    current_section_name: str | None = None
+    current_section_body: list[str] = []
+
+    for line in lines:
+        stripped = line.strip()
+        if not in_fence:
+            if stripped.startswith("```"):
+                in_fence = True
+                fence_char = "`"
+                if current_section_name is None:
+                    top_raw.append(line)
+                else:
+                    current_section_body.append(line)
+            elif stripped.startswith("~~~"):
+                in_fence = True
+                fence_char = "~"
+                if current_section_name is None:
+                    top_raw.append(line)
+                else:
+                    current_section_body.append(line)
+            elif line.startswith("## "):
+                if current_section_name is not None:
+                    sections.append((current_section_name, current_section_body))
+                current_section_name = line[3:].strip()
+                current_section_body = []
+            else:
+                if current_section_name is None:
+                    top_raw.append(line)
+                else:
+                    current_section_body.append(line)
+        else:
+            if (fence_char == "`" and stripped.startswith("```")) or (fence_char == "~" and stripped.startswith("~~~")):
+                in_fence = False
+                fence_char = ""
+            if current_section_name is None:
+                top_raw.append(line)
+            else:
+                current_section_body.append(line)
+
+    if current_section_name is not None:
+        sections.append((current_section_name, current_section_body))
+
+    # Blank lines aside, the top is read as it is written. A note above the title is allowed in a
+    # project with no banner; a project with a banner opens with it, and with nothing else.
+    top = [line for line in top_raw if line.strip()]
+
+    problems: list[str] = []
+
+    if banner:
+        if not top:
+            problems.append("the banner is not the first thing in the file")
+        else:
+            first = top[0].strip()
+            if not (first.startswith("![") or "<img" in first):
+                problems.append("the banner is not the first thing in the file")
+
+    title_indices = [idx for idx, line in enumerate(top) if line.startswith("# ")]
+    if len(title_indices) != 1:
+        problems.append(f"expected one '# Name' line above the first section, found {len(title_indices)}")
+    else:
+        title_idx = title_indices[0]
+        lines_after_title = top[title_idx + 1:]
+
+        if not any(_ITALIC_RE.match(line.strip()) for line in lines_after_title):
+            problems.append("no one-line description in italics under the name")
+
+        if not any(("`" in line or "<img" in line or "[![" in line) for line in lines_after_title):
+            problems.append("no facts line (badges or `code chips`) under the name")
+
+    required = README_REQUIRED_PUBLIC if public else README_REQUIRED
+    section_names = [name for name, _ in sections]
+    for req in required:
+        if req not in section_names:
+            problems.append(f"no section called '{req}'")
+
+    FIXED = README_BEFORE + README_AFTER
+    highest = -1
+    own_seen = False
+    after_seen = False
+
+    for name in section_names:
+        if name in FIXED:
+            i = FIXED.index(name)
+            if i < highest:
+                problems.append(f"'{name}' is out of order")
+            elif name in README_BEFORE and own_seen:
+                problems.append(f"'{name}' comes after the project's own sections: it belongs before them")
+            highest = max(highest, i)
+            if name in README_AFTER:
+                after_seen = True
+        else:
+            if after_seen:
+                problems.append(f"'{name}' is a section of the project's own, after 'Status': its one slot is before 'Status'")
+            else:
+                own_seen = True
+
+    if section_names and section_names[0] != "What it is":
+        problems.append(f"the first section is '{section_names[0]}', not 'What it is'")
+
+    for name, body in sections:
+        if not any(line.strip() for line in body):
+            problems.append(f"'{name}' has nothing under it")
+
+    return problems
+
+
 # ---------------------------------------------------------------- the reader of these rules
 
 
@@ -141,23 +268,31 @@ def test_the_first_paragraph_is_the_first_prose_under_the_title():
 # ---------------------------------------------------------------- the README itself
 
 
-def test_the_readme_keeps_the_sections_a_reader_looks_for():
-    headings = _headings(_readme())
-    missing = [section for section in REQUIRED_SECTIONS if section not in headings]
-    assert missing == [], (
-        f"README.md has no section called {missing}. Status says what was really tried, Limits "
-        f"what it does not do, Alternatives when something else is the better choice, and the "
-        f"FAQ answers what is asked first"
+def test_the_readme_has_the_one_shape():
+    """README.md has the one shape, with the sections a public project needs.
+
+    A rule that only said which sections must exist gave every README its own outline: the
+    names and the order are what a reader learns once. Status says what was really tried,
+    Limits what it does not do, Alternatives when something else is the better choice, and
+    the FAQ answers what is asked first.
+    """
+    banner = (ROOT / "art" / "banner.png").exists()
+    problems = readme_shape_problems(_readme(), public=True, banner=banner)
+    assert not problems, (
+        f"README.md leaves the one shape every README here has: {'; '.join(problems)}. "
+        f"The order is: the banner (when art/banner.png exists), '# Name', the badges, one line "
+        f"in italics; then 'What it is', 'Get started', 'How to use it' (optional), the project's "
+        f"own sections, 'Status', 'Limits', 'Alternatives', 'FAQ', 'Documentation', 'Licence'"
     )
 
 
-def test_the_readme_says_what_it_is_before_anything_else():
-    readme = _readme()
-    opening = readme.split("\n## ", 1)[0]
-    first = _first_paragraph(opening)
+def test_the_first_section_says_what_this_is():
+    parts = _readme().split("\n## What it is", 1)
+    assert len(parts) == 2, "README.md has no section called 'What it is'"
+    first = _first_paragraph(parts[1].split("\n## ", 1)[0])
     assert len(first.split()) >= 6, (
-        f"the README's first paragraph is {first!r}. Before the first heading it must say what "
-        f"this is, who it is for and what it costs, in plain sentences"
+        f"the first paragraph of 'What it is' is {first!r}. It must say what this is, who it is "
+        f"for and what it costs, in plain sentences"
     )
 
 
