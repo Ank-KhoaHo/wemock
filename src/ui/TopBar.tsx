@@ -1,4 +1,6 @@
+import { useEffect, useRef, useState } from 'react';
 import type { Project } from '../core/types';
+import { ExportIcon, ImportIcon, PowerIcon, SampleIcon, ScenarioIcon, TerminalIcon } from './icons';
 import { ScenarioChips } from './ScenarioChips';
 
 export interface TopBarProps {
@@ -13,8 +15,10 @@ export interface TopBarProps {
   onToggleEnabled: () => void;
   consoleLog: boolean;
   onToggleConsoleLog: () => void;
-  activeTab: 'log' | 'mocks';
-  onTabChange: (tab: 'log' | 'mocks') => void;
+  onImportOpen: () => void;
+  onExportProject: () => void;
+  onExportActiveScenario: () => void;
+  onLoadSample: () => void;
 }
 
 export function TopBar({
@@ -29,9 +33,37 @@ export function TopBar({
   onToggleEnabled,
   consoleLog,
   onToggleConsoleLog,
-  activeTab,
-  onTabChange,
+  onImportOpen,
+  onExportProject,
+  onExportActiveScenario,
+  onLoadSample,
 }: TopBarProps) {
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const exportWrapperRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isExportMenuOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsExportMenuOpen(false);
+      }
+    };
+    const onClickOutside = (e: MouseEvent) => {
+      if (
+        exportWrapperRef.current &&
+        !exportWrapperRef.current.contains(e.target as Node)
+      ) {
+        setIsExportMenuOpen(false);
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('click', onClickOutside);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('click', onClickOutside);
+    };
+  }, [isExportMenuOpen]);
+
   const allProjects =
     project && !projects.some((p) => p.id === project.id)
       ? [project, ...projects]
@@ -39,81 +71,172 @@ export function TopBar({
 
   const currentValue = project ? project.id : (selectedProjectId ?? '');
 
+  const totalMocks = project
+    ? project.scenarios.reduce(
+        (sum, s) => sum + s.mocks.length + (s.sockets?.length ?? 0),
+        0,
+      )
+    : 0;
+
+  const activeScenario = project
+    ? project.scenarios.find((s) => s.id === project.activeScenarioId) ||
+      project.scenarios[0]
+    : null;
+
   return (
-    <div className="panel-topbar">
-      <div className="topbar-row">
-        <div className="topbar-left">
-          <h1 className="brand-title">wemock</h1>
-          <select
-            data-testid="project-picker"
-            className="project-picker"
-            value={currentValue}
-            onChange={(e) => onSelectProject?.(e.target.value)}
-          >
-            {!project && <option value="">No project yet</option>}
-            {allProjects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          {project && (
-            <ScenarioChips project={project} onPick={onPickScenario} />
-          )}
-        </div>
-        <div className="topbar-right">
-          <button
-            type="button"
-            data-testid="rec-toggle"
-            className={`rec-toggle ${recording ? 'active' : ''}`}
-            aria-pressed={recording ? 'true' : 'false'}
-            onClick={onToggleRecording}
-            title={recording ? 'Pause recording' : 'Start recording'}
-          >
-            <span className="rec-dot" /> Rec
-          </button>
-          <button
-            type="button"
-            data-testid="console-toggle"
-            className={`console-toggle ${consoleLog ? 'active' : ''}`}
-            aria-pressed={consoleLog ? 'true' : 'false'}
-            onClick={onToggleConsoleLog}
-            title={consoleLog ? 'Stop writing mocked calls to the Console' : 'Write each mocked call to the Console'}
-          >
-            Console
-          </button>
-          <button
-            type="button"
-            data-testid="power-toggle"
-            className={`power-toggle ${enabled ? 'active' : ''}`}
-            aria-pressed={enabled ? 'true' : 'false'}
-            aria-label={enabled ? 'Turn mocking off' : 'Turn mocking on'}
-            onClick={onToggleEnabled}
-            title={enabled ? 'Disable mocks' : 'Enable mocks'}
-          >
-            ⏻
-          </button>
-        </div>
-      </div>
-      <div className="panel-tab-bar">
+    <header className="hdr">
+      <h1 className="brand">
+        <img src="/icon/32.png" alt="" width={22} height={22} />
+        wemock
+      </h1>
+      <select
+        data-testid="project-picker"
+        className="proj project-picker"
+        aria-label="Project"
+        value={currentValue}
+        onChange={(e) => onSelectProject?.(e.target.value)}
+      >
+        {!project && <option value="">No project yet</option>}
+        {allProjects.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+
+      {project && (
+        <ScenarioChips project={project} onPick={onPickScenario} />
+      )}
+
+      <button
+        type="button"
+        data-testid="import-open"
+        className="btn blue"
+        onClick={onImportOpen}
+      >
+        <ImportIcon size={16} />
+        <span className="lbl">Import</span>
+      </button>
+
+      <div ref={exportWrapperRef} style={{ position: 'relative', display: 'inline-block' }}>
         <button
           type="button"
-          data-testid="tab-log"
-          className={`tab-btn ${activeTab === 'log' ? 'active' : ''}`}
-          onClick={() => onTabChange('log')}
+          data-testid="export-open"
+          className="btn blue"
+          aria-haspopup="menu"
+          aria-expanded={isExportMenuOpen}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsExportMenuOpen((prev) => !prev);
+          }}
         >
-          Log
+          <ExportIcon size={16} />
+          <span className="lbl">Export</span>
         </button>
+
+        {isExportMenuOpen && (
+          <div
+            data-testid="export-menu"
+            className="menu export-menu"
+            role="menu"
+            style={{
+              position: 'absolute',
+              top: 'calc(100% + 4px)',
+              left: 0,
+              zIndex: 50,
+            }}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              data-testid="export-project"
+              onClick={() => {
+                setIsExportMenuOpen(false);
+                onExportProject();
+              }}
+            >
+              <ExportIcon size={16} />
+              <span>
+                Whole project
+                <span className="hint">
+                  {project
+                    ? `${project.scenarios.length} scenarios, ${totalMocks} mocks`
+                    : ''}
+                </span>
+              </span>
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              data-testid="export-active"
+              onClick={() => {
+                setIsExportMenuOpen(false);
+                onExportActiveScenario();
+              }}
+            >
+              <ScenarioIcon size={16} />
+              <span>
+                Only {activeScenario ? activeScenario.name : 'Default'}
+              </span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      <button
+        type="button"
+        data-testid="sample-load-toolbar"
+        className="btn beak"
+        onClick={onLoadSample}
+      >
+        <SampleIcon size={16} />
+        <span className="lbl">Sample</span>
+      </button>
+
+      <div className="grow" style={{ flex: 1 }} />
+
+      <div className="grp rtoggles" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
         <button
           type="button"
-          data-testid="tab-mocks"
-          className={`tab-btn ${activeTab === 'mocks' ? 'active' : ''}`}
-          onClick={() => onTabChange('mocks')}
+          data-testid="rec-toggle"
+          className={`toggle rec ${recording ? 'active' : ''}`}
+          aria-pressed={recording ? 'true' : 'false'}
+          onClick={onToggleRecording}
+          title={recording ? 'Pause recording' : 'Start recording'}
         >
-          Mocks
+          <span className="dot" />
+          <span className="lbl">Rec</span>
+        </button>
+
+        <button
+          type="button"
+          data-testid="console-toggle"
+          className={`toggle con ${consoleLog ? 'active' : ''}`}
+          aria-pressed={consoleLog ? 'true' : 'false'}
+          onClick={onToggleConsoleLog}
+          title={
+            consoleLog
+              ? 'Stop writing mocked calls to the Console'
+              : 'Write each mocked call to the Console'
+          }
+        >
+          <TerminalIcon size={16} className="ico" />
+          <span className="lbl">Console</span>
+        </button>
+
+        <button
+          type="button"
+          data-testid="power-toggle"
+          className={`power-toggle ibtn boxed power ${enabled ? 'active' : ''}`}
+          aria-pressed={enabled ? 'true' : 'false'}
+          aria-label={enabled ? 'Turn mocking off' : 'Turn mocking on'}
+          onClick={onToggleEnabled}
+          title={enabled ? 'Disable mocks' : 'Enable mocks'}
+        >
+          <PowerIcon size={16} className="ico" />
         </button>
       </div>
-    </div>
+    </header>
   );
 }
 

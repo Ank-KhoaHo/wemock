@@ -112,11 +112,14 @@ test('A23: export one scenario, then import it as a new one', async () => {
     const text = fs.readFileSync((await d.path())!, 'utf-8');
     expect(JSON.parse(text)).toMatchObject({ wemock: 'scenario', schemaVersion: 1, scenario: { name: 'Beta' } });
 
+    if (!(await panel.getByTestId('import-dialog').isVisible())) await panel.getByTestId('import-open').click();
+
     await panel.getByTestId('import').setInputFiles({ name: 'wemock-Beta.json', mimeType: 'application/json', buffer: Buffer.from(text) });
-    await expect(panel.getByTestId('import-choice')).toBeVisible();
+    await expect(panel.getByTestId('import-found')).toBeVisible();
     await expect(panel.getByTestId('import-replace')).toHaveCount(0);
     await expect(panel.getByTestId('import-add')).toHaveText('Add as a new scenario');
     await panel.getByTestId('import-add').click();
+    await panel.getByTestId('import-confirm').click();
     await expect.poll(names).toEqual(['Default', 'Beta', 'Beta (2)']);
     const s = await readState();
     expect(s.projects).toHaveLength(1);
@@ -146,8 +149,10 @@ test('A24: Save HAR writes the rows shown, and it imports back', async () => {
     expect(har.log.entries[0].request.url).toContain('/api/goals');
 
     await panel.getByTestId('tab-mocks').click();
+    if (!(await panel.getByTestId('import-dialog').isVisible())) await panel.getByTestId('import-open').click();
     await panel.getByTestId('import').setInputFiles({ name: 'log.har', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(har)) });
     await panel.getByTestId('import-add').click();
+    await panel.getByTestId('import-confirm').click();
     await expect.poll(names).toEqual(['Default', 'Beta', 'HAR log.har']);
   } finally {
     await panel.close();

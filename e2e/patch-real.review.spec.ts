@@ -97,7 +97,7 @@ test('a body that is not JSON passes through; a failed real call fails as before
   }
 });
 
-test('the editor sets up a Change real reply, and the Test bar describes it without calling', async () => {
+test('the editor sets up a Change real reply', async () => {
   const plain: Mock = { ...patchMock(), id: 'plain', name: 'Plain', reply: undefined, patch: undefined, response: { status: 200, headers: {}, body: '{}', bodyEncoding: 'text', delayMs: 0 } };
   const { page, panel } = await open([plain]);
   try {
@@ -115,13 +115,6 @@ test('the editor sets up a Change real reply, and the Test bar describes it with
     await expect.poll(async () => (await readState()).projects[0]!.scenarios[0]!.mocks[0]).toMatchObject({
       reply: 'patch', patch: { status: 503, set: [{ path: 'user.beta', value: 'false' }], remove: ['token'] },
     });
-
-    await panel.getByTestId('test-method').selectOption('POST');
-    await panel.getByTestId('test-url').fill('/api/echo');
-    await panel.getByTestId('test-run').click();
-    await expect(panel.getByTestId('test-patch-summary')).toContainText('Changes the real response');
-    await expect(panel.getByTestId('test-patch-summary')).toContainText('Set user.beta = false');
-    await expect(panel.getByTestId('test-patch-summary')).toContainText('Remove token');
   } finally {
     await panel.close();
     await page.close();

@@ -318,19 +318,22 @@ test('export then import, Add to my mocks: one project with the mock twice', asy
 
     // Export
     const downloadPromise = panelPage.waitForEvent('download');
-    await panelPage.getByTestId('export').click();
+    await panelPage.getByTestId('export-open').click();
+    await panelPage.getByTestId('export-project').click();
     const download = await downloadPromise;
     const downloadPath = await download.path();
     expect(downloadPath).toBeTruthy();
     const buffer = await fs.promises.readFile(downloadPath!);
 
     // Import exported file
+    if (!(await panelPage.getByTestId('import-dialog').isVisible())) await panelPage.getByTestId('import-open').click();
     await panelPage.getByTestId('import').setInputFiles({
       name: 'exported.json',
       mimeType: 'application/json',
       buffer,
     });
     await panelPage.getByTestId('import-add').click();
+    await panelPage.getByTestId('import-confirm').click();
 
     await expect(panelPage.getByTestId('import-summary')).toBeVisible();
     await expect(panelPage.getByTestId('import-summary')).toContainText('1 mock imported');
@@ -359,6 +362,7 @@ test('importing a malformed file shows import-error and changes nothing', async 
     await expect(panelPage.getByTestId('project-picker').locator('option')).toHaveCount(1);
 
     const buffer = Buffer.from('{"not":"a valid wemock or mock file"}');
+    if (!(await panelPage.getByTestId('import-dialog').isVisible())) await panelPage.getByTestId('import-open').click();
     await panelPage.getByTestId('import').setInputFiles({
       name: 'malformed.json',
       mimeType: 'application/json',
@@ -391,12 +395,13 @@ test('importing the v2 mock file fixture makes a project for this site and serve
     fileData.mocks[0].url = '/api/goals';
 
     const buffer = Buffer.from(JSON.stringify(fileData));
+    if (!(await panelPage.getByTestId('import-dialog').isVisible())) await panelPage.getByTestId('import-open').click();
     await panelPage.getByTestId('import').setInputFiles({
       name: 'mocks-v2.json',
       mimeType: 'application/json',
       buffer,
     });
-    await panelPage.getByTestId('import-replace').click();
+    // The project has no mocks yet, so the import adds without asking.
 
     await expect(panelPage.getByTestId('import-summary')).toBeVisible();
 
@@ -424,16 +429,18 @@ test('a mock file import shows import-summary with the code mock count', async (
     const raw = await fs.promises.readFile(fixturePath, 'utf-8');
     const buffer = Buffer.from(raw);
 
+    if (!(await panelPage.getByTestId('import-dialog').isVisible())) await panelPage.getByTestId('import-open').click();
+
     await panelPage.getByTestId('import').setInputFiles({
       name: 'mocks-v2.json',
       mimeType: 'application/json',
       buffer,
     });
-    await panelPage.getByTestId('import-replace').click();
+    // The project has no mocks yet, so the import adds without asking.
 
     const summary = panelPage.getByTestId('import-summary');
     await expect(summary).toBeVisible();
-    await expect(summary).toHaveText('6 mocks imported, 1 skipped, 1 as code mock, 2 header rules not imported');
+    await expect(summary).toContainText('6 mocks imported, 1 skipped, 1 as code mock, 2 header rules not imported');
     await expect(summary).toContainText('1 as code mock');
   } finally {
     await panelPage.close();

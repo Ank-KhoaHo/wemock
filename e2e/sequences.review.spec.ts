@@ -184,21 +184,3 @@ test('switching a fixed mock to Sequence starts with its fixed reply as step 1',
     await page.close();
   }
 });
-
-test('the Test bar shows step 1 and does not move the page count', async () => {
-  const { page, panel } = await open();
-  try {
-    await panel.getByTestId('tab-mocks').click();
-    await panel.getByTestId('test-method').selectOption('GET');
-    await panel.getByTestId('test-url').fill('/api/job');
-    await panel.getByTestId('test-run').click();
-    await expect(panel.getByTestId('test-status')).toContainText('202');
-    await expect(panel.getByTestId('test-body-out')).toContainText('pending');
-    await panel.getByTestId('test-run').click();
-    await expect(panel.getByTestId('test-status')).toContainText('202');
-    expect(await call(page, '/api/job', 1)).toEqual(['202 pending']);
-  } finally {
-    await panel.close();
-    await page.close();
-  }
-});

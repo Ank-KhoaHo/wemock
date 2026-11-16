@@ -6,7 +6,7 @@
   --text-secondary: #5e6c84;
   --text-muted: #626f86; /* A18: 4.6:1 on the grey panels */
   --border-color: #dfe1e6;
-  --accent-color: #0c66e4;
+  --accent-color: #1f5fd6;
   --accent-text: #ffffff;
   --switch-off-bg: #c1c7d0;
   --switch-on-bg: #36b37e;
@@ -14,10 +14,30 @@
   --chip-bg: #ebecf0;
   --chip-text: #172b4d;
   --chip-border: #dfe1e6;
-  --chip-active-bg: #0c66e4;
+  --chip-active-bg: #1f5fd6;
   --chip-active-text: #ffffff;
-  --chip-active-border: #0c66e4;
+  --chip-active-border: #1f5fd6;
   --status-active-color: #36b37e;
+
+  /* mock tokens */
+  --brand: #1f5fd6;
+  --brand-hover: #1a51b8;
+  --brand-ink: #ffffff;
+  --brand-soft: #e8f0fe;
+  --beak: #f6c026;
+  --beak-hover: #e8b10f;
+  --beak-ink: #3a2c00;
+  --danger: #c62828;
+  --danger-soft: #fdecec;
+  --surface: #ffffff;
+  --raised: #f7f9fb;
+  --line: #dfe3ea;
+  --line-strong: #c9d0da;
+  --ink: #1b1f24;
+  --muted: #5a6472;
+  --faint: #8a939f;
+  --s2: #1b7a3a;
+  --shadow: 0 6px 24px rgba(20, 30, 50, 0.16);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -45,7 +65,8 @@
 }
 
 :root.dark,
-body.dark {
+body.dark,
+html.dark {
   --bg-primary: #1f1f1f;
   --bg-secondary: #2d2d2d;
   --bg-hover: #3d3d3d;
@@ -53,7 +74,7 @@ body.dark {
   --text-secondary: #b0b0b0;
   --text-muted: #a3a3a3; /* A18: 5:1 on the dark panels */
   --border-color: #404040;
-  --accent-color: #4c9aff;
+  --accent-color: #6f9eff;
   --accent-text: #ffffff;
   --switch-off-bg: #555555;
   --switch-on-bg: #57d9a3;
@@ -61,10 +82,30 @@ body.dark {
   --chip-bg: #2d2d2d;
   --chip-text: #e6e6e6;
   --chip-border: #404040;
-  --chip-active-bg: #4c9aff;
+  --chip-active-bg: #6f9eff;
   --chip-active-text: #1f1f1f;
-  --chip-active-border: #4c9aff;
+  --chip-active-border: #6f9eff;
   --status-active-color: #57d9a3;
+
+  /* mock tokens dark */
+  --brand: #6f9eff;
+  --brand-hover: #8bb1ff;
+  --brand-ink: #0b1a33;
+  --brand-soft: #22324f;
+  --beak: #e3b521;
+  --beak-hover: #f0c43a;
+  --beak-ink: #2a1f00;
+  --danger: #ff7070;
+  --danger-soft: #3a2224;
+  --surface: #25272b;
+  --raised: #2b2e33;
+  --line: #383c43;
+  --line-strong: #4a4f58;
+  --ink: #e6e8eb;
+  --muted: #a2a9b3;
+  --faint: #7d8590;
+  --s2: #5fd08a;
+  --shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
 }
 
 *, *::before, *::after {
@@ -131,7 +172,7 @@ a:focus-visible {
 
 .origin-label {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 12px;
+  font-size: 13px;
   word-break: break-all;
   color: var(--text-primary);
   background-color: var(--bg-secondary);
@@ -150,7 +191,7 @@ a:focus-visible {
   display: inline-flex;
   align-items: center;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--status-active-color);
   padding: 4px 8px;
   background-color: var(--bg-secondary);
@@ -209,7 +250,7 @@ a:focus-visible {
 }
 
 .scenarios-heading {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   color: var(--text-secondary);
@@ -226,7 +267,7 @@ a:focus-visible {
   display: inline-flex;
   align-items: center;
   padding: 4px 10px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--chip-text);
   background-color: var(--chip-bg);
@@ -260,7 +301,7 @@ a:focus-visible {
   border-radius: 6px;
   background: var(--bg-secondary);
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .reload-hint button {
@@ -292,8 +333,9 @@ body.panel-root {
   height: 100vh;
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 13px;
   overflow: hidden;
+  position: relative;
 }
 
 .panel-topbar {
@@ -331,7 +373,7 @@ body.panel-root {
   border: 1px solid var(--border-color);
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
 }
 
@@ -352,7 +394,7 @@ body.panel-root {
   border: 1px solid var(--border-color);
   background: var(--bg-primary);
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -413,7 +455,7 @@ body.panel-root {
   border: none;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   border-bottom: 2px solid transparent;
@@ -459,7 +501,7 @@ body.panel-root {
   border: 1px solid var(--border-color);
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .clear-log-btn,
@@ -471,12 +513,12 @@ body.panel-root {
   border: 1px solid var(--border-color);
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
 }
 
 .save-har-note {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-secondary);
 }
 
@@ -498,7 +540,7 @@ body.panel-root {
   border: 1px solid var(--border-color);
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 13px;
   width: 140px;
 }
 
@@ -534,7 +576,7 @@ body.panel-root {
 .log-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 13px;
   table-layout: fixed;
 }
 
@@ -547,7 +589,7 @@ body.panel-root {
   text-align: left;
   font-weight: 600;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: 12px;
   text-transform: uppercase;
   z-index: 1;
 }
@@ -600,7 +642,7 @@ body.panel-root {
   display: inline-block;
   padding: 1px 6px;
   border-radius: 3px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -657,7 +699,7 @@ body.panel-root {
   display: inline-flex;
   align-items: center;
   padding: 2px 7px;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.2;
   font-weight: 500;
   color: var(--chip-text);
@@ -688,7 +730,7 @@ body.panel-root {
 }
 
 .log-filter-count {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   white-space: nowrap;
 }
@@ -697,7 +739,7 @@ body.panel-root {
   background: none;
   border: none;
   padding: 2px 4px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--accent-color);
   text-decoration: underline;
   cursor: pointer;
@@ -727,14 +769,14 @@ body.panel-root {
 
 .log-empty-btn {
   padding: 4px 12px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .mocks-empty {
   padding: 14px 16px;
   margin: 8px 10px;
   text-align: center;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
   color: var(--text-muted);
   background-color: var(--bg-secondary);
@@ -775,11 +817,11 @@ body.panel-root {
 
 .detail-method-tag {
   font-weight: 700;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .detail-url {
-  font-size: 12px;
+  font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -798,7 +840,7 @@ body.panel-root {
   border: none;
   background-color: var(--accent-color);
   color: var(--accent-text);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
 }
@@ -829,7 +871,7 @@ body.panel-root {
 }
 
 .section-title {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   color: var(--text-secondary);
@@ -841,7 +883,7 @@ body.panel-root {
   display: grid;
   grid-template-columns: 100px 1fr;
   gap: 4px 8px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .grid-key {
@@ -861,7 +903,7 @@ body.panel-root {
   border: 1px solid var(--border-color);
   border-radius: 4px;
   padding: 6px 8px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .header-entry {
@@ -878,7 +920,7 @@ body.panel-root {
   border-radius: 4px;
   padding: 8px;
   margin: 0;
-  font-size: 11px;
+  font-size: 12px;
   white-space: pre-wrap;
   word-break: break-all;
   max-height: 240px;
@@ -914,7 +956,7 @@ body.panel-root {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -963,7 +1005,7 @@ body.panel-root {
   padding: 6px 12px;
   background-color: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-primary);
 }
 
@@ -980,7 +1022,7 @@ body.panel-root {
   border: 1px solid var(--accent-color);
   background-color: var(--accent-color);
   color: var(--accent-text);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
 }
@@ -996,7 +1038,7 @@ body.panel-root {
   border: 1px solid var(--border-color);
   background-color: var(--bg-secondary);
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
 }
@@ -1016,7 +1058,7 @@ body.panel-root {
   border: 1px solid #de350b;
   background-color: transparent;
   color: #de350b;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
 }
@@ -1087,7 +1129,7 @@ body.panel-root {
   border-radius: 4px;
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .mocks-filter-input:focus {
@@ -1100,7 +1142,7 @@ body.panel-root {
 }
 
 .mocks-filter-count {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-secondary);
   white-space: nowrap;
   font-weight: 500;
@@ -1164,7 +1206,7 @@ body.panel-root {
   background-color: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
   font-weight: 600;
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
 }
 
@@ -1184,7 +1226,7 @@ body.panel-root {
 }
 
 .scenario-count {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
 }
 
@@ -1201,7 +1243,7 @@ body.panel-root {
   border-bottom: 1px solid var(--border-color);
   cursor: pointer;
   user-select: none;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .mock-row:last-child {
@@ -1237,7 +1279,7 @@ body.panel-root {
 }
 
 .method-tag {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   padding: 1px 4px;
   border-radius: 3px;
@@ -1267,7 +1309,7 @@ body.panel-root {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .mock-row-side {
@@ -1279,7 +1321,7 @@ body.panel-root {
 
 .mock-status {
   font-weight: 600;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .mock-reorder-buttons {
@@ -1313,7 +1355,7 @@ body.panel-root {
 
 .scenario-empty-hint {
   padding: 8px 10px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   text-align: center;
 }
@@ -1358,7 +1400,7 @@ body.panel-root {
 }
 
 .mock-id-badge {
-  font-size: 10px;
+  font-size: 11px;
   text-transform: uppercase;
   padding: 1px 6px;
   border-radius: 10px;
@@ -1410,12 +1452,13 @@ body.panel-root {
   width: 120px;
 }
 
-.field-label {
-  font-size: 11px;
+.field-label,
+label {
+  font-size: 12.5px;
   font-weight: 600;
-  text-transform: uppercase;
+  text-transform: none;
   color: var(--text-secondary);
-  letter-spacing: 0.5px;
+  letter-spacing: normal;
 }
 
 .text-input,
@@ -1425,7 +1468,7 @@ body.panel-root {
   border-radius: 4px;
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .text-input:focus,
@@ -1439,7 +1482,7 @@ body.panel-root {
 }
 
 .error-message {
-  font-size: 11px;
+  font-size: 12px;
   color: #de350b;
 }
 
@@ -1464,7 +1507,7 @@ body.panel-root {
   background: none;
   border: none;
   color: var(--accent-color);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   padding: 0;
@@ -1485,7 +1528,7 @@ body.panel-root {
 .header-name-input {
   width: 140px;
   padding: 4px 6px;
-  font-size: 11px;
+  font-size: 12px;
   border: 1px solid var(--border-color);
   border-radius: 3px;
   background-color: var(--bg-primary);
@@ -1495,7 +1538,7 @@ body.panel-root {
 .header-value-input {
   flex: 1;
   padding: 4px 6px;
-  font-size: 11px;
+  font-size: 12px;
   border: 1px solid var(--border-color);
   border-radius: 3px;
   background-color: var(--bg-primary);
@@ -1506,7 +1549,7 @@ body.panel-root {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   padding: 2px 6px;
 }
@@ -1534,7 +1577,7 @@ body.panel-root {
   border: 1px solid #ffc400;
   border-radius: 4px;
   color: #ff8b00;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -1555,7 +1598,7 @@ body.panel-root {
 }
 
 .body-size-info {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-primary);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
@@ -1606,7 +1649,7 @@ body.panel-root {
   padding: 16px;
   color: var(--text-muted);
   text-align: center;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 
@@ -1646,7 +1689,7 @@ body.panel-root {
   border: none;
   background: var(--bg-primary);
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
 }
 
@@ -1661,14 +1704,14 @@ body.panel-root {
 
 .field-help {
   margin: 0 0 6px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-secondary);
   line-height: 1.5;
 }
 
 .field-help code {
   font-family: ui-monospace, Consolas, monospace;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .code-chip {
@@ -1676,7 +1719,7 @@ body.panel-root {
   margin-left: 6px;
   padding: 0 5px;
   border-radius: 3px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   background: var(--bg-secondary);
   color: var(--text-secondary);
@@ -1688,7 +1731,7 @@ body.panel-root {
   margin-left: 6px;
   padding: 0 5px;
   border-radius: 3px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   background: #fffae6;
   color: #6b4700;
@@ -1735,7 +1778,7 @@ body.dark .mock-unreachable,
 
 .seq-step-number {
   font-weight: 600;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-primary);
 }
 
@@ -1743,7 +1786,7 @@ body.dark .mock-unreachable,
   background: none;
   border: none;
   color: #de350b;
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   padding: 0;
 }
@@ -1763,7 +1806,7 @@ body.dark .mock-unreachable,
 
 .seq-body-textarea {
   font-family: ui-monospace, Menlo, Monaco, Consolas, monospace;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.4;
   resize: vertical;
 }
@@ -1778,7 +1821,7 @@ body.dark .mock-unreachable,
 .seq-step-add-btn {
   padding: 6px 12px;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
@@ -1803,7 +1846,7 @@ body.dark .mock-unreachable,
   margin: 0 0 8px;
   padding: 6px 8px;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 13px;
   color: #bf2600;
   background: #ffebe6;
   border: 1px solid #ffbdad;
@@ -1816,7 +1859,7 @@ body.dark .mock-unreachable,
 }
 
 .detail-answered-by {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-secondary);
   line-height: 1.4;
 }
@@ -1829,7 +1872,7 @@ body.dark .mock-unreachable,
   font-weight: 600;
   text-decoration: underline;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   font-family: inherit;
   display: inline;
 }
@@ -1847,7 +1890,7 @@ body.dark .mock-unreachable,
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .test-bar-row {
@@ -1859,7 +1902,7 @@ body.dark .mock-unreachable,
 .test-method-select {
   height: 28px;
   padding: 2px 6px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   border-radius: 4px;
   border: 1px solid var(--border-color);
@@ -1872,7 +1915,7 @@ body.dark .mock-unreachable,
   flex: 1;
   height: 28px;
   padding: 4px 8px;
-  font-size: 12px;
+  font-size: 13px;
   border-radius: 4px;
   border: 1px solid var(--border-color);
   background: var(--bg-primary);
@@ -1890,14 +1933,14 @@ body.dark .mock-unreachable,
 .test-headers-toggle-btn {
   height: 28px;
   padding: 0 10px;
-  font-size: 12px;
+  font-size: 13px;
   white-space: nowrap;
 }
 
 .test-run-btn {
   height: 28px;
   padding: 0 12px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .test-headers-row {
@@ -1908,7 +1951,7 @@ body.dark .mock-unreachable,
   width: 100%;
   height: 44px;
   padding: 4px 8px;
-  font-size: 11px;
+  font-size: 12px;
   font-family: ui-monospace, Consolas, monospace;
   border-radius: 4px;
   border: 1px solid var(--border-color);
@@ -1925,7 +1968,7 @@ body.dark .mock-unreachable,
   width: 100%;
   height: 48px;
   padding: 4px 8px;
-  font-size: 11px;
+  font-size: 12px;
   font-family: ui-monospace, Consolas, monospace;
   border-radius: 4px;
   border: 1px solid var(--border-color);
@@ -1937,7 +1980,7 @@ body.dark .mock-unreachable,
 .test-url-error {
   color: #de350b;
   font-weight: 500;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .dark .test-url-error {
@@ -1947,7 +1990,7 @@ body.dark .mock-unreachable,
 .test-nomatch {
   color: var(--text-secondary);
   font-style: italic;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .test-result {
@@ -1960,7 +2003,7 @@ body.dark .mock-unreachable,
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-primary);
 }
 
@@ -1976,7 +2019,7 @@ body.dark .mock-unreachable,
   font-weight: 600;
   text-decoration: underline;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .test-open-btn:hover {
@@ -1987,7 +2030,7 @@ body.dark .mock-unreachable,
   display: inline-block;
   padding: 1px 6px;
   border-radius: 3px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   background: var(--chip-bg);
   color: var(--chip-text);
@@ -1997,7 +2040,7 @@ body.dark .mock-unreachable,
 .test-running {
   color: var(--text-secondary);
   font-style: italic;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .test-reply {
@@ -2009,7 +2052,7 @@ body.dark .mock-unreachable,
   flex-direction: column;
   gap: 4px;
   font-family: ui-monospace, Consolas, monospace;
-  font-size: 11px;
+  font-size: 12px;
   max-height: 120px;
   overflow-y: auto;
 }
@@ -2017,7 +2060,7 @@ body.dark .mock-unreachable,
 .test-error {
   padding: 4px 6px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: #bf2600;
   background: #ffebe6;
@@ -2038,7 +2081,7 @@ body.dark .mock-unreachable,
 .test-headers {
   color: var(--text-secondary);
   white-space: pre-wrap;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .test-body-out {
@@ -2066,7 +2109,7 @@ body.dark .mock-unreachable,
 
 .socket-section-header h4 {
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   text-transform: uppercase;
   color: var(--text-secondary);
@@ -2112,7 +2155,7 @@ body.dark .mock-unreachable,
 
 .push-remove-btn {
   padding: 4px 8px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .reply-row {
@@ -2147,7 +2190,7 @@ body.dark .mock-unreachable,
 
 .reply-remove-btn {
   padding: 4px 8px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .reply-body-group {
@@ -2157,12 +2200,12 @@ body.dark .mock-unreachable,
 
 .code-textarea {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 11px;
+  font-size: 12px;
   resize: vertical;
 }
 
 .field-help-text {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-secondary);
   margin-top: 4px;
 }
@@ -2190,7 +2233,7 @@ body.dark .mock-unreachable,
 
 .btn-sm {
   padding: 2px 6px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 /* Match conditions (Spec A11) */
@@ -2200,7 +2243,7 @@ body.dark .mock-unreachable,
   border-radius: 4px;
   color: var(--accent-color);
   padding: 6px 12px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   text-align: left;
@@ -2248,7 +2291,7 @@ body.dark .mock-unreachable,
 .match-row .text-input {
   flex: 1;
   padding: 4px 6px;
-  font-size: 11px;
+  font-size: 12px;
   font-family: ui-monospace, Consolas, monospace;
 }
 
@@ -2257,7 +2300,7 @@ body.dark .mock-unreachable,
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   padding: 4px 6px;
   line-height: 1;
   border-radius: 3px;
@@ -2271,7 +2314,7 @@ body.dark .mock-unreachable,
 .match-body-textarea {
   width: 100%;
   font-family: ui-monospace, Consolas, monospace;
-  font-size: 11px;
+  font-size: 12px;
   resize: vertical;
 }
 
@@ -2284,7 +2327,7 @@ body.dark .mock-unreachable,
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--text-primary);
   cursor: pointer;
@@ -2324,7 +2367,7 @@ body.dark .mock-unreachable,
 .patch-row .text-input {
   flex: 1;
   padding: 4px 6px;
-  font-size: 11px;
+  font-size: 12px;
   font-family: ui-monospace, Consolas, monospace;
 }
 
@@ -2338,7 +2381,7 @@ body.dark .mock-unreachable,
 
 .test-patch-title {
   font-weight: 600;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-primary);
   margin-bottom: 4px;
 }
@@ -2346,7 +2389,7 @@ body.dark .mock-unreachable,
 .test-patch-lines {
   margin: 0;
   padding-left: 18px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-secondary);
   font-family: ui-monospace, Consolas, monospace;
 }
@@ -2373,14 +2416,14 @@ body.dark .mock-unreachable,
   flex: 1;
   height: 28px;
   padding: 4px 8px;
-  font-size: 12px;
+  font-size: 13px;
   font-family: ui-monospace, Consolas, monospace;
 }
 
 .code-run-btn {
   height: 28px;
   padding: 0 12px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
 }
@@ -2393,7 +2436,7 @@ body.dark .mock-unreachable,
   width: 100%;
   height: 48px;
   padding: 4px 8px;
-  font-size: 11px;
+  font-size: 12px;
   font-family: ui-monospace, Consolas, monospace;
   resize: vertical;
 }
@@ -2401,7 +2444,7 @@ body.dark .mock-unreachable,
 .code-run-error {
   padding: 6px 8px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   font-family: ui-monospace, Consolas, monospace;
   color: #bf2600;
@@ -2423,7 +2466,7 @@ body.dark .mock-unreachable,
   border: 1px solid var(--border-color);
   color: var(--text-primary);
   font-family: ui-monospace, Consolas, monospace;
-  font-size: 11px;
+  font-size: 12px;
   max-height: 140px;
   overflow-y: auto;
   white-space: pre-wrap;
@@ -2433,7 +2476,7 @@ body.dark .mock-unreachable,
 /* A39: Header rules & request headers styles */
 .header-changed-marker {
   display: inline-block;
-  font-size: 10px;
+  font-size: 11px;
   color: var(--accent-color);
   margin-left: 6px;
 }
@@ -2466,7 +2509,7 @@ body.dark .mock-unreachable,
 }
 
 .header-rules-help {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-secondary);
 }
 
@@ -2504,7 +2547,7 @@ body.dark .mock-unreachable,
   border: 1px solid var(--border-color);
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -2518,7 +2561,7 @@ body.dark .mock-unreachable,
   border: 1px solid var(--border-color);
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .hrule-remove-btn {
@@ -2542,7 +2585,7 @@ body.dark .mock-unreachable,
 }
 
 .hrule-error {
-  font-size: 11px;
+  font-size: 12px;
   color: #de350b;
 }
 
@@ -2550,6 +2593,111 @@ body.dark .mock-unreachable,
   color: #ff8f73;
 }
 
+/* ---------------------------------------------------------------------------------------------
+   The panel's frame: one header row, a left rail for Log and Mocks, messages at the bottom,
+   and the dialogs and menus the header opens. Sizes and colours follow the approved mock-up.
+   --------------------------------------------------------------------------------------------- */
+.wm .ico { width: 16px; height: 16px; flex: none; }
+.wm :focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
 
+.hdr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  row-gap: 6px;
+  padding: 6px 10px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  flex: none;
+}
+.hdr .brand { margin: 0; display: flex; align-items: center; gap: 7px; font-weight: 700; font-size: 15px; white-space: nowrap; }
+.hdr .brand img { width: 22px; height: 22px; border-radius: 6px; }
+.hdr .proj { height: 30px; max-width: 200px; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: 6px;
+  background: var(--bg-primary); color: var(--text-primary); font: inherit; }
+.hdr .grow { flex: 1; }
 
+.wm .btn { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 6px;
+  border: 1px solid var(--line-strong); background: var(--bg-primary); color: var(--text-primary); font: inherit;
+  cursor: pointer; white-space: nowrap; }
+.wm .btn:hover { background: var(--bg-hover); }
+.wm .btn.blue { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); }
+.wm .btn.blue:hover { background: var(--brand-hover); }
+.wm .btn.beak { background: var(--beak); border-color: var(--beak); color: var(--beak-ink); font-weight: 600; }
+.wm .btn.beak:hover { background: var(--beak-hover); }
+.wm .btn.red-btn { background: var(--danger); border-color: var(--danger); color: #fff; }
+.wm .btn.sm { height: 26px; padding: 0 9px; font-size: 12px; }
+.wm .ibtn { position: relative; display: inline-grid; place-items: center; width: 30px; height: 30px; padding: 0;
+  border-radius: 6px; border: 1px solid transparent; background: transparent; color: var(--muted); cursor: pointer; }
+.wm .ibtn:hover { background: var(--bg-hover); border-color: var(--line); color: var(--text-primary); }
+.wm .ibtn.boxed { border-color: var(--line-strong); background: var(--bg-primary); color: var(--text-primary); }
+.wm .ibtn.red, .wm .ibtn.boxed.red { color: var(--danger); }
+.wm .ibtn.boxed.red { border-color: var(--danger); }
+.wm .ibtn.red:hover { background: var(--danger-soft); border-color: var(--danger); }
+.wm .ibtn.solid-blue { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); }
+.wm .ibtn.solid-blue:hover { background: var(--brand-hover); }
+.wm .ibtn:disabled { opacity: .35; cursor: default; }
 
+.hdr .toggle { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 6px;
+  border: 1px solid var(--line-strong); background: var(--bg-primary); color: var(--text-primary); font: inherit; cursor: pointer; }
+.hdr .toggle .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.hdr .toggle.rec[aria-pressed="true"] { border-color: var(--danger); color: var(--danger); background: var(--danger-soft); }
+.hdr .toggle.con[aria-pressed="true"] { border-color: var(--brand); color: var(--brand); background: var(--brand-soft); }
+.hdr .power[aria-pressed="true"] { color: var(--s2); border-color: var(--s2); }
+
+/* body: the rail, then the open view */
+.wm .panel-body { display: flex; flex: 1; min-height: 0; }
+.wm .rail { display: flex; flex-direction: column; gap: 4px; width: 64px; flex: none; padding: 8px 6px;
+  background: var(--bg-secondary); border-right: 1px solid var(--border-color); }
+.wm .rail button { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 2px; border: 0;
+  border-radius: 8px; background: transparent; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
+.wm .rail button .ico { width: 20px; height: 20px; }
+.wm .rail button:hover { background: var(--bg-hover); color: var(--text-primary); }
+.wm .rail button[aria-current="page"] { background: var(--brand-soft); color: var(--brand); font-weight: 600; }
+.wm .rail .count { font-size: 11px; color: var(--faint); font-weight: 400; }
+/* The open view must not grow past the panel, or no list inside it can scroll. */
+.wm .panel-main-area { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+.wm .panel-main-area > .panel-main-content { flex: 1; min-height: 0; }
+
+/* menus */
+.wm .menu { background: var(--bg-primary); border: 1px solid var(--line-strong); border-radius: 8px; box-shadow: var(--shadow);
+  padding: 4px; min-width: 220px; }
+.wm .menu button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px; border: 0; border-radius: 6px;
+  background: transparent; color: var(--text-primary); font: inherit; text-align: left; cursor: pointer; }
+.wm .menu button:hover, .wm .menu button:focus-visible { background: var(--brand-soft); }
+.wm .menu .hint { display: block; color: var(--muted); font-size: 12px; }
+
+/* messages */
+.wm .toasts { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; flex-direction: column;
+  align-items: center; gap: 6px; z-index: 60; pointer-events: none; width: max-content; max-width: calc(100% - 24px); }
+.wm .toast { pointer-events: auto; display: flex; align-items: center; gap: 12px; padding: 8px 10px 8px 12px; border-radius: 8px;
+  background: var(--ink); color: var(--surface); box-shadow: var(--shadow); animation: wm-rise .18s ease-out; }
+.wm .toast .ok { display: flex; color: #5fd08a; }
+.wm .toast.toast-error { background: var(--danger); color: #fff; }
+.wm .toast .undo-btn { border: 0; background: transparent; color: #8bb1ff; font: inherit; font-weight: 700; cursor: pointer; padding: 2px 4px; }
+@keyframes wm-rise { from { transform: translateY(8px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .wm .toast { animation: none; } }
+
+/* dialogs */
+.wm .scrim { position: absolute; inset: 0; z-index: 70; display: grid; place-items: center; padding: 12px; background: rgba(10, 15, 25, .35); }
+.wm .dialog { width: min(460px, 100%); max-height: 100%; overflow: auto; background: var(--bg-primary); color: var(--text-primary);
+  border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: var(--shadow); }
+.wm .dialog header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--line); }
+.wm .dialog h2 { margin: 0; font-size: 15px; }
+.wm .dialog .db { padding: 14px 16px; }
+.wm .dialog footer { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--line); }
+.wm .drop { border: 2px dashed var(--line-strong); border-radius: 10px; padding: 20px; text-align: center; color: var(--muted); }
+.wm .drop.over { border-color: var(--brand); background: var(--brand-soft); }
+.wm .drop .ico { width: 28px; height: 28px; color: var(--brand); }
+.wm .kinds { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 10px; }
+.wm .kinds span { border: 1px solid var(--line); border-radius: 12px; padding: 1px 9px; font-size: 12px; }
+.wm .found { display: flex; align-items: center; gap: 10px; padding: 10px; margin-bottom: 12px; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--bg-secondary); }
+.wm .found .ico { width: 22px; height: 22px; color: var(--brand); }
+.wm .radio { display: flex; align-items: flex-start; gap: 8px; padding: 8px; border-radius: 6px; cursor: pointer;
+  font-weight: 400; color: var(--text-primary); }
+.wm .radio:hover { background: var(--bg-hover); }
+.wm .radio input { margin-top: 3px; accent-color: var(--brand); }
+.wm .radio.danger { color: var(--danger); }
+.wm .radio-hint { display: block; margin: -6px 0 6px 30px; color: var(--muted); font-size: 12px; }
+.wm .import-error-text { color: var(--danger); margin: 0 0 10px; }

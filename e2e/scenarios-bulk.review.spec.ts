@@ -140,7 +140,8 @@ test('Delete all keeps only Default, emptied, and Undo restores everything', asy
 test('Clear all in the toolbar does the same, and the Undo bar goes after 10 s', async () => {
   const { page, panel } = await openMocks();
   try {
-    await panel.getByTestId('clear-all').click();
+    await panel.getByTestId('delete-all').click();
+    await panel.getByTestId('confirm-ok').click();
     await expect.poll(names).toEqual(['Default']);
     await expect(panel.getByTestId('undo-bar')).toBeVisible();
     await panel.waitForTimeout(8000);
@@ -168,12 +169,13 @@ function fileProject(): Project {
 }
 
 async function chooseFile(panel: Page) {
+  if (!(await panel.getByTestId('import-dialog').isVisible())) await panel.getByTestId('import-open').click();
   await panel.getByTestId('import').setInputFiles({
     name: 'mocks.json',
     mimeType: 'application/json',
     buffer: Buffer.from(exportProject(fileProject())),
   });
-  await expect(panel.getByTestId('import-choice')).toBeVisible();
+  await expect(panel.getByTestId('import-found')).toBeVisible();
 }
 
 test('Import asks first; Cancel changes nothing', async () => {
@@ -183,7 +185,7 @@ test('Import asks first; Cancel changes nothing', async () => {
     // Nothing is stored before a choice.
     expect((await readState()).projects).toEqual([project()]);
     await panel.getByTestId('import-cancel').click();
-    await expect(panel.getByTestId('import-choice')).toHaveCount(0);
+    await expect(panel.getByTestId('import-found')).toHaveCount(0);
     expect((await readState()).projects).toEqual([project()]);
   } finally {
     await panel.close();
@@ -196,6 +198,7 @@ test('Import, Add to my mocks: one project, file mocks appended, names kept apar
   try {
     await chooseFile(panel);
     await panel.getByTestId('import-add').click();
+    await panel.getByTestId('import-confirm').click();
     await expect.poll(names).toEqual(['Default', 'Alpha', 'Beta', 'Gamma', 'Beta (2)', 'Zeta']);
     const s = await readState();
     expect(s.projects).toHaveLength(1);
@@ -203,7 +206,7 @@ test('Import, Add to my mocks: one project, file mocks appended, names kept apar
     expect(s.projects[0]!.origins).toEqual([fixture.origin]);
     expect(s.projects[0]!.scenarios[0]!.mocks.map((m) => m.urlPattern)).toEqual(['/api/d1', '/api/d2', '/api/from-file']);
     await expect(panel.getByTestId('import-summary')).toBeVisible();
-    await expect(panel.getByTestId('import-choice')).toHaveCount(0);
+    await expect(panel.getByTestId('import-found')).toHaveCount(0);
   } finally {
     await panel.close();
     await page.close();
@@ -215,6 +218,7 @@ test('Import, Replace all: same project, the file scenarios, no old project left
   try {
     await chooseFile(panel);
     await panel.getByTestId('import-replace').click();
+    await panel.getByTestId('import-confirm').click();
     await expect.poll(names).toEqual(['Default', 'Beta', 'Zeta']);
     const s = await readState();
     expect(s.projects).toHaveLength(1);
@@ -245,9 +249,11 @@ test('a mock file also asks, and Replace all uses it', async () => {
       mocks: [{ id: 'm1', name: 'One', method: 'GET', url: '/api/imported', status: 200, response: '{"m":1}', delay: 0,
         active: true, dynamic: false, description: '', headers: {} }],
     };
+    if (!(await panel.getByTestId('import-dialog').isVisible())) await panel.getByTestId('import-open').click();
     await panel.getByTestId('import').setInputFiles({ name: 'mocks.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
-    await expect(panel.getByTestId('import-choice')).toBeVisible();
+    await expect(panel.getByTestId('import-found')).toBeVisible();
     await panel.getByTestId('import-replace').click();
+    await panel.getByTestId('import-confirm').click();
     await expect.poll(async () => (await readState()).projects[0]!.scenarios.flatMap((sc) => sc.mocks.map((m) => m.urlPattern))).toEqual(['/api/imported']);
     expect((await readState()).projects).toHaveLength(1);
   } finally {
@@ -259,9 +265,10 @@ test('a mock file also asks, and Replace all uses it', async () => {
 test('a bad file shows the error and asks nothing', async () => {
   const { page, panel } = await openMocks();
   try {
+    if (!(await panel.getByTestId('import-dialog').isVisible())) await panel.getByTestId('import-open').click();
     await panel.getByTestId('import').setInputFiles({ name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('{"nope":1}') });
     await expect(panel.getByTestId('import-error')).toBeVisible();
-    await expect(panel.getByTestId('import-choice')).toHaveCount(0);
+    await expect(panel.getByTestId('import-found')).toHaveCount(0);
     expect((await readState()).projects).toEqual([project()]);
   } finally {
     await panel.close();
@@ -308,6 +315,7 @@ test('a broken wemock file says what is wrong with it', async () => {
     const file = JSON.parse(exportProject(fileProject()));
     const text = JSON.stringify(file).replace('"createdAt":0', '"createdAt":"soon"');
     expect(text).toContain('"createdAt":"soon"');
+    if (!(await panel.getByTestId('import-dialog').isVisible())) await panel.getByTestId('import-open').click();
     await panel.getByTestId('import').setInputFiles({ name: 'broken.json', mimeType: 'application/json', buffer: Buffer.from(text) });
     await expect(panel.getByTestId('import-error')).toContainText('createdAt');
   } finally {

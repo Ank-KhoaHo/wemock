@@ -52,10 +52,10 @@ test('a HAR file becomes a scenario that answers the page', async () => {
   try {
     await panel.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
     await panel.getByTestId('tab-mocks').click();
+    if (!(await panel.getByTestId('import-dialog').isVisible())) await panel.getByTestId('import-open').click();
     await panel.getByTestId('import').setInputFiles({ name: 'session.har', mimeType: 'application/json', buffer: harFile(fixture.origin) });
-    await expect(panel.getByTestId('import-choice')).toBeVisible();
-    await panel.getByTestId('import-replace').click();
-    await expect(panel.getByTestId('import-summary')).toHaveText('2 mocks from 2 calls (1 skipped)');
+    // The project has no mocks yet, so the import adds without asking.
+    await expect(panel.getByTestId('import-summary')).toContainText('2 mocks from 2 calls (1 skipped)');
 
     const p = (await readState()).projects[0]!;
     expect(p.id).toBe('p1');
@@ -81,8 +81,10 @@ test('Add keeps my scenarios and adds the HAR one', async () => {
   try {
     await panel.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
     await panel.getByTestId('tab-mocks').click();
+    if (!(await panel.getByTestId('import-dialog').isVisible())) await panel.getByTestId('import-open').click();
     await panel.getByTestId('import').setInputFiles({ name: 'b.har', mimeType: 'application/json', buffer: harFile(fixture.origin) });
     await panel.getByTestId('import-add').click();
+    await panel.getByTestId('import-confirm').click();
     await expect.poll(async () => (await readState()).projects[0]!.scenarios.map((s) => s.name)).toEqual(['Default', 'Mine', 'HAR b.har']);
   } finally {
     await panel.close();

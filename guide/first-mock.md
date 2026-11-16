@@ -6,7 +6,7 @@ In an empty Mocks tab, click **Load the sample** (or **Sample** in the toolbar, 
 adds a small shop to your site's project: products, a cart with a coupon condition, a stock level
 from code, an order status sequence, a Change real mock, a streamed assistant reply, a SignalR
 order hub, and the scenarios "Checkout down" and "Slow network". It never replaces your mocks,
-and Undo takes it away. Try `GET /api/products/42` in the [Test bar](checking.md).
+and Undo takes it away. Open your app and watch the [Log](checking.md) say which mock answered.
 
 ## Read the Log
 

@@ -131,59 +131,6 @@ test.describe('A9: socket rows', () => {
   });
 });
 
-test.describe('A9: the Test bar never shows an old result', () => {
-  async function runTest(panel: Page) {
-    await panel.getByTestId('tab-mocks').click();
-    await panel.getByTestId('test-method').selectOption('GET');
-    await panel.getByTestId('test-url').fill('/api/named');
-    await panel.getByTestId('test-run').click();
-    await expect(panel.getByTestId('test-status')).toBeVisible();
-  }
-
-  test('switching the active scenario clears the result', async () => {
-    const { page, panel } = await openBoth();
-    try {
-      await runTest(panel);
-      await panel.getByTestId('scenario-chip').filter({ hasText: 'Second' }).first().click();
-      await expect.poll(async () => (await readState()).projects[0]!.activeScenarioId).toBe('sc2');
-      await expect(panel.getByTestId('test-status')).toHaveCount(0);
-      await expect(panel.getByTestId('test-match')).toHaveCount(0);
-      await expect(panel.getByTestId('test-nomatch')).toHaveCount(0);
-      // The URL stays, so Test can be pressed again.
-      await expect(panel.getByTestId('test-url')).toHaveValue('/api/named');
-    } finally {
-      await panel.close();
-      await page.close();
-    }
-  });
-
-  test('turning a mock off clears the result', async () => {
-    const { page, panel } = await openBoth();
-    try {
-      await runTest(panel);
-      await panel.getByTestId('mock-row').filter({ hasText: 'Named one' }).getByTestId('mock-enabled').uncheck();
-      await expect.poll(async () => (await readState()).projects[0]!.scenarios[0]!.mocks[0]!.enabled).toBe(false);
-      await expect(panel.getByTestId('test-status')).toHaveCount(0);
-      await expect(panel.getByTestId('test-match')).toHaveCount(0);
-    } finally {
-      await panel.close();
-      await page.close();
-    }
-  });
-
-  test('a result survives when nothing changed', async () => {
-    const { page, panel } = await openBoth();
-    try {
-      await runTest(panel);
-      await panel.waitForTimeout(500);
-      await expect(panel.getByTestId('test-status')).toBeVisible();
-    } finally {
-      await panel.close();
-      await page.close();
-    }
-  });
-});
-
 test.describe('A10: Answered by', () => {
   test('a MOCK row names its mock and scenario, and the link opens it', async () => {
     const { page, panel } = await openBoth();

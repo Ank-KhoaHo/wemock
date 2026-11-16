@@ -45,7 +45,7 @@ test('the empty Mocks tab offers the sample; it serves the page, and Undo takes 
     for (const name of ['Default', 'Checkout down', 'Slow network']) {
       await expect(panel.getByTestId('scenario-chip').filter({ hasText: name })).toHaveCount(1);
     }
-    await expect(panel.getByTestId('sample-tip')).toHaveText('Try it in the Test bar: GET /api/products/42');
+    await expect(panel.getByTestId('undo-bar')).toContainText('Sample loaded: a small shop with 3 scenarios');
     await expect(panel.getByTestId('mocks-empty')).toHaveCount(0);
 
     await expect.poll(async () => (await product(page)).status).toBe(200);

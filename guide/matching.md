@@ -53,6 +53,6 @@ The first match answers. Calls no mock matches go to the server.
 A mock that can never answer, because one above it always matches first, gets
 a **Never answers** mark in the list. Hover over it to see which mock wins.
 
-To see the answer for a URL without reloading, use the [Test bar](checking.md).
+To see which mock answered a call, click it in the Log: see [Checking](checking.md).
 
 ← [Scenarios](scenarios.md) · Next: [Replies](replies.md) →

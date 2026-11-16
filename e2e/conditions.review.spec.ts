@@ -151,38 +151,3 @@ test('a mock with no conditions has the section folded; added then emptied rows 
     await page.close();
   }
 });
-
-test('the Test bar takes request headers', async () => {
-  const { page, panel } = await open();
-  try {
-    await panel.getByTestId('tab-mocks').click();
-    await panel.getByTestId('test-method').selectOption('GET');
-    await panel.getByTestId('test-url').fill('/api/items');
-    await panel.getByTestId('test-headers-toggle').click();
-    await panel.getByTestId('test-req-headers').fill('X-Role: admin\nx-other: 1');
-    await panel.getByTestId('test-run').click();
-    await expect(panel.getByTestId('test-match')).toContainText('admin');
-    await panel.getByTestId('test-req-headers').fill('');
-    await panel.getByTestId('test-run').click();
-    await expect(panel.getByTestId('test-match')).toContainText('all');
-  } finally {
-    await panel.close();
-    await page.close();
-  }
-});
-
-test('the Test bar passes its headers to a code mock', async () => {
-  const { page, panel } = await open();
-  try {
-    await panel.getByTestId('tab-mocks').click();
-    await panel.getByTestId('test-method').selectOption('GET');
-    await panel.getByTestId('test-url').fill('/api/who');
-    await panel.getByTestId('test-headers-toggle').click();
-    await panel.getByTestId('test-req-headers').fill('x-user: anna');
-    await panel.getByTestId('test-run').click();
-    await expect(panel.getByTestId('test-body-out')).toContainText('anna');
-  } finally {
-    await panel.close();
-    await page.close();
-  }
-});

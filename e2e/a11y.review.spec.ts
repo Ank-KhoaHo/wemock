@@ -196,27 +196,6 @@ test('Tab moves through the top bar in order and shows a focus ring', async () =
     await page.close();
   }
 });
-
-test('the Test bar keeps request headers folded until asked', async () => {
-  const { page, panel } = await open();
-  try {
-    await panel.getByTestId('tab-mocks').click();
-    await expect(panel.getByTestId('test-req-headers')).toHaveCount(0);
-    await panel.getByTestId('test-headers-toggle').click();
-    await expect(panel.getByTestId('test-req-headers')).toBeVisible();
-    await panel.getByTestId('test-req-headers').fill('x-a: 1');
-    await panel.getByTestId('test-headers-toggle').click();
-    // Folding keeps what was typed, and the toggle says so.
-    await expect(panel.getByTestId('test-req-headers')).toHaveCount(0);
-    await expect(panel.getByTestId('test-headers-toggle')).toContainText('1');
-    await panel.getByTestId('test-headers-toggle').click();
-    await expect(panel.getByTestId('test-req-headers')).toHaveValue('x-a: 1');
-  } finally {
-    await panel.close();
-    await page.close();
-  }
-});
-
 test('Match only when: request headers are named apart, and the body help shows once', async () => {
   const { page, panel } = await open();
   try {

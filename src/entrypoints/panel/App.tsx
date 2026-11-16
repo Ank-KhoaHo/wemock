@@ -6,7 +6,7 @@ import { detectHar, harSummaryText, importHar } from '../../core/harImport';
 import { importMockFile } from '../../core/mockFileImport';
 import { detectOpenApi, importOpenApi, openApiSummaryText, parseSpecText } from '../../core/openapiImport';
 import { ensureProject, mockFromLog, scenarioFromLogs } from '../../core/record';
-import { SAMPLE_TIP, sampleProject } from '../../core/sample';
+import { sampleProject } from '../../core/sample';
 import { isValidStatus } from '../../core/statusText';
 import { projectForOrigin } from '../../core/scenario';
 import { addScenario, clearProject, deleteScenarios, duplicateMock, duplicateScenario, duplicateSocket, mergeProject, replaceProject } from '../../core/scenarioOps';
@@ -20,8 +20,10 @@ import { LogTable } from '../../ui/LogTable';
 import { MockEditor } from '../../ui/MockEditor';
 import { MockList } from '../../ui/MockList';
 import { SocketEditor } from '../../ui/SocketEditor';
-import { TestBar } from '../../ui/TestBar';
 import { TopBar } from '../../ui/TopBar';
+import { ImportDialog, type PendingImport } from '../../ui/ImportDialog';
+import { notify, ToastContainer } from '../../ui/Toasts';
+import { LogIcon, MocksIcon } from '../../ui/icons';
 import { PanelErrorBoundary } from '../../ui/PanelErrorBoundary';
 import { useTabLog, useWemockState } from '../../ui/useWemockState';
 
@@ -74,84 +76,26 @@ export default function App() {
   const [selectedScenarioId, setSelectedScenarioId] = useState<string>('default');
   const [selectedMockId, setSelectedMockId] = useState<string | null>(null);
   const [selectedSocketId, setSelectedSocketId] = useState<string | null>(null);
-  const [importSummary, setImportSummary] = useState<string | null>(null);
-  const [importError, setImportError] = useState<string | null>(null);
-  const [pendingImport, setPendingImport] = useState<{
-    fileName: string;
-    kind: 'project' | 'scenario';
-    importedProject?: Project;
-    importedScenario?: Scenario;
-    summaryText: string;
-  } | null>(null);
+  // The note under Save as HAR in the Log: what the saved file left out.
   const [harSkippedNote, setHarSkippedNote] = useState<string | null>(null);
-  const [undoInfo, setUndoInfo] = useState<{
-    project: Project;
-    message: string;
-  } | null>(null);
-  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [sampleTip, setSampleTip] = useState<string | null>(null);
-  const sampleTipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
-  const clearSampleTip = useCallback(() => {
-    if (sampleTipTimerRef.current) {
-      clearTimeout(sampleTipTimerRef.current);
-      sampleTipTimerRef.current = null;
-    }
-    setSampleTip(null);
-  }, []);
-
-  const showSampleTip = useCallback(() => {
-    if (sampleTipTimerRef.current) {
-      clearTimeout(sampleTipTimerRef.current);
-    }
-    setSampleTip(SAMPLE_TIP);
-    sampleTipTimerRef.current = setTimeout(() => {
-      setSampleTip(null);
-      sampleTipTimerRef.current = null;
-    }, 10000);
-  }, []);
-
-  useEffect(() => {
-    if (!sampleTip) return;
-
-    const onAction = () => {
-      clearSampleTip();
-    };
-
-    const attachTimer = setTimeout(() => {
-      window.addEventListener('click', onAction, { capture: true, once: true });
-      window.addEventListener('keydown', onAction, { capture: true, once: true });
-    }, 50);
-
-    return () => {
-      clearTimeout(attachTimer);
-      window.removeEventListener('click', onAction, { capture: true });
-      window.removeEventListener('keydown', onAction, { capture: true });
-    };
-  }, [sampleTip, clearSampleTip]);
-
-  const triggerUndo = (snapshot: Project, message: string) => {
-    if (undoTimerRef.current) {
-      clearTimeout(undoTimerRef.current);
-      undoTimerRef.current = null;
-    }
-    setUndoInfo({ project: snapshot, message });
-    undoTimerRef.current = setTimeout(() => {
-      setUndoInfo(null);
-      undoTimerRef.current = null;
-    }, 10000);
+  const triggerUndo = (snapshot: Project, message: string, testId?: string) => {
+    notify(message, {
+      undo: () => {
+        update((s) => ({
+          ...s,
+          projects: s.projects.map((p) => (p.id === snapshot.id ? snapshot : p)),
+        })).catch(() => {});
+        setSelectedScenarioId(
+          snapshot.activeScenarioId || snapshot.scenarios[0]?.id || 'default',
+        );
+        setSelectedMockId(null);
+        setSelectedSocketId(null);
+      },
+      testId,
+    });
   };
-
-  useEffect(() => {
-    return () => {
-      if (undoTimerRef.current) {
-        clearTimeout(undoTimerRef.current);
-      }
-      if (sampleTipTimerRef.current) {
-        clearTimeout(sampleTipTimerRef.current);
-      }
-    };
-  }, []);
   // applyTheme() (panel/main.tsx) sets the class; this follows it.
   const isDark = useIsDark();
 
@@ -660,23 +604,27 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `wemock-${project.name}.json`;
+    const fileName = `wemock-${project.name}.json`;
+    a.download = fileName;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+    notify(`Saved ${fileName}`);
   };
 
   const handleExportScenario = (scenarioId: string) => {
     if (!project) return;
-    const sc = project.scenarios.find((s) => s.id === scenarioId);
+    const sc = project.scenarios.find((s) => s.id === scenarioId) || project.scenarios[0];
     if (!sc) return;
     const jsonText = exportScenario(sc);
     const blob = new Blob([jsonText], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `wemock-${sc.name}.json`;
+    const fileName = `wemock-${sc.name}.json`;
+    a.download = fileName;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+    notify(`Saved ${fileName}`);
   };
 
   const handleDuplicateScenario = (scenarioId: string) => {
@@ -755,211 +703,42 @@ export default function App() {
     }
   };
 
-  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImportSummary(null);
-    setImportError(null);
-
-    try {
-      const text = await file.text();
-
-      // Check if it's a wemock scenario file
-      const scenarioResult = parseScenarioFile(text);
-      if (scenarioResult.ok) {
-        const sc = scenarioResult.scenario;
-        if (!project) {
-          const originToClaim = tabOrigin;
-          const newP = newProject(newId(), originToClaim || 'http://localhost');
-          newP.scenarios = [{ ...sc, id: newId() }];
-          newP.activeScenarioId = newP.scenarios[0]!.id;
-          await update((s) => ({
-            ...s,
-            projects: [...s.projects, newP],
-          }));
-          setSelectedProjectId(newP.id);
-          setSelectedScenarioId(newP.scenarios[0]!.id);
-          setSelectedMockId(null);
-          setSelectedSocketId(null);
-          setImportSummary(`Scenario ${sc.name} added`);
-          return;
-        }
-
-        setPendingImport({
-          fileName: file.name,
-          kind: 'scenario',
-          importedScenario: sc,
-          summaryText: `Scenario ${sc.name} added`,
-        });
-        return;
-      }
-
-      let importedProject: Project | null = null;
-      let summaryText = '';
-
-      // Try parseProjectFile
-      const wemockResult = parseProjectFile(text);
-      if (wemockResult.ok) {
-        const p = wemockResult.project;
-        const totalMocks = p.scenarios.reduce((acc, sc) => acc + sc.mocks.length, 0);
-        importedProject = {
-          ...p,
-          id: newId(),
-        };
-        summaryText = formatImportSummary({ mocks: totalMocks });
-      } else {
-        const parsed = parseSpecText(text);
-        if (!parsed || typeof parsed !== 'object') {
-          setImportError(
-            'Unrecognized file format: expected wemock, HAR, OpenAPI or a JSON mock file',
-          );
-          setPendingImport(null);
-          e.target.value = '';
-          return;
-        }
-
-        if ('wemock' in parsed) {
-          const err =
-            (parsed as { wemock?: unknown }).wemock === 'scenario'
-              ? scenarioResult.error
-              : wemockResult.error;
-          setImportError(err);
-          setPendingImport(null);
-          e.target.value = '';
-          return;
-        }
-
-        if (detectHar(parsed)) {
-          const originToUse = tabOrigin || project?.origins[0] || '';
-          const harResult = importHar(parsed, file.name, originToUse, newId, Date.now());
-          if (harResult.ok) {
-            importedProject = harResult.result.project;
-            summaryText = harSummaryText(harResult.result.summary);
-          } else {
-            setImportError(harResult.error);
-            setPendingImport(null);
-            e.target.value = '';
-            return;
-          }
-        } else if (detectOpenApi(parsed)) {
-          const originToUse = tabOrigin || project?.origins[0] || '';
-          const openApiResult = importOpenApi(parsed, originToUse, newId, Date.now());
-          if (openApiResult.ok) {
-            importedProject = openApiResult.result.project;
-            summaryText = openApiSummaryText(openApiResult.result.summary);
-          } else {
-            setImportError(openApiResult.error);
-            setPendingImport(null);
-            e.target.value = '';
-            return;
-          }
-        } else {
-          const fileResult = importMockFile(parsed, tabOrigin, newId, Date.now());
-          if (fileResult.ok) {
-            importedProject = fileResult.result.project;
-            summaryText = formatImportSummary(fileResult.result.summary);
-          } else {
-            setImportError(
-              'Unrecognized file format: expected wemock, HAR, OpenAPI or a JSON mock file',
-            );
-            setPendingImport(null);
-            e.target.value = '';
-            return;
-          }
-        }
-      }
-
-      if (!importedProject) {
-        e.target.value = '';
-        return;
-      }
-
-      if (!project) {
-        // When there is no current project at all, keep today's behaviour (create one) without asking.
-        const originToClaim = tabOrigin;
-        const projectToInsert: Project = {
-          ...importedProject,
-          origins: originToClaim ? [originToClaim] : importedProject.origins,
-        };
-
-        await update((s) => {
-          const updatedExisting = s.projects.map((p) => {
-            if (!originToClaim) return p;
-            return {
-              ...p,
-              origins: p.origins.filter((o) => o !== originToClaim),
-            };
-          });
-          return {
-            ...s,
-            projects: [...updatedExisting, projectToInsert],
-          };
-        });
-
-        setSelectedProjectId(projectToInsert.id);
-        setSelectedScenarioId(projectToInsert.scenarios[0]?.id ?? 'default');
-        setSelectedMockId(null);
-        setSelectedSocketId(null);
-        setImportSummary(summaryText);
-        return;
-      }
-
-      // Success with existing project: store nothing yet, show import-choice bar
-      setPendingImport({
-        fileName: file.name,
-        kind: 'project',
-        importedProject,
-        summaryText,
-      });
-    } catch (err) {
-      setImportError(err instanceof Error ? err.message : 'Import failed');
-      setPendingImport(null);
-    } finally {
-      e.target.value = '';
-    }
-  };
-
-  const handleImportAdd = async () => {
-    if (!project || !pendingImport) return;
+  const handleImportAdd = async (pending: PendingImport) => {
+    if (!project) return;
     const snapshot = structuredClone(project);
 
-    if (pendingImport.kind === 'scenario' && pendingImport.importedScenario) {
-      const updated = addScenario(project, pendingImport.importedScenario, newId);
+    if (pending.kind === 'scenario' && pending.importedScenario) {
+      const updated = addScenario(project, pending.importedScenario, newId);
       const added = updated.scenarios[updated.scenarios.length - 1];
-      const addedName = added?.name ?? pendingImport.importedScenario.name;
-      setPendingImport(null);
+      const addedName = added?.name ?? pending.importedScenario.name;
 
       await update((s) => ({
         ...s,
         projects: s.projects.map((p) => (p.id === project.id ? updated : p)),
       }));
 
-      setImportSummary(`Scenario ${addedName} added`);
-      triggerUndo(snapshot, 'Import added');
+      triggerUndo(snapshot, `Scenario ${addedName} added`, 'import-summary');
       return;
     }
 
-    if (pendingImport.importedProject) {
-      const merged = mergeProject(project, pendingImport.importedProject, newId);
-      const summary = pendingImport.summaryText;
-      setPendingImport(null);
+    if (pending.importedProject) {
+      const merged = mergeProject(project, pending.importedProject, newId);
+      const summary = pending.summaryText;
 
       await update((s) => ({
         ...s,
         projects: s.projects.map((p) => (p.id === project.id ? merged : p)),
       }));
 
-      setImportSummary(summary);
-      triggerUndo(snapshot, 'Import added');
+      triggerUndo(snapshot, summary, 'import-summary');
     }
   };
 
-  const handleImportReplace = async () => {
-    if (!project || !pendingImport || !pendingImport.importedProject) return;
+  const handleImportReplace = async (pending: PendingImport) => {
+    if (!project || !pending.importedProject) return;
     const snapshot = structuredClone(project);
-    const replaced = replaceProject(project, pendingImport.importedProject);
-    const summary = pendingImport.summaryText;
-    setPendingImport(null);
+    const replaced = replaceProject(project, pending.importedProject);
+    const summary = pending.summaryText;
 
     await update((s) => ({
       ...s,
@@ -969,34 +748,53 @@ export default function App() {
     setSelectedScenarioId(replaced.activeScenarioId || replaced.scenarios[0]?.id || 'default');
     setSelectedMockId(null);
     setSelectedSocketId(null);
-    setImportSummary(summary);
-    triggerUndo(snapshot, 'Import replaced your mocks');
+    triggerUndo(snapshot, summary, 'import-summary');
   };
 
-  const handleImportCancel = () => {
-    setPendingImport(null);
-  };
-
-  const handleUndo = async () => {
-    if (!undoInfo) return;
-    const projectToRestore = undoInfo.project;
-    if (undoTimerRef.current) {
-      clearTimeout(undoTimerRef.current);
-      undoTimerRef.current = null;
+  const handleCreateProjectFromImport = async (pending: PendingImport) => {
+    const originToClaim = tabOrigin;
+    if (pending.kind === 'scenario' && pending.importedScenario) {
+      const newP = newProject(newId(), originToClaim || 'http://localhost');
+      newP.scenarios = [{ ...pending.importedScenario, id: newId() }];
+      newP.activeScenarioId = newP.scenarios[0]!.id;
+      await update((s) => ({
+        ...s,
+        projects: [...s.projects, newP],
+      }));
+      setSelectedProjectId(newP.id);
+      setSelectedScenarioId(newP.scenarios[0]!.id);
+      setSelectedMockId(null);
+      setSelectedSocketId(null);
+      notify(`Scenario ${pending.importedScenario.name} added`);
+      return;
     }
-    setUndoInfo(null);
-    clearSampleTip();
-    await update((s) => ({
-      ...s,
-      projects: s.projects.map((p) =>
-        p.id === projectToRestore.id ? projectToRestore : p,
-      ),
-    }));
-    setSelectedScenarioId(
-      projectToRestore.activeScenarioId || projectToRestore.scenarios[0]?.id || 'default',
-    );
-    setSelectedMockId(null);
-    setSelectedSocketId(null);
+
+    if (pending.importedProject) {
+      const projectToInsert: Project = {
+        ...pending.importedProject,
+        origins: originToClaim ? [originToClaim] : pending.importedProject.origins,
+      };
+
+      await update((s) => {
+        const updatedExisting = s.projects.map((p) => {
+          if (!originToClaim) return p;
+          return {
+            ...p,
+            origins: p.origins.filter((o) => o !== originToClaim),
+          };
+        });
+        return {
+          ...s,
+          projects: [...updatedExisting, projectToInsert],
+        };
+      });
+
+      setSelectedProjectId(projectToInsert.id);
+      setSelectedScenarioId(projectToInsert.scenarios[0]?.id ?? 'default');
+      setSelectedMockId(null);
+      setSelectedSocketId(null);
+      notify(pending.summaryText);
+    }
   };
 
   const handleLoadSample = async () => {
@@ -1023,8 +821,7 @@ export default function App() {
       };
     });
 
-    triggerUndo(snapshot, 'Sample added');
-    showSampleTip();
+    triggerUndo(snapshot, `Sample loaded: a small shop with ${sample.scenarios.length} scenarios`);
   };
 
   const handleClearAll = () => {
@@ -1039,7 +836,7 @@ export default function App() {
     setSelectedScenarioId(updatedProject.scenarios[0]?.id ?? 'default');
     setSelectedMockId(null);
     setSelectedSocketId(null);
-    triggerUndo(snapshot, 'All scenarios cleared');
+    triggerUndo(snapshot, 'Deleted all scenarios and mocks');
   };
 
   const handleDeleteScenarios = (ids: string[]) => {
@@ -1288,8 +1085,15 @@ export default function App() {
     }
   }
 
+  const totalMocks = project
+    ? project.scenarios.reduce(
+        (sum, s) => sum + s.mocks.length + (s.sockets?.length ?? 0),
+        0,
+      )
+    : 0;
+
   return (
-    <div className="panel-container">
+    <div className="panel-container wm">
       <TopBar
         project={project}
         projects={state?.projects ?? []}
@@ -1310,30 +1114,48 @@ export default function App() {
         onToggleEnabled={handleToggleEnabled}
         consoleLog={consoleLog}
         onToggleConsoleLog={handleToggleConsoleLog}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onImportOpen={() => setIsImportOpen(true)}
+        onExportProject={handleExport}
+        onExportActiveScenario={() => {
+          const scId = project?.activeScenarioId || project?.scenarios[0]?.id || 'default';
+          handleExportScenario(scId);
+        }}
+        onLoadSample={handleLoadSample}
       />
 
-      {undoInfo && (
-        <div data-testid="undo-bar" className="undo-bar">
-          <span className="undo-bar-text">{undoInfo.message}</span>
+      <div className="body panel-body">
+        <nav className="rail" aria-label="Views">
           <button
             type="button"
-            data-testid="undo"
-            className="btn-secondary btn-sm"
-            onClick={handleUndo}
+            data-testid="tab-log"
+            className={`rail-btn tab-btn ${activeTab === 'log' ? 'active' : ''}`}
+            aria-current={activeTab === 'log' ? 'page' : undefined}
+            onClick={() => setActiveTab('log')}
           >
-            Undo
+            <LogIcon size={20} className="ico" />
+            <span className="txt">Log</span>
+            <span className="count" data-testid="tab-log-count">{entries.length}</span>
           </button>
-        </div>
-      )}
+          <button
+            type="button"
+            data-testid="tab-mocks"
+            className={`rail-btn tab-btn ${activeTab === 'mocks' ? 'active' : ''}`}
+            aria-current={activeTab === 'mocks' ? 'page' : undefined}
+            onClick={() => setActiveTab('mocks')}
+          >
+            <MocksIcon size={20} className="ico" />
+            <span className="txt">Mocks</span>
+            <span className="count" data-testid="tab-mocks-count">{totalMocks}</span>
+          </button>
+        </nav>
 
-      <PanelErrorBoundary hidden={activeTab !== 'log'}>
-        <div
-          className="panel-main-content"
-          hidden={activeTab !== 'log'}
-          style={{ display: activeTab === 'log' ? undefined : 'none' }}
-        >
+        <main className="main panel-main-area">
+          <PanelErrorBoundary hidden={activeTab !== 'log'}>
+            <div
+              className="panel-main-content"
+              hidden={activeTab !== 'log'}
+              style={{ display: activeTab === 'log' ? undefined : 'none' }}
+            >
         <div className="panel-toolbar">
             <div className="toolbar-left">
               <input
@@ -1534,110 +1356,6 @@ export default function App() {
           hidden={activeTab !== 'mocks'}
           style={{ display: activeTab === 'mocks' ? undefined : 'none' }}
         >
-          {/* Top area: import/export toolbar */}
-          <div className="mocks-toolbar">
-            <div className="mocks-toolbar-actions">
-              <button
-                type="button"
-                data-testid="export"
-                className="btn-secondary"
-                disabled={!project}
-                onClick={handleExport}
-              >
-                Export
-              </button>
-              <div className="file-input-wrapper">
-                <button type="button" className="btn-secondary">
-                  Import
-                </button>
-                <input
-                  type="file"
-                  accept=".json,.har,.yaml,.yml"
-                  data-testid="import"
-                  className="overlay-file-input"
-                  onChange={handleImportFile}
-                />
-              </div>
-              <button
-                type="button"
-                data-testid="sample-load-toolbar"
-                className="btn-secondary"
-                onClick={handleLoadSample}
-              >
-                Sample
-              </button>
-              <button
-                type="button"
-                data-testid="clear-all"
-                className="btn-secondary"
-                disabled={!project}
-                onClick={handleClearAll}
-              >
-                Clear all
-              </button>
-            </div>
-
-            <div className="mocks-toolbar-feedback">
-              {sampleTip && (
-                <div data-testid="sample-tip" className="sample-tip-text">
-                  {sampleTip}
-                </div>
-              )}
-              {importSummary && (
-                <div data-testid="import-summary" className="import-summary-text">
-                  {importSummary}
-                </div>
-              )}
-              {importError && (
-                <div data-testid="import-error" className="import-error-text">
-                  {importError}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {pendingImport && (
-            <div data-testid="import-choice" className="import-choice-bar">
-              <span className="import-choice-text">Import {pendingImport.fileName}:</span>
-              <button
-                type="button"
-                data-testid="import-add"
-                className="btn-secondary btn-sm"
-                onClick={handleImportAdd}
-              >
-                {pendingImport.kind === 'scenario' ? 'Add as a new scenario' : 'Add to my mocks'}
-              </button>
-              {pendingImport.kind !== 'scenario' && (
-                <button
-                  type="button"
-                  data-testid="import-replace"
-                  className="btn-secondary btn-sm"
-                  onClick={handleImportReplace}
-                >
-                  Replace all
-                </button>
-              )}
-              <button
-                type="button"
-                data-testid="import-cancel"
-                className="btn-secondary btn-sm"
-                onClick={handleImportCancel}
-              >
-                Cancel
-              </button>
-            </div>
-          )}
-
-          <TestBar
-            project={project}
-            pageOrigin={tabOrigin || project?.origins[0] || ''}
-            onOpenMock={(scenarioId, mockId) => {
-              setSelectedScenarioId(scenarioId);
-              setSelectedMockId(mockId);
-              setSelectedSocketId(null);
-            }}
-          />
-
           {project ? (
             <div className="panel-split-view">
               <div className="panel-split-left">
@@ -1699,6 +1417,20 @@ export default function App() {
           )}
         </div>
       </PanelErrorBoundary>
+        </main>
+      </div>
+
+      <ToastContainer />
+
+      <ImportDialog
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        project={project}
+        tabOrigin={tabOrigin}
+        onImportAdd={handleImportAdd}
+        onImportReplace={handleImportReplace}
+        onCreateProjectFromImport={handleCreateProjectFromImport}
+      />
     </div>
   );
 }

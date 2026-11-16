@@ -4,6 +4,8 @@ import { compilePattern } from '../core/match';
 import { unreachableMocks } from '../core/reachability';
 import type { HeaderRule, HttpMethod, Mock, Project, SocketMock } from '../core/types';
 import { newId } from '../shared/ids';
+import { ConfirmDialog } from './ConfirmDialog';
+import { TrashIcon } from './icons';
 
 export interface MockListProps {
   project: Project;
@@ -103,6 +105,7 @@ export function MockList({
   const [scenarios, setScenarios] = useState(project.scenarios);
   const [selectedScenarioIds, setSelectedScenarioIds] = useState<string[]>([]);
   const [filterText, setFilterText] = useState('');
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [foldedIds, setFoldedIds] = useState<string[]>(() => loadFoldedIds(project.id));
   const [headerRules, setHeaderRules] = useState<HeaderRule[]>(() => project.headerRules ?? []);
 
@@ -458,7 +461,27 @@ export function MockList({
             {matchingCount} of {totalItems}
           </span>
         )}
+        <button
+          type="button"
+          data-testid="delete-all"
+          className="ibtn boxed red delete-all-btn"
+          aria-label="Delete all mocks"
+          title="Delete all mocks and scenarios"
+          onClick={() => setIsConfirmOpen(true)}
+        >
+          <TrashIcon size={16} />
+        </button>
       </div>
+
+      <ConfirmDialog
+        isOpen={isConfirmOpen}
+        siteName={project.name || 'this site'}
+        onConfirm={() => {
+          setIsConfirmOpen(false);
+          onDeleteAll();
+        }}
+        onCancel={() => setIsConfirmOpen(false)}
+      />
 
       {totalItems === 0 && (
         <div data-testid="mocks-empty" className="mocks-empty">

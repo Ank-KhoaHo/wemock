@@ -1,7 +1,5 @@
 import type { Project } from './types';
 
-export const SAMPLE_TIP = 'Try it in the Test bar: GET /api/products/42';
-
 export function sampleProject(): Project {
   return {
     id: 'sample-project',

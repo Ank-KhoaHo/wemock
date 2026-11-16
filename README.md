@@ -39,8 +39,8 @@ Then load `.output/chrome-mv3` the same way. → [Install, in full](guide/instal
 **wemock** tab. On any other site, click the wemock toolbar icon and switch it on for that site.
 
 **No app handy?** In the empty Mocks tab, click **Load the sample**: a small shop
-with every kind of mock, three scenarios and a SignalR hub. Then try `GET /api/products/42` in the
-Test bar.
+with every kind of mock, three scenarios and a SignalR hub. The **Sample** button at the top does
+the same at any time.
 
 ## How to use it
 
@@ -55,7 +55,7 @@ Test bar.
 | Stream an answer | Chunks over time, Server-Sent Events, `EventSource` | [Replies](guide/replies.md#stream) |
 | Change real calls | Add, change or remove request headers | [Request headers](guide/headers.md) |
 | Mock sockets | WebSocket timelines and replies, SignalR hubs | [Sockets](guide/sockets.md) |
-| Check before you reload | Test bar, Console line, Log filters, Save as HAR | [Checking](guide/checking.md) |
+| See which mock answered | Answered by in the Log, Console line, Log filters, Save as HAR | [Checking](guide/checking.md) |
 
 Works with `fetch`, `XMLHttpRequest`, and libraries built on them (axios included). Every row,
 button and field works from the keyboard. React, axios, Angular `HttpClient` and a real
@@ -91,12 +91,12 @@ The code runs in a sandbox, for at most one second.
 Templates (`{{params.id}}`), sequences ("pending, pending, done") and **Change real** (let the
 real call through, then change one field) cover the cases in between. → [Replies](guide/replies.md)
 
-## Know which mock answers, before you reload
+## Know which mock answered
 
-Type a URL in the Test bar. wemock shows which mock answers, from which scenario, and exactly
-what it returns. Code mocks really run.
+Every call in the Log says who answered it: the real server, or a mock, by name and scenario.
+Click the name to open that mock.
 
-<img src=".github/screens/3-test-bar.png" alt="The Test bar: GET /api/products/42 is answered by Product by id, with status 200 and the JSON body">
+<img src=".github/screens/3-test-bar.png" alt="The Log: GET /api/products/42 answered by the mock Product by id, from Default">
 
 Each mocked call also writes one line to the page's Console. → [Checking your mocks](guide/checking.md)
 

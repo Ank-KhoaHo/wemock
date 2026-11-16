@@ -124,18 +124,3 @@ test('the switch is hidden for code replies', async () => {
     await page.close();
   }
 });
-
-test('the Test bar shows the filled body', async () => {
-  const { page, panel } = await open();
-  try {
-    await panel.getByTestId('tab-mocks').click();
-    await panel.getByTestId('test-method').selectOption('POST');
-    await panel.getByTestId('test-url').fill('/api/users/42?page=9');
-    await panel.getByTestId('test-body').fill('{"name":"Cy"}');
-    await panel.getByTestId('test-run').click();
-    await expect(panel.getByTestId('test-body-out')).toContainText('{"id":"42","page":"9","who":"","name":"Cy"}');
-  } finally {
-    await panel.close();
-    await page.close();
-  }
-});

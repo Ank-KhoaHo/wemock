@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { exportProject, parseProjectFile } from './exportFile';
 import { findMock } from './match';
-import { SAMPLE_TIP, sampleProject } from './sample';
+import { sampleProject } from './sample';
 import { mergeProject } from './scenarioOps';
 import { newProject, type Mock } from './types';
 
@@ -39,8 +39,7 @@ describe('sampleProject', () => {
     if (r.ok) expect(r.project.scenarios.map((s) => s.mocks.length)).toEqual(sampleProject().scenarios.map((s) => s.mocks.length));
   });
 
-  it('the tip names a call that a Default mock answers', () => {
-    expect(SAMPLE_TIP).toBe('Try it in the Test bar: GET /api/products/42');
+  it('a Default mock answers GET /api/products/42', () => {
     const hit = findMock(sampleProject().scenarios[0]!.mocks, { method: 'GET', url: 'http://localhost:5173/api/products/42' });
     expect(hit).not.toBeNull();
   });

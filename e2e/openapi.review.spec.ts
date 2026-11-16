@@ -65,10 +65,10 @@ test('a YAML OpenAPI file becomes a scenario that answers the page', async () =>
   try {
     await panel.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
     await panel.getByTestId('tab-mocks').click();
+    if (!(await panel.getByTestId('import-dialog').isVisible())) await panel.getByTestId('import-open').click();
     await panel.getByTestId('import').setInputFiles({ name: 'goals.yaml', mimeType: 'application/yaml', buffer: Buffer.from(YAML) });
-    await expect(panel.getByTestId('import-choice')).toBeVisible();
-    await panel.getByTestId('import-replace').click();
-    await expect(panel.getByTestId('import-summary')).toHaveText('2 mocks from 2 operations');
+    // The project has no mocks yet, so the import adds without asking.
+    await expect(panel.getByTestId('import-summary')).toContainText('2 mocks from 2 operations');
     const p = (await readState()).projects[0]!;
     expect(p.scenarios.map((s) => s.name)).toEqual(['Default', 'Goals API']);
 
@@ -93,9 +93,10 @@ test('a YAML file that is not OpenAPI shows an error', async () => {
   try {
     await panel.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
     await panel.getByTestId('tab-mocks').click();
+    if (!(await panel.getByTestId('import-dialog').isVisible())) await panel.getByTestId('import-open').click();
     await panel.getByTestId('import').setInputFiles({ name: 'x.yaml', mimeType: 'application/yaml', buffer: Buffer.from('a: 1\nb: [2, 3]\n') });
     await expect(panel.getByTestId('import-error')).toBeVisible();
-    await expect(panel.getByTestId('import-choice')).toHaveCount(0);
+    await expect(panel.getByTestId('import-found')).toHaveCount(0);
   } finally {
     await panel.close();
     await page.close();
