@@ -89,7 +89,7 @@ test('A22: Duplicate the selected scenario, with Undo', async () => {
   try {
     await panel.getByTestId('tab-mocks').click();
     await panel.locator('.scenario-group').filter({ hasText: 'Beta' }).locator('.scenario-group-header').click();
-    await panel.getByTestId('scenario-duplicate').click();
+    await panel.locator('.scenario-group').filter({ hasText: 'Beta' }).getByTestId('scenario-duplicate').click();
     await expect.poll(names).toEqual(['Default', 'Beta', 'Beta (2)']);
     await expect(panel.getByTestId('undo-bar')).toBeVisible();
     await panel.getByTestId('undo').click();
@@ -106,7 +106,7 @@ test('A23: export one scenario, then import it as a new one', async () => {
     await panel.getByTestId('tab-mocks').click();
     await panel.locator('.scenario-group').filter({ hasText: 'Beta' }).locator('.scenario-group-header').click();
     const dl = panel.waitForEvent('download');
-    await panel.getByTestId('scenario-export').click();
+    await panel.locator('.scenario-group').filter({ hasText: 'Beta' }).getByTestId('scenario-export').click();
     const d = await dl;
     expect(d.suggestedFilename()).toBe('wemock-Beta.json');
     const text = fs.readFileSync((await d.path())!, 'utf-8');

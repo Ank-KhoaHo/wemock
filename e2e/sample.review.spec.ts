@@ -43,7 +43,7 @@ test('the empty Mocks tab offers the sample; it serves the page, and Undo takes 
     await panel.getByTestId('mocks-empty').getByTestId('sample-load').click();
 
     for (const name of ['Default', 'Checkout down', 'Slow network']) {
-      await expect(panel.getByTestId('scenario-chip').filter({ hasText: name })).toHaveCount(1);
+      await expect(panel.getByTestId('scenario-name').filter({ hasText: name })).toHaveCount(1);
     }
     await expect(panel.getByTestId('undo-bar')).toContainText('Sample loaded: a small shop with 3 scenarios');
     await expect(panel.getByTestId('mocks-empty')).toHaveCount(0);
@@ -53,7 +53,7 @@ test('the empty Mocks tab offers the sample; it serves the page, and Undo takes 
 
     await panel.getByTestId('undo').click();
     await expect(panel.getByTestId('mocks-empty')).toBeVisible();
-    await expect(panel.getByTestId('scenario-chip').filter({ hasText: 'Checkout down' })).toHaveCount(0);
+    await expect(panel.getByTestId('scenario-name').filter({ hasText: 'Checkout down' })).toHaveCount(0);
   } finally {
     await panel.close();
     await page.close();
@@ -69,7 +69,7 @@ test('the toolbar adds the sample next to existing mocks, never replacing them',
   try {
     await expect(panel.getByTestId('mocks-empty')).toHaveCount(0);
     await panel.getByTestId('sample-load-toolbar').click();
-    await expect(panel.getByTestId('scenario-chip').filter({ hasText: 'Slow network' })).toHaveCount(1);
+    await expect(panel.getByTestId('scenario-name').filter({ hasText: 'Slow network' })).toHaveCount(1);
     await expect(panel.getByText('Mine', { exact: true })).toBeVisible();
     const goals = await page.evaluate(async () => (await fetch('/api/goals')).text());
     expect(goals).toBe('mine');

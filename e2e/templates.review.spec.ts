@@ -101,6 +101,8 @@ test('the editor has a Fill templates switch: on for a new mock, off for one wit
     await panel.getByTestId('mock-save').click();
     await expect.poll(async () => (await readState()).projects[0]!.scenarios[0]!.mocks[1]!.templates).toBe(true);
 
+    await panel.getByTestId('add-menu-open').click();
+
     await panel.getByTestId('mock-new').click();
     await expect(panel.getByTestId('field-pattern')).toHaveValue('/');
     await expect(panel.getByTestId('field-templates')).toBeChecked();

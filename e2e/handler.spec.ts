@@ -221,6 +221,7 @@ test('the editor: switch a new mock to Code, save, and the page gets its answer'
     const tabId = await session.tabIdOf(page);
     await panel.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
     await panel.getByTestId('tab-mocks').click();
+    await panel.getByTestId('add-menu-open').click();
     await panel.getByTestId('mock-new').click();
     await expect(panel.getByTestId('field-pattern')).toHaveValue('/');
     await panel.getByTestId('field-pattern').fill('/items/:id');

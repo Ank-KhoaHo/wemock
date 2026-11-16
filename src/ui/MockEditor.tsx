@@ -23,6 +23,7 @@ export interface MockEditorProps {
   onSave: (mock: Mock) => void;
   onDelete: (mockId: string) => void;
   onDuplicate?: (mockId: string) => void;
+  onToggleEnabled?: (enabled: boolean) => void;
   isDark?: boolean;
   pageOrigin?: string;
   projectId?: string;
@@ -60,6 +61,7 @@ export function MockEditor({
   onSave,
   onDelete,
   onDuplicate,
+  onToggleEnabled,
   isDark = false,
   pageOrigin = '',
   projectId,
@@ -599,6 +601,24 @@ export function MockEditor({
           <span className="mock-id-badge">{draft.source}</span>
         </div>
         <div className="mock-editor-actions">
+          <label
+            className="editor-switch"
+            data-tip={draft.enabled ? 'This mock answers calls' : 'This mock is off'}
+            title={draft.enabled ? 'This mock answers calls' : 'This mock is off'}
+          >
+            <input
+              type="checkbox"
+              role="switch"
+              data-testid="mock-enabled"
+              checked={draft.enabled}
+              onChange={(e) => {
+                const next = e.target.checked;
+                setDraft((prev) => (prev ? { ...prev, enabled: next } : prev));
+                onToggleEnabled?.(next);
+              }}
+            />
+            <span>{draft.enabled ? 'On' : 'Off'}</span>
+          </label>
           {onDuplicate && (
             <button
               type="button"

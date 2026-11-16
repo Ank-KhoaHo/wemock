@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Project } from '../core/types';
 import { ExportIcon, ImportIcon, PowerIcon, SampleIcon, ScenarioIcon, TerminalIcon } from './icons';
-import { ScenarioChips } from './ScenarioChips';
 
 export interface TopBarProps {
   project: Project | null;
@@ -103,10 +102,6 @@ export function TopBar({
           </option>
         ))}
       </select>
-
-      {project && (
-        <ScenarioChips project={project} onPick={onPickScenario} />
-      )}
 
       <button
         type="button"

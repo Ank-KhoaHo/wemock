@@ -207,7 +207,8 @@ test('the Export menu closes on Escape and on a click elsewhere', async () => {
     await panel.keyboard.press('Escape');
     await expect(panel.getByTestId('export-menu')).toHaveCount(0);
     await panel.getByTestId('export-open').click();
-    await panel.getByTestId('mocks-filter').click();
+    // An empty spot in the rail, well away from the open menu.
+    await panel.mouse.click(30, 700);
     await expect(panel.getByTestId('export-menu')).toHaveCount(0);
   } finally {
     await panel.close(); await page.close();

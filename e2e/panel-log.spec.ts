@@ -123,16 +123,16 @@ test('Save as scenario makes a chip; picking it switches responses', async () =>
     await panelPage.getByTestId('save-scenario-name').fill('Alt Scenario');
     await panelPage.getByTestId('save-scenario-submit').click();
 
-    const chips = panelPage.getByTestId('scenario-chip');
-    await expect(chips).toHaveCount(2);
-    const altChip = panelPage.getByRole('button', { name: 'Alt Scenario' });
-    await expect(altChip).toBeVisible();
-    await expect(altChip).toHaveAttribute('aria-pressed', 'true');
+    await panelPage.getByTestId('tab-mocks').click();
+    await expect(panelPage.getByTestId('scenario-name')).toHaveCount(2);
+    const alt = panelPage.locator('.scenario-group').filter({ has: panelPage.locator('.scenario-name-badge', { hasText: 'Alt Scenario' }) });
+    await expect(alt.getByTestId('scenario-active')).toBeVisible();
 
     // Switch to Default
-    const defaultChip = panelPage.getByRole('button', { name: 'Default' });
-    await defaultChip.click();
-    await expect(defaultChip).toHaveAttribute('aria-pressed', 'true');
+    const def = panelPage.locator('.scenario-group').filter({ has: panelPage.locator('.scenario-name-badge', { hasText: /^Default$/ }) });
+    await def.getByTestId('scenario-name').click();
+    await expect(def.getByTestId('scenario-active')).toBeVisible();
+    await expect(panelPage.getByTestId('scenario-active')).toHaveCount(1);
 
     await page.reload();
     await page.click('#btn-fetch');
@@ -140,8 +140,8 @@ test('Save as scenario makes a chip; picking it switches responses', async () =>
     await expect(page.locator('#out')).toHaveText('{"source":"server"}');
 
     // Switch back to Alt Scenario (which contains the saved mock)
-    await altChip.click();
-    await expect(altChip).toHaveAttribute('aria-pressed', 'true');
+    await alt.getByTestId('scenario-name').click();
+    await expect(alt.getByTestId('scenario-active')).toBeVisible();
 
     await page.reload();
     await page.click('#btn-fetch');

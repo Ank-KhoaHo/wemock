@@ -72,71 +72,6 @@ function group(panel: Page, name: string) {
   return panel.locator('.scenario-group').filter({ has: panel.locator('.scenario-name-badge', { hasText: name }) });
 }
 
-test('every scenario but Default has a select box', async () => {
-  const { page, panel } = await openMocks();
-  try {
-    await expect(panel.getByTestId('scenario-select')).toHaveCount(3);
-    await expect(group(panel, 'Default').getByTestId('scenario-select')).toHaveCount(0);
-    await expect(panel.getByTestId('scenarios-delete-selected')).toHaveCount(0);
-  } finally {
-    await panel.close();
-    await page.close();
-  }
-});
-
-test('Delete selected removes only the ticked scenarios, and Undo brings them back', async () => {
-  const { page, panel } = await openMocks();
-  try {
-    await group(panel, 'Alpha').getByTestId('scenario-select').check();
-    await group(panel, 'Gamma').getByTestId('scenario-select').check();
-    const btn = panel.getByTestId('scenarios-delete-selected');
-    await expect(btn).toHaveText('Delete selected (2)');
-    await btn.click();
-    await expect.poll(names).toEqual(['Default', 'Beta']);
-    expect((await readState()).projects[0]!.activeScenarioId).toBe('b');
-    await expect(panel.getByTestId('scenarios-delete-selected')).toHaveCount(0);
-
-    await expect(panel.getByTestId('undo-bar')).toBeVisible();
-    await panel.getByTestId('undo').click();
-    await expect.poll(async () => (await readState()).projects[0]).toEqual(project());
-    await expect(panel.getByTestId('undo-bar')).toHaveCount(0);
-  } finally {
-    await panel.close();
-    await page.close();
-  }
-});
-
-test('ticking a box does not open that scenario', async () => {
-  const { page, panel } = await openMocks();
-  try {
-    await group(panel, 'Default').click();
-    await expect(group(panel, 'Default')).toHaveClass(/selected/);
-    await group(panel, 'Gamma').getByTestId('scenario-select').check();
-    await expect(group(panel, 'Default')).toHaveClass(/selected/);
-    await expect(group(panel, 'Gamma')).not.toHaveClass(/selected/);
-  } finally {
-    await panel.close();
-    await page.close();
-  }
-});
-
-test('Delete all keeps only Default, emptied, and Undo restores everything', async () => {
-  const { page, panel } = await openMocks();
-  try {
-    await panel.getByTestId('scenarios-delete-all').click();
-    await expect.poll(names).toEqual(['Default']);
-    const p = (await readState()).projects[0]!;
-    expect(p.scenarios[0]!.mocks).toEqual([]);
-    expect(p.scenarios[0]!.sockets ?? []).toEqual([]);
-    expect(p.activeScenarioId).toBe('default');
-    await panel.getByTestId('undo').click();
-    await expect.poll(async () => (await readState()).projects[0]).toEqual(project());
-  } finally {
-    await panel.close();
-    await page.close();
-  }
-});
-
 test('Clear all in the toolbar does the same, and the Undo bar goes after 10 s', async () => {
   const { page, panel } = await openMocks();
   try {
@@ -279,30 +214,11 @@ test('a bad file shows the error and asks nothing', async () => {
 test('the single Delete button also offers Undo', async () => {
   const { page, panel } = await openMocks();
   try {
-    await group(panel, 'Gamma').click();
-    await panel.getByTestId('scenario-delete').click();
+    await group(panel, 'Gamma').getByTestId('scenario-delete').click();
     await expect.poll(names).toEqual(['Default', 'Alpha', 'Beta']);
     await expect(panel.getByTestId('undo-bar')).toContainText('Gamma');
     await panel.getByTestId('undo').click();
     await expect.poll(async () => (await readState()).projects[0]).toEqual(project());
-  } finally {
-    await panel.close();
-    await page.close();
-  }
-});
-
-test('only the first scenario lacks a box, even when another is called Default', async () => {
-  const p = project();
-  p.scenarios[1]!.name = 'Default';
-  await session.setState({ ...emptyState(), enabledOrigins: [fixture.origin], projects: [p] });
-  const page = await session.context.newPage();
-  await page.goto(`${fixture.url}/index.html`);
-  const tabId = await session.tabIdOf(page);
-  const panel = await session.context.newPage();
-  try {
-    await panel.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
-    await panel.getByTestId('tab-mocks').click();
-    await expect(panel.getByTestId('scenario-select')).toHaveCount(3);
   } finally {
     await panel.close();
     await page.close();

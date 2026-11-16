@@ -117,10 +117,12 @@ test('switching the scenario away and back starts the count over', async () => {
   const { page, panel } = await open();
   try {
     expect(await call(page, '/api/job', 2)).toEqual(['202 pending', '202 pending']);
-    await panel.getByTestId('scenario-chip').filter({ hasText: 'Other' }).first().click();
+    // Scenarios are picked in the Mocks tab.
+    await panel.getByTestId('tab-mocks').click();
+    await panel.getByTestId('scenario-name').filter({ hasText: 'Other' }).first().click();
     await expect.poll(async () => (await readState()).projects[0]!.activeScenarioId).toBe('other');
     await call(page, '/api/x', 1);
-    await panel.getByTestId('scenario-chip').filter({ hasText: 'Default' }).first().click();
+    await panel.getByTestId('scenario-name').filter({ hasText: 'Default' }).first().click();
     await expect.poll(async () => (await readState()).projects[0]!.activeScenarioId).toBe('default');
     await page.waitForTimeout(300);
     expect(await call(page, '/api/job', 1)).toEqual(['202 pending']);

@@ -76,7 +76,9 @@ test('#4 a forged log row with bad base64 does not break the panel', async () =>
     await page.evaluate(async () => (await fetch('/api/goals')).text());
     await expect(panel.getByTestId('log-row')).toHaveCount(2);
     await panel.getByTestId('tab-mocks').click();
+    await panel.getByTestId('add-menu-open').click();
     await expect(panel.getByTestId('mock-new')).toBeVisible();
+    await panel.keyboard.press('Escape');
   } finally {
     await panel.close();
     await page.close();

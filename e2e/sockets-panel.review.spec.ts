@@ -40,6 +40,7 @@ async function open(sockets: SocketMock[] = [], withSecondScenario = false): Pro
 }
 
 async function newSocket(panel: Page): Promise<void> {
+  await panel.getByTestId('add-menu-open').click();
   await panel.getByTestId('socket-new').click();
   // The editor opens on the new socket once storage reports it.
   await expect(panel.getByTestId('socket-pattern')).toHaveValue('/hub');
@@ -212,12 +213,13 @@ const ready: SocketMock = {
   replies: [],
 };
 
-test('the row checkbox turns a socket off, and the page then gets the native socket', async () => {
+test('the editor switch turns a socket off, and the page then gets the native socket', async () => {
   const { page, panel } = await open([ready]);
   try {
     const row = panel.getByTestId('socket-row').first();
     await expect(row).toContainText('Ready');
-    await row.getByTestId('socket-enabled').uncheck();
+    await row.click();
+    await panel.getByTestId('socket-enabled').uncheck();
     await expect.poll(async () => (await readState()).projects[0]!.scenarios[0]!.sockets![0]!.enabled).toBe(false);
     await page.reload();
     const code = await page.evaluate(async () => {
@@ -238,6 +240,8 @@ test('clicking a socket row opens it; Delete removes it; mocks and sockets do no
     await expect(panel.getByTestId('socket-name')).toHaveValue('Ready');
     await expect(panel.getByTestId('mock-save')).toHaveCount(0);
     await expect(panel.getByTestId('push-row').first().getByTestId('push-data')).toHaveValue('hello');
+
+    await panel.getByTestId('add-menu-open').click();
 
     await panel.getByTestId('mock-new').click();
     await expect(panel.getByTestId('field-pattern')).toHaveValue('/');

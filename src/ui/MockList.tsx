@@ -1,11 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { forbiddenHeaderReason } from '../core/headerRules';
 import { compilePattern } from '../core/match';
 import { unreachableMocks } from '../core/reachability';
 import type { HeaderRule, HttpMethod, Mock, Project, SocketMock } from '../core/types';
 import { newId } from '../shared/ids';
 import { ConfirmDialog } from './ConfirmDialog';
-import { TrashIcon } from './icons';
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  CopyIcon,
+  ExportIcon,
+  PencilIcon,
+  PlusIcon,
+  ScenarioIcon,
+  SocketIcon,
+  TrashIcon,
+} from './icons';
 
 export interface MockListProps {
   project: Project;
@@ -13,6 +23,8 @@ export interface MockListProps {
   selectedMockId: string | null;
   selectedSocketId: string | null;
   onSelectScenario: (scenarioId: string) => void;
+  /** Makes the scenario the one that answers, over Default. */
+  onActivateScenario: (scenarioId: string) => void;
   onSelectMock: (mockId: string | null) => void;
   onSelectSocket: (socketId: string | null) => void;
   onUpdateScenarioMocks: (scenarioId: string, mocks: Mock[]) => void;
@@ -21,10 +33,13 @@ export interface MockListProps {
   onAddScenario: (name: string) => void;
   onRenameScenario: (scenarioId: string, newName: string) => void;
   onDeleteScenario: (scenarioId: string) => void;
-  onDeleteScenarios: (ids: string[]) => void;
+  /** Empties a scenario and keeps it: Default's bin. */
+  onClearScenario: (scenarioId: string) => void;
   onDeleteAll: () => void;
   onAddMock: (scenarioId: string, mock: Mock) => void;
   onAddSocket: (scenarioId: string, socket: SocketMock) => void;
+  onDeleteMock: (mockId: string) => void;
+  onDeleteSocket: (socketId: string) => void;
   onDuplicateScenario?: (scenarioId: string) => void;
   onExportScenario?: (scenarioId: string) => void;
   onLoadSample?: () => void;
@@ -78,49 +93,80 @@ function getRuleError(rule: HeaderRule): string | null {
   return null;
 }
 
+/** Keys and clicks on these never make a header active or open a row: they do their own job. */
+function isControl(target: EventTarget | null): boolean {
+  return (target as HTMLElement | null)?.closest('button, input, select, textarea') != null;
+}
+
 export function MockList({
   project,
-  selectedScenarioId,
   selectedMockId,
   selectedSocketId,
   onSelectScenario,
+  onActivateScenario,
   onSelectMock,
   onSelectSocket,
   onUpdateScenarioMocks,
-  onUpdateScenarioSockets,
   onUpdateHeaderRules,
   onAddScenario,
   onRenameScenario,
   onDeleteScenario,
-  onDeleteScenarios,
+  onClearScenario,
   onDeleteAll,
   onAddMock,
   onAddSocket,
+  onDeleteMock,
+  onDeleteSocket,
   onDuplicateScenario,
   onExportScenario,
   onLoadSample,
 }: MockListProps) {
-  const [isRenaming, setIsRenaming] = useState(false);
-  const [renameText, setRenameText] = useState('');
   const [scenarios, setScenarios] = useState(project.scenarios);
-  const [selectedScenarioIds, setSelectedScenarioIds] = useState<string[]>([]);
   const [filterText, setFilterText] = useState('');
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameText, setRenameText] = useState('');
   const [foldedIds, setFoldedIds] = useState<string[]>(() => loadFoldedIds(project.id));
   const [headerRules, setHeaderRules] = useState<HeaderRule[]>(() => project.headerRules ?? []);
+  const addMenuRef = useRef<HTMLDivElement | null>(null);
+  // Set when New scenario is chosen: the next scenario to appear opens for naming.
+  const knownIdsRef = useRef<string[] | null>(null);
 
   useEffect(() => {
     setScenarios(project.scenarios);
-    setSelectedScenarioIds((prev) =>
-      prev.filter((id) => project.scenarios.some((s) => s.id === id)),
-    );
     setHeaderRules(project.headerRules ?? []);
+    const known = knownIdsRef.current;
+    if (known) {
+      const added = project.scenarios.find((s) => !known.includes(s.id));
+      if (added) {
+        knownIdsRef.current = null;
+        setRenamingId(added.id);
+        setRenameText(added.name);
+      }
+    }
   }, [project.scenarios, project.headerRules]);
 
   useEffect(() => {
     setFoldedIds(loadFoldedIds(project.id));
     setFilterText('');
   }, [project.id]);
+
+  useEffect(() => {
+    if (!isAddMenuOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsAddMenuOpen(false);
+    };
+    const onClick = (e: MouseEvent) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) setIsAddMenuOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('click', onClick);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('click', onClick);
+    };
+  }, [isAddMenuOpen]);
 
   const handleToggleFold = (scenarioId: string) => {
     setFoldedIds((prev) => {
@@ -132,13 +178,8 @@ export function MockList({
     });
   };
 
-  const selectedScenario =
-    scenarios.find((s) => s.id === selectedScenarioId) ?? scenarios[0];
-
-  const isDefault =
-    !selectedScenario ||
-    selectedScenario.id === 'default' ||
-    selectedScenario.id === scenarios[0]?.id;
+  const activeScenario =
+    scenarios.find((s) => s.id === project.activeScenarioId) ?? scenarios[0];
 
   const trimmedFilter = filterText.trim().toLowerCase();
   const isFilterActive = trimmedFilter.length > 0;
@@ -156,44 +197,25 @@ export function MockList({
       }, 0)
     : totalItems;
 
-  const handleStartRename = () => {
-    if (isDefault || !selectedScenario) return;
-    setRenameText(selectedScenario.name);
-    setIsRenaming(true);
+  const startRename = (scenarioId: string, name: string) => {
+    setRenamingId(scenarioId);
+    setRenameText(name);
   };
 
-  const handleSaveRename = () => {
+  const finishRename = (save: boolean) => {
     const trimmed = renameText.trim();
-    if (trimmed && selectedScenario) {
-      onRenameScenario(selectedScenario.id, trimmed);
-    }
-    setIsRenaming(false);
+    if (save && renamingId && trimmed) onRenameScenario(renamingId, trimmed);
+    setRenamingId(null);
     setRenameText('');
   };
 
-  const handleNewScenarioClick = () => {
-    const name = `Scenario ${project.scenarios.length + 1}`;
-    onAddScenario(name);
+  const handleNewScenario = () => {
+    knownIdsRef.current = scenarios.map((s) => s.id);
+    onAddScenario(`Scenario ${scenarios.length + 1}`);
   };
 
-  const handleDeleteScenarioClick = () => {
-    if (isDefault || !selectedScenario) return;
-    onDeleteScenario(selectedScenario.id);
-  };
-
-  const handleDeleteSelected = () => {
-    if (selectedScenarioIds.length === 0) return;
-    onDeleteScenarios(selectedScenarioIds);
-    setSelectedScenarioIds([]);
-  };
-
-  const handleDeleteAll = () => {
-    onDeleteAll();
-    setSelectedScenarioIds([]);
-  };
-
-  const handleNewMockClick = () => {
-    if (!selectedScenario) return;
+  const handleNewMock = () => {
+    if (!activeScenario) return;
     const manualMock: Mock = {
       id: newId(),
       enabled: true,
@@ -210,11 +232,12 @@ export function MockList({
       source: 'manual',
       createdAt: Date.now(),
     };
-    onAddMock(selectedScenario.id, manualMock);
+    onSelectScenario(activeScenario.id);
+    onAddMock(activeScenario.id, manualMock);
   };
 
-  const handleNewSocketClick = () => {
-    if (!selectedScenario) return;
+  const handleNewSocket = () => {
+    if (!activeScenario) return;
     const socket: SocketMock = {
       id: newId(),
       enabled: true,
@@ -224,19 +247,8 @@ export function MockList({
       replies: [],
       createdAt: Date.now(),
     };
-    onAddSocket(selectedScenario.id, socket);
-  };
-
-  const handleToggleSocketEnabled = (scenarioId: string, socketId: string, enabled?: boolean) => {
-    const sc = scenarios.find((s) => s.id === scenarioId);
-    if (!sc) return;
-    const nextSockets = (sc.sockets ?? []).map((s) =>
-      s.id === socketId ? { ...s, enabled: enabled !== undefined ? enabled : !s.enabled } : s,
-    );
-    setScenarios((prev) =>
-      prev.map((s) => (s.id === scenarioId ? { ...s, sockets: nextSockets } : s)),
-    );
-    onUpdateScenarioSockets(scenarioId, nextSockets);
+    onSelectScenario(activeScenario.id);
+    onAddSocket(activeScenario.id, socket);
   };
 
   const handleMoveMock = (scenarioId: string, fromIndex: number, delta: number) => {
@@ -285,18 +297,6 @@ export function MockList({
     } catch {}
   };
 
-  const handleToggleMockEnabled = (scenarioId: string, mockId: string) => {
-    const sc = scenarios.find((s) => s.id === scenarioId);
-    if (!sc) return;
-    const nextMocks = sc.mocks.map((m) =>
-      m.id === mockId ? { ...m, enabled: !m.enabled } : m,
-    );
-    setScenarios((prev) =>
-      prev.map((s) => (s.id === scenarioId ? { ...s, mocks: nextMocks } : s)),
-    );
-    onUpdateScenarioMocks(scenarioId, nextMocks);
-  };
-
   const handleAddRule = () => {
     const newRule: HeaderRule = {
       id: newId(),
@@ -327,132 +327,75 @@ export function MockList({
 
   return (
     <div className="mock-list-container">
-      {/* Scenario controls */}
-      <div className="scenario-controls">
-        <div className="scenario-btn-group">
+      <div className="list-bar">
+        <div className="add-menu-wrap" ref={addMenuRef}>
           <button
             type="button"
-            data-testid="scenario-new"
-            className="btn-secondary"
-            onClick={handleNewScenarioClick}
+            data-testid="add-menu-open"
+            className="plus-btn"
+            aria-haspopup="menu"
+            aria-expanded={isAddMenuOpen}
+            aria-label="Add a mock, a socket mock or a scenario"
+            title="Add a mock, a socket mock or a scenario"
+            onClick={() => setIsAddMenuOpen((v) => !v)}
           >
-            New scenario
+            <PlusIcon size={16} />
+            <ChevronDownIcon size={14} />
           </button>
-          <button
-            type="button"
-            data-testid="scenario-rename"
-            className="btn-secondary"
-            disabled={isDefault}
-            onClick={handleStartRename}
-          >
-            Rename
-          </button>
-          <button
-            type="button"
-            data-testid="scenario-duplicate"
-            className="btn-secondary"
-            disabled={!selectedScenario}
-            onClick={() => selectedScenario && onDuplicateScenario?.(selectedScenario.id)}
-          >
-            Duplicate
-          </button>
-          <button
-            type="button"
-            data-testid="scenario-export"
-            className="btn-secondary"
-            disabled={!selectedScenario}
-            onClick={() => selectedScenario && onExportScenario?.(selectedScenario.id)}
-          >
-            Export
-          </button>
-          <button
-            type="button"
-            data-testid="scenario-delete"
-            className="btn-secondary"
-            disabled={isDefault}
-            onClick={handleDeleteScenarioClick}
-          >
-            Delete
-          </button>
-          {selectedScenarioIds.length >= 1 && (
-            <button
-              type="button"
-              data-testid="scenarios-delete-selected"
-              className="btn-secondary"
-              onClick={handleDeleteSelected}
-            >
-              Delete selected ({selectedScenarioIds.length})
-            </button>
+          {isAddMenuOpen && (
+            <div className="menu add-menu" role="menu">
+              <button
+                type="button"
+                role="menuitem"
+                data-testid="mock-new"
+                autoFocus
+                onClick={() => {
+                  setIsAddMenuOpen(false);
+                  handleNewMock();
+                }}
+              >
+                <PlusIcon size={16} />
+                <span>
+                  New mock
+                  <span className="hint">In {activeScenario?.name ?? 'Default'}</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                data-testid="socket-new"
+                onClick={() => {
+                  setIsAddMenuOpen(false);
+                  handleNewSocket();
+                }}
+              >
+                <SocketIcon size={16} />
+                <span>
+                  New socket mock
+                  <span className="hint">WebSocket or SignalR</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                data-testid="scenario-new"
+                onClick={() => {
+                  setIsAddMenuOpen(false);
+                  handleNewScenario();
+                }}
+              >
+                <ScenarioIcon size={16} />
+                <span>New scenario</span>
+              </button>
+            </div>
           )}
-          <button
-            type="button"
-            data-testid="scenarios-delete-all"
-            className="btn-secondary"
-            onClick={handleDeleteAll}
-          >
-            Delete all
-          </button>
         </div>
-
-        <div className="mock-btn-group">
-          <button
-            type="button"
-            data-testid="mock-new"
-            className="btn-primary"
-            onClick={handleNewMockClick}
-          >
-            + New mock
-          </button>
-          <button
-            type="button"
-            data-testid="socket-new"
-            className="btn-primary"
-            onClick={handleNewSocketClick}
-          >
-            + New socket
-          </button>
-        </div>
-      </div>
-
-      {isRenaming && (
-        <div className="scenario-rename-form">
-          <input
-            type="text"
-            data-testid="scenario-rename-input"
-            className="text-input"
-            value={renameText}
-            autoFocus
-            onChange={(e) => setRenameText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleSaveRename();
-              if (e.key === 'Escape') setIsRenaming(false);
-            }}
-          />
-          <button
-            type="button"
-            data-testid="scenario-rename-save"
-            className="btn-primary"
-            onClick={handleSaveRename}
-          >
-            Save
-          </button>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => setIsRenaming(false)}
-          >
-            Cancel
-          </button>
-        </div>
-      )}
-
-      {/* Filter box */}
-      <div className="mocks-filter-bar">
         <input
           type="text"
           data-testid="mocks-filter"
           className="mocks-filter-input"
           placeholder="Filter mocks"
+          aria-label="Filter mocks"
           value={filterText}
           onChange={(e) => setFilterText(e.target.value)}
         />
@@ -483,30 +426,30 @@ export function MockList({
         onCancel={() => setIsConfirmOpen(false)}
       />
 
-      {totalItems === 0 && (
-        <div data-testid="mocks-empty" className="mocks-empty">
-          No mocks yet. Click a call in the Log, then Mock this, or import a file.
-          {onLoadSample && (
-            <button
-              type="button"
-              data-testid="sample-load"
-              className="btn-secondary"
-              style={{ display: 'block', margin: '8px auto 0' }}
-              onClick={onLoadSample}
-            >
-              Load the sample
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Scenarios list with their mocks */}
       <div className="scenarios-list">
-        {scenarios.map((sc) => {
-          const isSelected = sc.id === (selectedScenario?.id ?? '');
-          const isScDefault = sc.id === scenarios[0]?.id;
+        {totalItems === 0 && (
+          <div data-testid="mocks-empty" className="mocks-empty">
+            No mocks yet. Click a call in the Log, then Mock this, or import a file.
+            {onLoadSample && (
+              <button
+                type="button"
+                data-testid="sample-load"
+                className="btn-secondary"
+                style={{ display: 'block', margin: '8px auto 0' }}
+                onClick={onLoadSample}
+              >
+                Load the sample
+              </button>
+            )}
+          </div>
+        )}
+
+        {scenarios.map((sc, scIndex) => {
+          const isActive = sc.id === activeScenario?.id;
+          const isScDefault = scIndex === 0;
           const isFolded = foldedIds.includes(sc.id);
           const unreachable = unreachableMocks(sc.mocks);
+          const count = sc.mocks.length + (sc.sockets?.length ?? 0);
 
           const displayMocks = isFilterActive
             ? sc.mocks
@@ -523,341 +466,404 @@ export function MockList({
           }
 
           const showRows = !isFolded || isFilterActive;
+          const activate = () => {
+            if (!isActive) onActivateScenario(sc.id);
+            else onSelectScenario(sc.id);
+          };
 
           return (
             <div
               key={sc.id}
-              className={`scenario-group ${isSelected ? 'selected' : ''} ${!showRows ? 'folded' : ''}`}
-              onClick={() => onSelectScenario(sc.id)}
+              className={`scenario-group ${isActive ? 'selected active' : ''} ${!showRows ? 'folded' : ''}`}
             >
               <div
                 className="scenario-group-header"
+                data-testid="scenario-header"
                 tabIndex={0}
-                onClick={() => onSelectScenario(sc.id)}
+                aria-label={isActive ? `${sc.name}, active` : `Make ${sc.name} active`}
+                title={
+                  isScDefault
+                    ? 'Default answers whatever the active scenario has no mock for'
+                    : `Click to make ${sc.name} active`
+                }
+                onClick={(e) => {
+                  if (isControl(e.target)) return;
+                  activate();
+                }}
                 onKeyDown={(e) => {
-                  const target = e.target as HTMLElement | null;
-                  if (target?.closest('input, select, textarea, button')) return;
+                  if (isControl(e.target)) return;
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    onSelectScenario(sc.id);
+                    activate();
                   }
                 }}
               >
-                <div className="scenario-header-left">
-                  <button
-                    type="button"
-                    data-testid="scenario-fold"
-                    className="scenario-fold-btn"
-                    aria-expanded={isFolded ? 'false' : 'true'}
-                    aria-label={isFolded ? `Unfold ${sc.name}` : `Fold ${sc.name}`}
-                    title={isFolded ? `Unfold ${sc.name}` : `Fold ${sc.name}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleToggleFold(sc.id);
-                    }}
-                  >
-                    <svg
-                      className="scenario-fold-icon"
-                      width="12"
-                      height="12"
-                      viewBox="0 0 16 16"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      <path d={isFolded ? 'M6 4l4 4-4 4' : 'M4 6l4 4 4-4'} />
-                    </svg>
-                  </button>
-                  {!isScDefault && (
+                <button
+                  type="button"
+                  data-testid="scenario-fold"
+                  className="ibtn sm scenario-fold-btn"
+                  aria-expanded={isFolded ? 'false' : 'true'}
+                  aria-label={isFolded ? `Unfold ${sc.name}` : `Fold ${sc.name}`}
+                  title={isFolded ? `Unfold ${sc.name}` : `Fold ${sc.name}`}
+                  onClick={() => handleToggleFold(sc.id)}
+                >
+                  <ChevronDownIcon size={14} className={isFolded ? 'chev folded' : 'chev'} />
+                </button>
+                <div className="sc-title">
+                  {renamingId === sc.id ? (
                     <input
-                      type="checkbox"
-                      data-testid="scenario-select"
-                      className="scenario-select-checkbox"
-                      checked={selectedScenarioIds.includes(sc.id)}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => {
-                        e.stopPropagation();
-                        const checked = e.target.checked;
-                        setSelectedScenarioIds((prev) =>
-                          checked ? [...prev, sc.id] : prev.filter((id) => id !== sc.id),
-                        );
+                      type="text"
+                      data-testid="scenario-rename-input"
+                      className="sc-name-input"
+                      aria-label="Scenario name"
+                      autoFocus
+                      value={renameText}
+                      onChange={(e) => setRenameText(e.target.value)}
+                      onFocus={(e) => e.currentTarget.select()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          finishRename(true);
+                        } else if (e.key === 'Escape') {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          finishRename(false);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (renamingId === sc.id) finishRename(true);
                       }}
                     />
+                  ) : (
+                    <>
+                      <span className="scenario-name-badge" data-testid="scenario-name">
+                        {sc.name}
+                      </span>
+                      {!isScDefault && (
+                        <button
+                          type="button"
+                          data-testid="scenario-rename"
+                          className="ibtn sm"
+                          aria-label={`Rename ${sc.name}`}
+                          title="Rename"
+                          onClick={() => startRename(sc.id, sc.name)}
+                        >
+                          <PencilIcon size={14} />
+                        </button>
+                      )}
+                    </>
                   )}
-                  <span className="scenario-name-badge">{sc.name}</span>
                 </div>
-                <span className="scenario-count">({sc.mocks.length + (sc.sockets?.length ?? 0)})</span>
+                {isActive && (
+                  <span className="pill" data-testid="scenario-active">
+                    Active
+                  </span>
+                )}
+                {!isActive && isScDefault && <span className="pill base">Always on</span>}
+                <div className="sc-actions">
+                  {onDuplicateScenario && (
+                    <button
+                      type="button"
+                      data-testid="scenario-duplicate"
+                      className="ibtn sm"
+                      aria-label={`Duplicate ${sc.name}`}
+                      title="Duplicate scenario"
+                      onClick={() => onDuplicateScenario(sc.id)}
+                    >
+                      <CopyIcon size={14} />
+                    </button>
+                  )}
+                  {onExportScenario && (
+                    <button
+                      type="button"
+                      data-testid="scenario-export"
+                      className="ibtn sm"
+                      aria-label={`Export ${sc.name}`}
+                      title="Export scenario"
+                      onClick={() => onExportScenario(sc.id)}
+                    >
+                      <ExportIcon size={14} />
+                    </button>
+                  )}
+                  {isScDefault ? (
+                    <button
+                      type="button"
+                      data-testid="scenario-clear"
+                      className="ibtn sm red"
+                      aria-label={`Delete every mock in ${sc.name}`}
+                      title={`Delete every mock in ${sc.name}`}
+                      disabled={count === 0}
+                      onClick={() => onClearScenario(sc.id)}
+                    >
+                      <TrashIcon size={14} />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      data-testid="scenario-delete"
+                      className="ibtn sm red"
+                      aria-label={`Delete ${sc.name}`}
+                      title="Delete scenario"
+                      onClick={() => onDeleteScenario(sc.id)}
+                    >
+                      <TrashIcon size={14} />
+                    </button>
+                  )}
+                </div>
+                <span className="scenario-count" data-testid="scenario-count" aria-label={`${count} mocks`}>
+                  {count}
+                </span>
               </div>
 
               {showRows && (
                 <div className="mock-rows-container">
                   {displayMocks.map(({ mock, originalIndex }) => {
                     const unreachableInfo = unreachable.get(mock.id);
+                    const isSelected = mock.id === selectedMockId;
+                    const status = mock.response.status;
+                    const label = mock.name || mock.urlPattern;
                     return (
-                    <div
-                      key={mock.id}
-                      data-testid="mock-row"
-                      tabIndex={0}
-                      aria-selected={mock.id === selectedMockId ? 'true' : undefined}
-                      className={`mock-row ${mock.id === selectedMockId ? 'selected' : ''} ${!mock.enabled ? 'disabled' : ''}`}
-                      draggable={!isFilterActive}
-                      onDragStart={(e) => {
-                        if (isFilterActive) return;
-                        handleDragStart(e, sc.id, originalIndex);
-                      }}
-                      onDragOver={(e) => {
-                        if (isFilterActive) return;
-                        e.preventDefault();
-                      }}
-                      onDrop={(e) => {
-                        if (isFilterActive) return;
-                        handleDrop(e, sc.id, originalIndex);
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectScenario(sc.id);
-                        onSelectMock(mock.id);
-                        onSelectSocket(null);
-                      }}
-                      onKeyDown={(e) => {
-                        const target = e.target as HTMLElement | null;
-                        if (target?.closest('input, select, textarea, button')) return;
-                        if (e.key === 'Enter' || e.key === ' ') {
+                      <div
+                        key={mock.id}
+                        data-testid="mock-row"
+                        tabIndex={0}
+                        aria-selected={isSelected ? 'true' : undefined}
+                        className={`mock-row ${isSelected ? 'selected' : ''} ${!mock.enabled ? 'disabled off' : ''}`}
+                        draggable={!isFilterActive}
+                        onDragStart={(e) => handleDragStart(e, sc.id, originalIndex)}
+                        onDragOver={(e) => {
+                          if (isFilterActive) return;
                           e.preventDefault();
+                        }}
+                        onDrop={(e) => handleDrop(e, sc.id, originalIndex)}
+                        onClick={(e) => {
+                          if (isControl(e.target)) return;
                           onSelectScenario(sc.id);
                           onSelectMock(mock.id);
                           onSelectSocket(null);
-                        }
-                      }}
-                    >
-                      <div className="mock-row-main">
-                        <input
-                          type="checkbox"
-                          data-testid="mock-enabled"
-                          className="mock-enabled-checkbox"
-                          checked={mock.enabled}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            handleToggleMockEnabled(sc.id, mock.id);
-                          }}
-                        />
-                        <span className={`method-tag method-${mock.method.toLowerCase()}`}>
-                          {mock.method}
-                        </span>
+                        }}
+                        onKeyDown={(e) => {
+                          if (isControl(e.target)) return;
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            onSelectScenario(sc.id);
+                            onSelectMock(mock.id);
+                            onSelectSocket(null);
+                          }
+                        }}
+                      >
+                        <span className={`method-tag meth method-${mock.method.toLowerCase()}`}>{mock.method}</span>
                         <span className="mock-name-or-pattern" title={mock.urlPattern}>
-                          {mock.name || mock.urlPattern}
-                          {mock.reply === 'code' && (
-                            <span className="code-chip" data-testid="code-chip" title="Answers with code">
-                              code
-                            </span>
-                          )}
-                          {unreachableInfo && (
-                            <span
-                              data-testid="mock-unreachable"
-                              className="mock-unreachable"
-                              title={unreachableInfo.reason}
-                            >
-                              Never answers
-                            </span>
-                          )}
+                          {mock.urlPattern}
+                          {mock.name && <span className="nm">{mock.name}</span>}
                         </span>
-                      </div>
-
-                      <div className="mock-row-side">
-                        <span className={`mock-status ${mock.response.status >= 400 ? 'status-error' : ''}`}>
-                          {mock.response.status}
+                        {mock.reply === 'code' && (
+                          <span className="code-chip" data-testid="code-chip" title="Answers with code">
+                            code
+                          </span>
+                        )}
+                        {unreachableInfo && (
+                          <span
+                            data-testid="mock-unreachable"
+                            className="mock-unreachable"
+                            title={unreachableInfo.reason}
+                          >
+                            Never answers
+                          </span>
+                        )}
+                        {!mock.enabled && <span className="offtag">off</span>}
+                        <button
+                          type="button"
+                          data-testid="mock-row-delete"
+                          className="ibtn sm red row-del"
+                          aria-label={`Delete ${label}`}
+                          title="Delete mock"
+                          onClick={() => onDeleteMock(mock.id)}
+                        >
+                          <TrashIcon size={14} />
+                        </button>
+                        <span data-testid="mock-status" className={`mock-status st${String(status)[0]}`}>
+                          {status}
                         </span>
-                        <div className="mock-reorder-buttons">
+                        <span className="updown">
                           <button
                             type="button"
                             data-testid="mock-up"
-                            className="mock-up-btn"
+                            className="ibtn mock-up-btn"
                             disabled={isFilterActive || originalIndex === 0}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (isFilterActive) return;
-                              handleMoveMock(sc.id, originalIndex, -1);
-                            }}
+                            onClick={() => handleMoveMock(sc.id, originalIndex, -1)}
                             title="Move up"
-                            aria-label={`Move ${mock.name || mock.urlPattern} up`}
+                            aria-label={`Move ${label} up`}
                           >
-                            ▲
+                            <ChevronUpIcon size={12} />
                           </button>
                           <button
                             type="button"
                             data-testid="mock-down"
-                            className="mock-down-btn"
+                            className="ibtn mock-down-btn"
                             disabled={isFilterActive || originalIndex === sc.mocks.length - 1}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (isFilterActive) return;
-                              handleMoveMock(sc.id, originalIndex, 1);
-                            }}
+                            onClick={() => handleMoveMock(sc.id, originalIndex, 1)}
                             title="Move down"
-                            aria-label={`Move ${mock.name || mock.urlPattern} down`}
+                            aria-label={`Move ${label} down`}
                           >
-                            ▼
+                            <ChevronDownIcon size={12} />
                           </button>
-                        </div>
+                        </span>
                       </div>
-                    </div>
-                  );
-                })}
-                  {displaySockets.map((socket) => (
-                    <div
-                      key={socket.id}
-                      data-testid="socket-row"
-                      tabIndex={0}
-                      aria-selected={socket.id === selectedSocketId ? 'true' : undefined}
-                      className={`mock-row socket-row ${socket.id === selectedSocketId ? 'selected' : ''} ${!socket.enabled ? 'disabled' : ''}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectScenario(sc.id);
-                        onSelectSocket(socket.id);
-                        onSelectMock(null);
-                      }}
-                      onKeyDown={(e) => {
-                        const target = e.target as HTMLElement | null;
-                        if (target?.closest('input, select, textarea, button')) return;
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
+                    );
+                  })}
+                  {displaySockets.map((socket) => {
+                    const isSelected = socket.id === selectedSocketId;
+                    return (
+                      <div
+                        key={socket.id}
+                        data-testid="socket-row"
+                        tabIndex={0}
+                        aria-selected={isSelected ? 'true' : undefined}
+                        className={`mock-row socket-row ${isSelected ? 'selected' : ''} ${!socket.enabled ? 'disabled off' : ''}`}
+                        onClick={(e) => {
+                          if (isControl(e.target)) return;
                           onSelectScenario(sc.id);
                           onSelectSocket(socket.id);
                           onSelectMock(null);
-                        }
-                      }}
-                    >
-                      <div className="mock-row-main">
-                        <input
-                          type="checkbox"
-                          data-testid="socket-enabled"
-                          className="mock-enabled-checkbox"
-                          checked={socket.enabled}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            handleToggleSocketEnabled(sc.id, socket.id, e.target.checked);
-                          }}
-                        />
-                        <span className={`method-tag method-${socket.kind === 'signalr' ? 'signalr' : 'ws'}`}>
+                        }}
+                        onKeyDown={(e) => {
+                          if (isControl(e.target)) return;
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            onSelectScenario(sc.id);
+                            onSelectSocket(socket.id);
+                            onSelectMock(null);
+                          }
+                        }}
+                      >
+                        <span className={`method-tag meth method-${socket.kind === 'signalr' ? 'signalr' : 'ws'}`}>
                           {socket.kind === 'signalr' ? 'SignalR' : 'WS'}
                         </span>
                         <span className="mock-name-or-pattern" title={socket.urlPattern}>
-                          {socket.name || socket.urlPattern}
+                          {socket.urlPattern}
+                          {socket.name && <span className="nm">{socket.name}</span>}
                         </span>
+                        {!socket.enabled && <span className="offtag">off</span>}
+                        <button
+                          type="button"
+                          data-testid="socket-row-delete"
+                          className="ibtn sm red row-del"
+                          aria-label={`Delete ${socket.name || socket.urlPattern}`}
+                          title="Delete socket mock"
+                          onClick={() => onDeleteSocket(socket.id)}
+                        >
+                          <TrashIcon size={14} />
+                        </button>
                       </div>
-                    </div>
-                  ))}
-                  {!isFilterActive && sc.mocks.length === 0 && (!sc.sockets || sc.sockets.length === 0) && (
-                    <div className="scenario-empty-hint">No mocks</div>
-                  )}
+                    );
+                  })}
+                  {!isFilterActive && count === 0 && <div className="scenario-empty-hint">No mocks</div>}
                 </div>
               )}
             </div>
           );
         })}
-      </div>
 
-      {/* Header rules section */}
-      <div className="header-rules-section">
-        <div className="header-rules-header">
-          <div className="header-rules-title-group">
-            <h3 className="header-rules-title">Header rules</h3>
-            <span className="header-rules-help">
-              Header rules change real calls only; mocks are not affected.
-            </span>
+        {/* Header rules, last in the same scroll area. */}
+        <div className="header-rules-section">
+          <div className="header-rules-header">
+            <div className="header-rules-title-group">
+              <h3 className="header-rules-title">Header rules</h3>
+              <span className="header-rules-help">
+                Header rules change real calls only; mocks are not affected.
+              </span>
+            </div>
+            <button
+              type="button"
+              data-testid="hrule-add"
+              className="btn-secondary hrule-add-btn"
+              onClick={handleAddRule}
+            >
+              + Add rule
+            </button>
           </div>
-          <button
-            type="button"
-            data-testid="hrule-add"
-            className="btn-secondary hrule-add-btn"
-            onClick={handleAddRule}
-          >
-            + Add rule
-          </button>
-        </div>
 
-        <div className="header-rules-list">
-          {headerRules.map((rule) => {
-            const error = getRuleError(rule);
-            return (
-              <div key={rule.id} data-testid="hrule-row" className="hrule-row">
-                <div className="hrule-row-inputs">
-                  <input
-                    type="checkbox"
-                    data-testid="hrule-enabled"
-                    aria-label="Rule on"
-                    className="hrule-enabled-checkbox"
-                    checked={rule.enabled}
-                    onChange={(e) => {
-                      e.stopPropagation();
-                      handleUpdateRule(rule.id, { enabled: e.target.checked });
-                    }}
-                  />
-                  <select
-                    data-testid="hrule-method"
-                    aria-label="Method"
-                    className="hrule-method-select select-input"
-                    value={rule.method}
-                    onChange={(e) => handleUpdateRule(rule.id, { method: e.target.value as HttpMethod })}
-                  >
-                    <option value="ANY">ANY</option>
-                    <option value="GET">GET</option>
-                    <option value="POST">POST</option>
-                    <option value="PUT">PUT</option>
-                    <option value="PATCH">PATCH</option>
-                    <option value="DELETE">DELETE</option>
-                    <option value="HEAD">HEAD</option>
-                    <option value="OPTIONS">OPTIONS</option>
-                  </select>
-                  <input
-                    type="text"
-                    data-testid="hrule-pattern"
-                    className="hrule-pattern-input text-input monospace"
-                    placeholder="/api/*rest"
-                    aria-label="URL pattern"
-                    value={rule.urlPattern}
-                    onChange={(e) => handleUpdateRule(rule.id, { urlPattern: e.target.value })}
-                  />
-                  <input
-                    type="text"
-                    data-testid="hrule-name"
-                    className="hrule-name-input text-input monospace"
-                    placeholder="Header name"
-                    aria-label="Header name"
-                    value={rule.name}
-                    onChange={(e) => handleUpdateRule(rule.id, { name: e.target.value })}
-                  />
-                  <input
-                    type="text"
-                    data-testid="hrule-value"
-                    className="hrule-value-input text-input monospace"
-                    placeholder="empty = remove"
-                    aria-label="Header value (empty removes it)"
-                    value={rule.value}
-                    onChange={(e) => handleUpdateRule(rule.id, { value: e.target.value })}
-                  />
-                  <button
-                    type="button"
-                    data-testid="hrule-remove"
-                    className="hrule-remove-btn"
-                    title="Remove rule"
-                    aria-label="Remove rule"
-                    onClick={() => handleRemoveRule(rule.id)}
-                  >
-                    ×
-                  </button>
-                </div>
-                {error && (
-                  <div data-testid="hrule-error" className="hrule-error">
-                    {error}
+          <div className="header-rules-list">
+            {headerRules.map((rule) => {
+              const error = getRuleError(rule);
+              return (
+                <div key={rule.id} data-testid="hrule-row" className="hrule-row">
+                  <div className="hrule-row-inputs">
+                    <input
+                      type="checkbox"
+                      data-testid="hrule-enabled"
+                      aria-label="Rule on"
+                      className="hrule-enabled-checkbox"
+                      checked={rule.enabled}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        handleUpdateRule(rule.id, { enabled: e.target.checked });
+                      }}
+                    />
+                    <select
+                      data-testid="hrule-method"
+                      aria-label="Method"
+                      className="hrule-method-select select-input"
+                      value={rule.method}
+                      onChange={(e) => handleUpdateRule(rule.id, { method: e.target.value as HttpMethod })}
+                    >
+                      <option value="ANY">ANY</option>
+                      <option value="GET">GET</option>
+                      <option value="POST">POST</option>
+                      <option value="PUT">PUT</option>
+                      <option value="PATCH">PATCH</option>
+                      <option value="DELETE">DELETE</option>
+                      <option value="HEAD">HEAD</option>
+                      <option value="OPTIONS">OPTIONS</option>
+                    </select>
+                    <input
+                      type="text"
+                      data-testid="hrule-pattern"
+                      className="hrule-pattern-input text-input monospace"
+                      placeholder="/api/*rest"
+                      aria-label="URL pattern"
+                      value={rule.urlPattern}
+                      onChange={(e) => handleUpdateRule(rule.id, { urlPattern: e.target.value })}
+                    />
+                    <input
+                      type="text"
+                      data-testid="hrule-name"
+                      className="hrule-name-input text-input monospace"
+                      placeholder="Header name"
+                      aria-label="Header name"
+                      value={rule.name}
+                      onChange={(e) => handleUpdateRule(rule.id, { name: e.target.value })}
+                    />
+                    <input
+                      type="text"
+                      data-testid="hrule-value"
+                      className="hrule-value-input text-input monospace"
+                      placeholder="empty = remove"
+                      aria-label="Header value (empty removes it)"
+                      value={rule.value}
+                      onChange={(e) => handleUpdateRule(rule.id, { value: e.target.value })}
+                    />
+                    <button
+                      type="button"
+                      data-testid="hrule-remove"
+                      className="hrule-remove-btn"
+                      title="Remove rule"
+                      aria-label="Remove rule"
+                      onClick={() => handleRemoveRule(rule.id)}
+                    >
+                      ×
+                    </button>
                   </div>
-                )}
-              </div>
-            );
-          })}
+                  {error && (
+                    <div data-testid="hrule-error" className="hrule-error">
+                      {error}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

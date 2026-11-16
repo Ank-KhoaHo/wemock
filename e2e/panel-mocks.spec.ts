@@ -41,6 +41,7 @@ test('a new manual mock is served after save', async () => {
     await panelPage.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
 
     await panelPage.getByTestId('tab-mocks').click();
+    await panelPage.getByTestId('add-menu-open').click();
     await panelPage.getByTestId('mock-new').click();
     // The editor switches to the new mock once storage reports it; typing before that is lost.
     await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
@@ -67,6 +68,7 @@ test('a JSON body shows over lines in the editor but is saved and served without
     await panelPage.goto(panelUrl);
 
     await panelPage.getByTestId('tab-mocks').click();
+    await panelPage.getByTestId('add-menu-open').click();
     await panelPage.getByTestId('mock-new').click();
     await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
     await panelPage.getByTestId('field-pattern').fill('/api/goals');
@@ -100,6 +102,7 @@ test('the body editor draws one indent guide per level', async () => {
     await panelPage.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
 
     await panelPage.getByTestId('tab-mocks').click();
+    await panelPage.getByTestId('add-menu-open').click();
     await panelPage.getByTestId('mock-new').click();
     await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
     await panelPage.locator('.cm-content').fill('{"a":{"b":[1]}}');
@@ -125,6 +128,7 @@ test('Format spreads one-line JSON over lines, and says so when the JSON is not 
     await panelPage.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
 
     await panelPage.getByTestId('tab-mocks').click();
+    await panelPage.getByTestId('add-menu-open').click();
     await panelPage.getByTestId('mock-new').click();
     await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
 
@@ -156,6 +160,7 @@ test('an invalid pattern shows pattern-error and the call stays real', async () 
     await panelPage.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
 
     await panelPage.getByTestId('tab-mocks').click();
+    await panelPage.getByTestId('add-menu-open').click();
     await panelPage.getByTestId('mock-new').click();
     // The editor switches to the new mock once storage reports it; typing before that is lost.
     await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
@@ -181,6 +186,7 @@ test('invalid JSON shows json-warning and is still served as text', async () => 
     await panelPage.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
 
     await panelPage.getByTestId('tab-mocks').click();
+    await panelPage.getByTestId('add-menu-open').click();
     await panelPage.getByTestId('mock-new').click();
     // The editor switches to the new mock once storage reports it; typing before that is lost.
     await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
@@ -221,6 +227,7 @@ test('mock-up reorders and the first match wins', async () => {
     await panelPage.getByTestId('tab-mocks').click();
 
     // First mock: body "first"
+    await panelPage.getByTestId('add-menu-open').click();
     await panelPage.getByTestId('mock-new').click();
     // The editor switches to the new mock once storage reports it; typing before that is lost.
     await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
@@ -229,6 +236,7 @@ test('mock-up reorders and the first match wins', async () => {
     await panelPage.getByTestId('mock-save').click();
 
     // Second mock: body "second"
+    await panelPage.getByTestId('add-menu-open').click();
     await panelPage.getByTestId('mock-new').click();
     // The editor switches to the new mock once storage reports it; typing before that is lost.
     await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
@@ -275,6 +283,7 @@ test('a disabled mock is not served', async () => {
     await panelPage.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
 
     await panelPage.getByTestId('tab-mocks').click();
+    await panelPage.getByTestId('add-menu-open').click();
     await panelPage.getByTestId('mock-new').click();
     // The editor switches to the new mock once storage reports it; typing before that is lost.
     await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
@@ -287,7 +296,8 @@ test('a disabled mock is not served', async () => {
 
     // Disable the mock
     const row = panelPage.getByTestId('mock-row').first();
-    await row.getByTestId('mock-enabled').uncheck();
+    await row.click();
+    await panelPage.getByTestId('mock-enabled').uncheck();
 
     // Reload and call again -> reaches real server
     await page.reload();
@@ -309,6 +319,7 @@ test('export then import, Add to my mocks: one project with the mock twice', asy
     await panelPage.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
 
     await panelPage.getByTestId('tab-mocks').click();
+    await panelPage.getByTestId('add-menu-open').click();
     await panelPage.getByTestId('mock-new').click();
     // The editor switches to the new mock once storage reports it; typing before that is lost.
     await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
@@ -458,8 +469,9 @@ test('Default cannot be deleted or renamed', async () => {
 
     await panelPage.getByTestId('tab-mocks').click();
 
-    await expect(panelPage.getByTestId('scenario-rename')).toBeDisabled();
-    await expect(panelPage.getByTestId('scenario-delete')).toBeDisabled();
+    // Default can be neither renamed nor deleted: it has no such icons.
+    await expect(panelPage.getByTestId('scenario-rename')).toHaveCount(0);
+    await expect(panelPage.getByTestId('scenario-delete')).toHaveCount(0);
   } finally {
     await panelPage.close();
     await page.close();
@@ -475,6 +487,7 @@ test('status 418 typed by hand is served; 150 and 600 show status-error', async 
     await panelPage.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
 
     await panelPage.getByTestId('tab-mocks').click();
+    await panelPage.getByTestId('add-menu-open').click();
     await panelPage.getByTestId('mock-new').click();
     // The editor switches to the new mock once storage reports it; typing before that is lost.
     await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
@@ -518,6 +531,7 @@ test('Load file with a PNG makes a base64 mock with content-type image/png, serv
     await panelPage.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
 
     await panelPage.getByTestId('tab-mocks').click();
+    await panelPage.getByTestId('add-menu-open').click();
     await panelPage.getByTestId('mock-new').click();
     // The editor switches to the new mock once storage reports it; typing before that is lost.
     await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
@@ -560,6 +574,7 @@ test('a binary body shows body-size, body-preview for images, and body-download'
     await panelPage.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
 
     await panelPage.getByTestId('tab-mocks').click();
+    await panelPage.getByTestId('add-menu-open').click();
     await panelPage.getByTestId('mock-new').click();
     // The editor switches to the new mock once storage reports it; typing before that is lost.
     await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');

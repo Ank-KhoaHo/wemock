@@ -83,6 +83,7 @@ test.describe('A20: an empty panel says why', () => {
     try {
       await panel.getByTestId('tab-mocks').click();
       await expect(panel.getByTestId('mocks-empty')).toContainText('No mocks yet');
+      await panel.getByTestId('add-menu-open').click();
       await panel.getByTestId('mock-new').click();
       await expect(panel.getByTestId('mocks-empty')).toHaveCount(0);
     } finally {

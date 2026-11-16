@@ -114,10 +114,12 @@ export interface SocketEditorProps {
   onSave: (socket: SocketMock) => void;
   onDelete: (socketId: string) => void;
   onDuplicate?: (socketId: string) => void;
+  /** The header switch: saved at once. */
+  onToggleEnabled?: (enabled: boolean) => void;
   isDark?: boolean;
 }
 
-export function SocketEditor({ socket, onSave, onDelete, onDuplicate }: SocketEditorProps) {
+export function SocketEditor({ socket, onSave, onDelete, onDuplicate, onToggleEnabled }: SocketEditorProps) {
   const [draft, setDraft] = useState<SocketMock | null>(socket);
 
   useEffect(() => {
@@ -251,6 +253,20 @@ export function SocketEditor({ socket, onSave, onDelete, onDuplicate }: SocketEd
           <span className="mock-id-badge">{draft.kind}</span>
         </div>
         <div className="mock-editor-actions">
+          <label className="editor-switch" title={draft.enabled ? 'This socket mock answers' : 'This socket mock is off'}>
+            <input
+              type="checkbox"
+              role="switch"
+              data-testid="socket-enabled"
+              checked={draft.enabled}
+              onChange={(e) => {
+                const next = e.target.checked;
+                setDraft((prev) => (prev ? { ...prev, enabled: next } : prev));
+                onToggleEnabled?.(next);
+              }}
+            />
+            <span>{draft.enabled ? 'On' : 'Off'}</span>
+          </label>
           {onDuplicate && (
             <button
               type="button"

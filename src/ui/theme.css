@@ -2701,3 +2701,75 @@ body.dark .mock-unreachable,
 .wm .radio.danger { color: var(--danger); }
 .wm .radio-hint { display: block; margin: -6px 0 6px 30px; color: var(--muted); font-size: 12px; }
 .wm .import-error-text { color: var(--danger); margin: 0 0 10px; }
+
+/* ---------------------------------------------------------------------------------------------
+   The Mocks list: a bar (+, filter, delete all), then one scroll area holding every scenario,
+   each with a sticky header carrying its own icons. Follows the approved mock-up.
+   --------------------------------------------------------------------------------------------- */
+.wm .mock-list-container { padding: 0; gap: 0; min-height: 0; background: var(--bg-primary); }
+.wm .list-bar { display: flex; align-items: center; gap: 6px; padding: 8px; border-bottom: 1px solid var(--border-color); flex: none; }
+.wm .list-bar .mocks-filter-input { flex: 1; min-width: 0; height: 30px; }
+.wm .add-menu-wrap { position: relative; flex: none; }
+.wm .plus-btn { display: inline-flex; align-items: center; gap: 2px; height: 30px; padding: 0 6px 0 8px; border-radius: 6px;
+  border: 1px solid var(--brand); background: var(--bg-primary); color: var(--brand); cursor: pointer; }
+.wm .plus-btn:hover, .wm .plus-btn[aria-expanded="true"] { background: var(--brand-soft); }
+.wm .add-menu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 40; }
+
+/* One scroll area; groups never shrink. overflow: clip (not hidden) keeps the rounded corners
+   without making each group a scroll container, which would stop its header from sticking. */
+.wm .scenarios-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; gap: 0; padding: 0; }
+.wm .scenario-group { flex-shrink: 0; border: 0; border-bottom: 1px solid var(--border-color); border-radius: 0; overflow: clip; }
+.wm .scenario-group.selected { border-color: var(--border-color); }
+
+.wm .scenario-group-header { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; justify-content: flex-start;
+  gap: 4px; min-height: 40px; padding: 6px 8px 6px 4px; background: var(--bg-secondary); border-bottom: 1px solid var(--border-color);
+  font-size: 13px; cursor: pointer; }
+/* A hovered header sits above the next one, so its tooltips are not covered. */
+.wm .scenario-group-header:hover, .wm .scenario-group-header:focus-within { z-index: 10; }
+.wm .scenario-group.active .scenario-group-header { background: var(--brand-soft); box-shadow: inset 3px 0 0 var(--brand); }
+.wm .sc-title { display: flex; align-items: center; gap: 2px; flex: 1; min-width: 0; }
+.wm .scenario-name-badge { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.wm .sc-name-input { width: 100%; min-width: 0; padding: 1px 4px; border: 1px solid var(--brand); border-radius: 4px;
+  background: var(--bg-primary); color: var(--text-primary); font: inherit; font-weight: 600; font-size: 14px; }
+.wm .pill { flex: none; padding: 1px 7px; border-radius: 10px; background: var(--brand); color: var(--brand-ink); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.wm .pill.base { background: transparent; color: var(--muted); border: 1px solid var(--line-strong); font-weight: 500; }
+.wm .sc-actions { display: flex; flex: none; }
+.wm .scenario-count { min-width: 28px; text-align: right; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.wm .ibtn.sm { width: 24px; height: 24px; }
+.wm .chev { transition: transform .15s; }
+.wm .chev.folded { transform: rotate(-90deg); }
+
+/* Rows */
+.wm .mock-row { display: flex; align-items: center; justify-content: flex-start; gap: 8px; min-height: 36px; padding: 0 8px 0 12px;
+  border-bottom: 1px solid var(--border-color); background: var(--bg-primary); font-size: 13px; }
+.wm .mock-row:last-child { border-bottom: 0; }
+.wm .mock-row:hover { background: var(--bg-hover); }
+.wm .mock-row.selected { background: var(--brand-soft); box-shadow: inset 3px 0 0 var(--brand); }
+.wm .mock-row.off { opacity: .55; }
+.wm .meth { flex: none; width: 54px; text-transform: none; padding: 0; background: none; border: 0; font-size: 11.5px; font-weight: 700; letter-spacing: .02em; }
+.wm .mock-name-or-pattern { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: 'Cascadia Mono', Consolas, monospace; font-size: 12.5px; }
+.wm .mock-name-or-pattern .nm { margin-left: 8px; font-family: 'Segoe UI', system-ui, sans-serif; font-size: 12px; color: var(--muted); }
+.wm .offtag { flex: none; padding: 0 4px; border: 1px solid var(--line-strong); border-radius: 4px; color: var(--muted); font-size: 11px; }
+.wm .row-del { opacity: 0; }
+.wm .mock-row:hover .row-del, .wm .mock-row:focus-within .row-del, .wm .mock-row.selected .row-del { opacity: 1; }
+.wm .mock-status { flex: none; width: 30px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.wm .mock-status.st2 { color: var(--s2); }
+.wm .mock-status.st3 { color: var(--muted); }
+.wm .mock-status.st4 { color: #a15c00; }
+.wm .mock-status.st5 { color: var(--danger); }
+:root.dark .wm .mock-status.st4, html.dark .wm .mock-status.st4 { color: #f0a74a; }
+.wm .updown { display: flex; flex-direction: column; flex: none; }
+.wm .updown .ibtn { width: 22px; height: 15px; border-radius: 3px; }
+.wm .mocks-empty { margin: 12px; }
+.wm .header-rules-section { padding: 12px; border-top: 0; }
+
+/* The On/Off switch in an editor's header */
+.wm .editor-switch { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 400; cursor: pointer; }
+.wm .editor-switch input { appearance: none; position: relative; width: 30px; height: 18px; margin: 0; border-radius: 9px;
+  background: var(--line-strong); cursor: pointer; }
+.wm .editor-switch input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%;
+  background: #fff; transition: left .15s; }
+.wm .editor-switch input:checked { background: var(--s2); }
+.wm .editor-switch input:checked::after { left: 14px; }
+@media (prefers-reduced-motion: reduce) { .wm .chev, .wm .editor-switch input::after { transition: none; } }

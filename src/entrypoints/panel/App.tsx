@@ -937,7 +937,7 @@ export default function App() {
           ...p,
           scenarios: p.scenarios.map((sc) => ({
             ...sc,
-            // The row checkbox owns `enabled`; an editor draft opened earlier must not undo it.
+            // The editor's switch saves `enabled` at once; an older draft must not undo it.
             mocks: sc.mocks.map((m) => (m.id === savedMock.id ? { ...savedMock, enabled: m.enabled } : m)),
           })),
         };
@@ -945,8 +945,77 @@ export default function App() {
     })).catch(() => {});
   };
 
+  /** Makes a scenario the one that answers, over Default, and says so. */
+  const handleActivateScenario = (scenarioId: string) => {
+    const sc = project?.scenarios.find((s) => s.id === scenarioId);
+    if (!sc) return;
+    handlePickScenario(scenarioId);
+    notify(`${sc.name} is active`);
+  };
+
+  /** Default's bin: every mock and socket mock in the scenario goes; the scenario stays. */
+  const handleClearScenario = (scenarioId: string) => {
+    if (!project) return;
+    const sc = project.scenarios.find((s) => s.id === scenarioId);
+    if (!sc) return;
+    const count = sc.mocks.length + (sc.sockets?.length ?? 0);
+    const snapshot = structuredClone(project);
+    update((s) => ({
+      ...s,
+      projects: s.projects.map((p) =>
+        p.id !== project.id
+          ? p
+          : { ...p, scenarios: p.scenarios.map((x) => (x.id === scenarioId ? { ...x, mocks: [], sockets: [] } : x)) },
+      ),
+    })).catch(() => {});
+    if (selectedScenarioId === scenarioId) {
+      setSelectedMockId(null);
+      setSelectedSocketId(null);
+    }
+    triggerUndo(snapshot, `Deleted ${count} ${count === 1 ? 'mock' : 'mocks'} from ${sc.name}`);
+  };
+
+  /** The editor's switch: saved at once, as the row checkbox used to be. */
+  const handleSetMockEnabled = (mockId: string, enabled: boolean) => {
+    if (!project) return;
+    const mock = project.scenarios.flatMap((s) => s.mocks).find((m) => m.id === mockId);
+    update((s) => ({
+      ...s,
+      projects: s.projects.map((p) =>
+        p.id !== project.id
+          ? p
+          : { ...p, scenarios: p.scenarios.map((sc) => ({ ...sc, mocks: sc.mocks.map((m) => (m.id === mockId ? { ...m, enabled } : m)) })) },
+      ),
+    })).catch(() => {});
+    const name = mock?.name || mock?.urlPattern || 'The mock';
+    notify(enabled ? `${name} is on` : `${name} is off: calls skip it`);
+  };
+
+  const handleSetSocketEnabled = (socketId: string, enabled: boolean) => {
+    if (!project) return;
+    const socket = project.scenarios.flatMap((s) => s.sockets ?? []).find((x) => x.id === socketId);
+    update((s) => ({
+      ...s,
+      projects: s.projects.map((p) =>
+        p.id !== project.id
+          ? p
+          : {
+              ...p,
+              scenarios: p.scenarios.map((sc) => ({
+                ...sc,
+                sockets: (sc.sockets ?? []).map((x) => (x.id === socketId ? { ...x, enabled } : x)),
+              })),
+            },
+      ),
+    })).catch(() => {});
+    const name = socket?.name || socket?.urlPattern || 'The socket mock';
+    notify(enabled ? `${name} is on` : `${name} is off: the page gets the real socket`);
+  };
+
   const handleDeleteMock = (mockId: string) => {
     if (!project) return;
+    const deleted = project.scenarios.flatMap((s) => s.mocks).find((m) => m.id === mockId);
+    if (deleted) triggerUndo(structuredClone(project), `Deleted mock ${deleted.name || deleted.urlPattern}`);
     update((s) => ({
       ...s,
       projects: s.projects.map((p) => {
@@ -1009,7 +1078,7 @@ export default function App() {
           ...p,
           scenarios: p.scenarios.map((sc) => ({
             ...sc,
-            // The row checkbox owns `enabled`; an editor draft opened earlier must not undo it.
+            // The editor's switch saves `enabled` at once; an older draft must not undo it.
             sockets: (sc.sockets ?? []).map((s) =>
               s.id === savedSocket.id ? { ...savedSocket, enabled: s.enabled } : s,
             ),
@@ -1021,6 +1090,8 @@ export default function App() {
 
   const handleDeleteSocket = (socketId: string) => {
     if (!project) return;
+    const deleted = project.scenarios.flatMap((s) => s.sockets ?? []).find((x) => x.id === socketId);
+    if (deleted) triggerUndo(structuredClone(project), `Deleted socket mock ${deleted.name || deleted.urlPattern}`);
     update((s) => ({
       ...s,
       projects: s.projects.map((p) => {
@@ -1365,6 +1436,10 @@ export default function App() {
                   selectedMockId={selectedMockId}
                   selectedSocketId={selectedSocketId}
                   onSelectScenario={(scId) => setSelectedScenarioId(scId)}
+                  onActivateScenario={handleActivateScenario}
+                  onClearScenario={handleClearScenario}
+                  onDeleteMock={handleDeleteMock}
+                  onDeleteSocket={handleDeleteSocket}
                   onSelectMock={(mockId) => {
                     setSelectedMockId(mockId);
                     if (mockId !== null) setSelectedSocketId(null);
@@ -1378,7 +1453,6 @@ export default function App() {
                   onAddScenario={handleAddScenario}
                   onRenameScenario={handleRenameScenario}
                   onDeleteScenario={handleDeleteScenario}
-                  onDeleteScenarios={handleDeleteScenarios}
                   onDeleteAll={handleClearAll}
                   onAddMock={handleAddMock}
                   onAddSocket={handleAddSocket}
@@ -1396,6 +1470,7 @@ export default function App() {
                     onSave={handleSaveSocket}
                     onDelete={handleDeleteSocket}
                     onDuplicate={handleDuplicateSocket}
+                    onToggleEnabled={(enabled) => selectedSocket && handleSetSocketEnabled(selectedSocket.id, enabled)}
                   />
                 ) : (
                   <MockEditor
@@ -1406,6 +1481,7 @@ export default function App() {
                     onSave={handleSaveMock}
                     onDelete={handleDeleteMock}
                     onDuplicate={handleDuplicateMock}
+                    onToggleEnabled={(enabled) => selectedMock && handleSetMockEnabled(selectedMock.id, enabled)}
                   />
                 )}
               </div>
