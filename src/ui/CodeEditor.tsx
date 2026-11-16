@@ -4,6 +4,7 @@ import { javascript } from '@codemirror/lang-javascript';
 import { json } from '@codemirror/lang-json';
 import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
 import { codeCompletions } from '../core/codeHints';
+import { indentGuides } from './indentGuides';
 
 export interface CodeEditorProps {
   value: string;
@@ -36,9 +37,9 @@ export default function CodeEditor({
           validFor: /^[a-zA-Z0-9_$]*$/,
         };
       };
-      return [javascript(), autocompletion({ override: [source] })];
+      return [javascript(), autocompletion({ override: [source] }), indentGuides()];
     }
-    return [json()];
+    return [json(), indentGuides()];
   }, [language]);
 
   return (

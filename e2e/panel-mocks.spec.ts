@@ -91,6 +91,31 @@ test('a JSON body shows over lines in the editor but is saved and served without
   }
 });
 
+test('the body editor draws one indent guide per level', async () => {
+  const page = await session.context.newPage();
+  const panelPage = await session.context.newPage();
+  try {
+    await page.goto(`${fixture.url}/index.html`);
+    const tabId = await session.tabIdOf(page);
+    await panelPage.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
+
+    await panelPage.getByTestId('tab-mocks').click();
+    await panelPage.getByTestId('mock-new').click();
+    await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
+    await panelPage.locator('.cm-content').fill('{"a":{"b":[1]}}');
+    await panelPage.getByTestId('body-format').click();
+
+    const lines = panelPage.locator('.cm-line');
+    await expect(lines).toHaveText(['{', '  "a": {', '    "b": [', '      1', '    ]', '  }', '}']);
+    await expect(lines.nth(0)).not.toHaveClass(/cm-indent-guides/);
+    await expect(lines.nth(1)).toHaveAttribute('style', /--wm-guides: 1/);
+    await expect(lines.nth(3)).toHaveAttribute('style', /--wm-guides: 3/);
+  } finally {
+    await panelPage.close();
+    await page.close();
+  }
+});
+
 test('Format spreads one-line JSON over lines, and says so when the JSON is not valid', async () => {
   const page = await session.context.newPage();
   const panelPage = await session.context.newPage();

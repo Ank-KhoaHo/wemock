@@ -1589,6 +1589,17 @@ body.panel-root {
   overflow: hidden;
 }
 
+.cm-indent-guides {
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--border-color) 0 1px,
+    transparent 1px calc(var(--wm-indent) * 1ch)
+  );
+  background-origin: content-box;
+  background-size: calc(var(--wm-guides) * var(--wm-indent) * 1ch) 100%;
+  background-repeat: no-repeat;
+}
+
 .editor-loading {
   padding: 16px;
   color: var(--text-muted);
