@@ -1119,6 +1119,8 @@ body.panel-root {
   border-radius: 6px;
   background-color: var(--bg-primary);
   overflow: hidden;
+  /* Never squeeze a group to fit; the list around it scrolls instead. */
+  flex-shrink: 0;
 }
 
 .scenario-group.selected {
