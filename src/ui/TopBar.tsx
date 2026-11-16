@@ -106,6 +106,8 @@ export function TopBar({
       <button
         type="button"
         data-testid="import-open"
+        aria-label="Import a file"
+        title="Import a file"
         className="btn blue"
         onClick={onImportOpen}
       >
@@ -117,6 +119,8 @@ export function TopBar({
         <button
           type="button"
           data-testid="export-open"
+          aria-label="Export to a file"
+          title="Export to a file"
           className="btn blue"
           aria-haspopup="menu"
           aria-expanded={isExportMenuOpen}
@@ -181,6 +185,8 @@ export function TopBar({
       <button
         type="button"
         data-testid="sample-load-toolbar"
+        aria-label="Load the sample shop"
+        title="Load the sample shop"
         className="btn beak"
         onClick={onLoadSample}
       >

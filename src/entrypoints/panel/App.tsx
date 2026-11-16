@@ -1417,7 +1417,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="panel-split-view">
+          <div className={`panel-split-view ${selectedEntryId ? 'has-detail' : ''}`}>
             <div className="panel-split-left">
               <LogTable
                 entries={filteredEntries}
@@ -1453,7 +1453,7 @@ export default function App() {
           style={{ display: activeTab === 'mocks' ? undefined : 'none' }}
         >
           {project ? (
-            <div className="panel-split-view">
+            <div className={`panel-split-view ${selectedMockId || selectedSocketId ? 'has-detail' : ''}`}>
               <div className="panel-split-left">
                 <MockList
                   project={project}

@@ -2783,3 +2783,42 @@ body.dark .mock-unreachable,
 .wm .mock-row.flash { animation: wm-flash .6s; }
 @keyframes wm-flash { from { background: var(--brand-soft); } }
 @media (prefers-reduced-motion: reduce) { .wm .mock-row.flash { animation: none; } }
+
+/* ---------------------------------------------------------------------------------------------
+   Small panels: DevTools docked narrow at the side, or short at the bottom.
+   --------------------------------------------------------------------------------------------- */
+@media (max-width: 820px) {
+  .hdr .lbl { display: none; }
+  .wm .hdr .btn { padding: 0 8px; }
+  .hdr .toggle { padding: 0 8px; }
+  .hdr .proj { max-width: 130px; }
+}
+@media (max-width: 640px) {
+  .wm .rail { width: 48px; padding: 6px 4px; }
+  .wm .rail .txt, .wm .rail .count { display: none; }
+  /* The list and the open item take turns; the back arrow returns to the list. */
+  .wm .panel-split-view { flex-direction: column; }
+  .wm .panel-split-left { border-right: 0; min-height: 0; }
+  .wm .panel-split-right { display: none; width: 100%; min-width: 0; max-width: none; }
+  .wm .panel-split-view.has-detail .panel-split-left { display: none; }
+  .wm .panel-split-view.has-detail .panel-split-right { display: flex; flex: 1; min-height: 0; }
+  .wm .editor-back { display: inline-grid; }
+  /* No hover on a touch screen: the delete icon always shows. */
+  .wm .row-del { opacity: 1; }
+  .wm .log-th-duration, .wm .log-col-duration { display: none; }
+  /* The Log's filter and chips wrap rather than run off the edge. */
+  .wm .panel-toolbar, .wm .toolbar-left, .wm .log-filter-chips, .wm .toolbar-right { flex-wrap: wrap; height: auto; }
+  .wm .toolbar-left { min-width: 0; }
+}
+@media (max-width: 420px) {
+  .wm .mock-name-or-pattern .nm { display: none; }
+  .wm .editor-switch span { display: none; }
+  .hdr .brand { font-size: 0; gap: 0; }
+}
+@media (max-height: 420px) {
+  .hdr { padding-top: 3px; padding-bottom: 3px; }
+  .wm .rail { padding: 4px; }
+  .wm .rail button { padding: 4px 2px; }
+  .wm .rail .txt { display: none; }
+  .wm .list-bar { padding: 5px 8px; }
+}
