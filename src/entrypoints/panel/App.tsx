@@ -22,7 +22,7 @@ import { MockList } from '../../ui/MockList';
 import { SocketEditor } from '../../ui/SocketEditor';
 import { TopBar } from '../../ui/TopBar';
 import { ImportDialog, type PendingImport } from '../../ui/ImportDialog';
-import { notify, ToastContainer } from '../../ui/Toasts';
+import { clearUndo, notify, ToastContainer } from '../../ui/Toasts';
 import { LogIcon, MocksIcon } from '../../ui/icons';
 import { PanelErrorBoundary } from '../../ui/PanelErrorBoundary';
 import { useTabLog, useWemockState } from '../../ui/useWemockState';
@@ -138,15 +138,16 @@ export default function App() {
     state?.projects[0] ||
     null;
 
-  // Auto-ensure project for origin if mocks tab is open and no project exists
+  // The site's own project is made as soon as the panel knows the site, on either tab: the header's
+  // Import, Export and Sample act on it, and must never fall back to another site's project.
   useEffect(() => {
-    if (activeTab === 'mocks' && tabOrigin && !originProject && state) {
+    if (tabOrigin && !originProject && state) {
       update((s) => {
         const { state: nextState } = ensureProject(s, tabOrigin, newId);
         return nextState;
       }).catch(() => {});
     }
-  }, [activeTab, tabOrigin, originProject, state, update]);
+  }, [tabOrigin, originProject, state, update]);
 
   // Keep selectedScenarioId valid for the current project
   useEffect(() => {
@@ -385,6 +386,7 @@ export default function App() {
   };
 
   const handlePickScenario = (scenarioId: string) => {
+    clearUndo();
     if (!project) return;
     update((s) => ({
       ...s,
@@ -396,6 +398,7 @@ export default function App() {
   };
 
   const handleMockThis = (entry: LogEntry) => {
+    clearUndo();
     const mockId = newId();
     update((s) => {
       let originToUse = tabOrigin;
@@ -492,7 +495,7 @@ export default function App() {
     }
 
     const currentProject = project;
-    if (currentProject) {
+    if (currentProject && addedCount > 0) {
       const msg = `${addedCount} mock${addedCount === 1 ? '' : 's'} added${
         skippedCount > 0 ? ` (${skippedCount} skipped)` : ''
       }`;
@@ -503,7 +506,7 @@ export default function App() {
 
     update((s) => {
       const { state: nextState, project: targetProject } = ensureProject(s, originToUse, newId);
-      if (!currentProject) {
+      if (!currentProject && addedCount > 0) {
         const msg = `${addedCount} mock${addedCount === 1 ? '' : 's'} added${
           skippedCount > 0 ? ` (${skippedCount} skipped)` : ''
         }`;
@@ -532,6 +535,7 @@ export default function App() {
   };
 
   const handleMockSocket = (entry: LogEntry) => {
+    clearUndo();
     if (!entry.connectionId) return;
     const connectionId = entry.connectionId;
     update((s) => {
@@ -564,6 +568,7 @@ export default function App() {
   };
 
   const handleSaveScenarioSubmit = (e: React.FormEvent) => {
+    clearUndo();
     e.preventDefault();
     const trimmed = scenarioName.trim();
     if (!trimmed) return;
@@ -645,6 +650,7 @@ export default function App() {
   };
 
   const handleDuplicateMock = (mockId: string) => {
+    clearUndo();
     if (!project) return;
     const sc =
       project.scenarios.find((s) => s.mocks.some((m) => m.id === mockId)) ??
@@ -664,6 +670,7 @@ export default function App() {
   };
 
   const handleDuplicateSocket = (socketId: string) => {
+    clearUndo();
     if (!project) return;
     const sc =
       project.scenarios.find((s) => s.sockets?.some((m) => m.id === socketId)) ??
@@ -869,6 +876,7 @@ export default function App() {
   };
 
   const handleAddScenario = (name: string) => {
+    clearUndo();
     if (!project) return;
     const newScenario: Scenario = {
       id: newId(),
@@ -885,6 +893,7 @@ export default function App() {
   };
 
   const handleRenameScenario = (scenarioId: string, newName: string) => {
+    clearUndo();
     if (!project) return;
     update((s) => ({
       ...s,
@@ -920,6 +929,7 @@ export default function App() {
   };
 
   const handleAddMock = (scenarioId: string, newMock: Mock) => {
+    clearUndo();
     if (!project) return;
     freshIdsRef.current.add(newMock.id);
     update((s) => ({
@@ -939,6 +949,7 @@ export default function App() {
   };
 
   const handleSaveMock = (savedMock: Mock) => {
+    clearUndo();
     if (!project) return;
     notifySaved(savedMock.id, savedMock.name || savedMock.urlPattern, 'Mock');
     update((s) => ({
@@ -1000,6 +1011,7 @@ export default function App() {
 
   /** The editor's switch: saved at once, as the row checkbox used to be. */
   const handleSetMockEnabled = (mockId: string, enabled: boolean) => {
+    clearUndo();
     if (!project) return;
     const mock = project.scenarios.flatMap((s) => s.mocks).find((m) => m.id === mockId);
     update((s) => ({
@@ -1015,6 +1027,7 @@ export default function App() {
   };
 
   const handleSetSocketEnabled = (socketId: string, enabled: boolean) => {
+    clearUndo();
     if (!project) return;
     const socket = project.scenarios.flatMap((s) => s.sockets ?? []).find((x) => x.id === socketId);
     update((s) => ({
@@ -1052,10 +1065,12 @@ export default function App() {
         };
       }),
     })).catch(() => {});
-    setSelectedMockId(null);
+    // Another mock's open editor, and its unsaved draft, stay.
+    setSelectedMockId((current) => (current === mockId ? null : current));
   };
 
   const handleUpdateScenarioMocks = (scenarioId: string, nextMocks: Mock[]) => {
+    clearUndo();
     if (!project) return;
     update((s) => ({
       ...s,
@@ -1072,6 +1087,7 @@ export default function App() {
   };
 
   const handleAddSocket = (scenarioId: string, newSocket: SocketMock) => {
+    clearUndo();
     if (!project) return;
     freshIdsRef.current.add(newSocket.id);
     update((s) => ({
@@ -1093,6 +1109,7 @@ export default function App() {
   };
 
   const handleSaveSocket = (savedSocket: SocketMock) => {
+    clearUndo();
     if (!project) return;
     notifySaved(savedSocket.id, savedSocket.name || savedSocket.urlPattern, 'Socket mock');
     update((s) => ({
@@ -1130,10 +1147,11 @@ export default function App() {
         };
       }),
     })).catch(() => {});
-    setSelectedSocketId(null);
+    setSelectedSocketId((current) => (current === socketId ? null : current));
   };
 
   const handleUpdateScenarioSockets = (scenarioId: string, nextSockets: SocketMock[]) => {
+    clearUndo();
     if (!project) return;
     update((s) => ({
       ...s,
@@ -1150,6 +1168,7 @@ export default function App() {
   };
 
   const handleUpdateHeaderRules = (rules: HeaderRule[]) => {
+    clearUndo();
     if (!project) return;
     update((s) => ({
       ...s,
@@ -1417,7 +1436,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className={`panel-split-view ${selectedEntryId ? 'has-detail' : ''}`}>
+          <div className={`panel-split-view ${selectedEntryId && entries.some((e) => e.id === selectedEntryId) ? 'has-detail' : ''}`}>
             <div className="panel-split-left">
               <LogTable
                 entries={filteredEntries}
@@ -1453,7 +1472,7 @@ export default function App() {
           style={{ display: activeTab === 'mocks' ? undefined : 'none' }}
         >
           {project ? (
-            <div className={`panel-split-view ${selectedMockId || selectedSocketId ? 'has-detail' : ''}`}>
+            <div className={`panel-split-view ${selectedMock || selectedSocket ? 'has-detail' : ''}`}>
               <div className="panel-split-left">
                 <MockList
                   project={project}

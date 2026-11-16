@@ -240,12 +240,17 @@ export function ImportDialog({
 
   const handleConfirm = async () => {
     if (!pendingImport) return;
-    if (choice === 'replace') {
-      await onImportReplace(pendingImport);
-    } else {
-      await onImportAdd(pendingImport);
+    try {
+      if (choice === 'replace') {
+        await onImportReplace(pendingImport);
+      } else {
+        await onImportAdd(pendingImport);
+      }
+      handleClose();
+    } catch (err) {
+      // The dialog stays open and says why, rather than failing without a word.
+      setImportError(err instanceof Error ? `Import failed: ${err.message}` : 'Import failed');
     }
-    handleClose();
   };
 
   return (

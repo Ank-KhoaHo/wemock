@@ -46,6 +46,18 @@ export function notify(text: string, options?: ToastOptions): void {
   }, duration);
 }
 
+/**
+ * Withdraws the pending Undo. Undo puts back a whole project, so after any later change it would
+ * also undo that change, without saying so.
+ */
+export function clearUndo(): void {
+  const next = toastsState.filter((t) => !t.undo);
+  if (next.length !== toastsState.length) {
+    toastsState = next;
+    listeners.forEach((l) => l(toastsState));
+  }
+}
+
 export function removeToast(id: number): void {
   const next = toastsState.filter((t) => t.id !== id);
   if (next.length !== toastsState.length) {

@@ -206,7 +206,8 @@ export function MockList({
 
   const finishRename = (save: boolean) => {
     const trimmed = renameText.trim();
-    if (save && renamingId && trimmed) onRenameScenario(renamingId, trimmed);
+    const before = scenarios.find((s) => s.id === renamingId)?.name;
+    if (save && renamingId && trimmed && trimmed !== before) onRenameScenario(renamingId, trimmed);
     setRenamingId(null);
     setRenameText('');
   };
