@@ -1,0 +1,151 @@
+/* The toolbar popup: the site and its switch, the active scenario, and how to open wemock in
+   DevTools. Colours come from theme.css, so light and dark follow the browser as the panel does. */
+/* theme.css gives the body 320 px; the popup is 340 px wide. */
+body { width: 340px; min-width: 340px; }
+
+.pop {
+  --pop-brand: #1f5fd6;
+  --pop-brand-soft: #e8f0fe;
+  width: 340px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+:root.dark .pop,
+body.dark .pop,
+html.dark .pop {
+  --pop-brand: #6f9eff;
+  --pop-brand-soft: #22324f;
+}
+@media (prefers-color-scheme: dark) {
+  .pop {
+    --pop-brand: #6f9eff;
+    --pop-brand-soft: #22324f;
+  }
+}
+
+.pop-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 700;
+  font-size: 15px;
+}
+.pop-head img { border-radius: 6px; }
+
+.pop-unsupported { margin: 0; padding: 12px 14px; color: var(--text-secondary); }
+
+.pop-site { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
+.pop-origin { flex: 1; min-width: 0; }
+.pop-mono {
+  display: block;
+  font-family: 'Cascadia Mono', Consolas, monospace;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pop-origin small, .pop-scenario small { display: block; color: var(--text-secondary); font-size: 12px; }
+
+.pop-switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 11px;
+  background: var(--switch-off-bg);
+  cursor: pointer;
+}
+.pop-switch.on { background: var(--switch-on-bg); }
+.pop-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left .15s;
+}
+.pop-switch.on .pop-thumb { left: 20px; }
+.pop-switch:focus-visible, .pop select:focus-visible, .pop button:focus-visible {
+  outline: 2px solid var(--pop-brand);
+  outline-offset: 2px;
+}
+
+.pop-scenario { padding: 0 14px 12px; }
+.pop-scenario label { display: block; margin-bottom: 4px; font-weight: 600; font-size: 12.5px; }
+.pop-scenario select {
+  width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font: inherit;
+}
+.pop-scenario small { margin-top: 4px; }
+
+.pop-reload {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 14px 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--pop-brand-soft);
+}
+.pop-reload button {
+  height: 26px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--pop-brand);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.pop-how { padding: 12px 14px 14px; border-top: 1px solid var(--border-color); background: var(--bg-secondary); }
+.pop-how h2 { margin: 0 0 8px; font-size: 14px; }
+.pop-step { display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: start; margin-bottom: 10px; }
+.pop-step:last-child { margin-bottom: 0; }
+.pop-num {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--pop-brand);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.pop kbd {
+  padding: 2px 6px;
+  border: 1px solid var(--border-color);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--bg-primary);
+  font: 600 12px/1 'Segoe UI', system-ui, sans-serif;
+}
+.pop-or { color: var(--text-secondary); font-size: 12px; }
+.pop-tabs {
+  display: flex;
+  margin-top: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  font-size: 12px;
+}
+.pop-tabs span { padding: 5px 8px; border-right: 1px solid var(--border-color); color: var(--text-secondary); white-space: nowrap; }
+.pop-tabs span.us { color: var(--pop-brand); font-weight: 700; background: var(--pop-brand-soft); box-shadow: inset 0 -2px 0 var(--pop-brand); }
+.pop-tabs span.more { border-right: 0; }
+.pop-small { margin-top: 4px; color: var(--text-secondary); font-size: 12px; }
