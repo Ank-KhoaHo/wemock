@@ -1,4 +1,5 @@
 import React, { Suspense, useEffect, useRef, useState } from 'react';
+import { BackIcon, CopyIcon, SaveIcon, TrashIcon } from './icons';
 import { paramNamesOf, sampleUrl } from '../core/codeHints';
 import { hasConditions } from '../core/conditions';
 import { DEFAULT_CODE, type HandlerReply, type HandlerRequest } from '../core/handler';
@@ -23,6 +24,8 @@ export interface MockEditorProps {
   onSave: (mock: Mock) => void;
   onDelete: (mockId: string) => void;
   onDuplicate?: (mockId: string) => void;
+  /** Shown on a narrow panel, where the list and the editor take turns. */
+  onBack?: () => void;
   onToggleEnabled?: (enabled: boolean) => void;
   isDark?: boolean;
   pageOrigin?: string;
@@ -62,6 +65,7 @@ export function MockEditor({
   onDelete,
   onDuplicate,
   onToggleEnabled,
+  onBack,
   isDark = false,
   pageOrigin = '',
   projectId,
@@ -594,10 +598,30 @@ export function MockEditor({
   };
 
   return (
-    <div className="mock-editor-container">
+    <div
+      className="mock-editor-container"
+      onKeyDown={(e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+          e.preventDefault();
+          if (canSave) handleSave();
+        }
+      }}
+    >
       <div className="mock-editor-header">
         <div className="mock-editor-title">
-          <h3>Edit Mock</h3>
+          {onBack && (
+            <button
+              type="button"
+              data-testid="editor-back"
+              className="ibtn editor-back"
+              aria-label="Back to the list"
+              title="Back to the list"
+              onClick={onBack}
+            >
+              <BackIcon size={16} />
+            </button>
+          )}
+          <h3>Edit mock</h3>
           <span className="mock-id-badge">{draft.source}</span>
         </div>
         <div className="mock-editor-actions">
@@ -623,28 +647,34 @@ export function MockEditor({
             <button
               type="button"
               data-testid="mock-duplicate"
-              className="btn-secondary"
+              className="ibtn boxed"
+              aria-label="Duplicate mock"
+              title="Duplicate mock"
               onClick={() => onDuplicate(draft.id)}
             >
-              Duplicate
+              <CopyIcon size={16} />
             </button>
           )}
           <button
             type="button"
             data-testid="mock-delete"
-            className="btn-danger"
+            className="ibtn boxed red"
+            aria-label="Delete mock"
+            title="Delete mock"
             onClick={() => onDelete(draft.id)}
           >
-            Delete
+            <TrashIcon size={16} />
           </button>
           <button
             type="button"
             data-testid="mock-save"
-            className="btn-primary"
+            className="ibtn solid-blue"
+            aria-label="Save mock"
+            title="Save (Ctrl+S)"
             disabled={!canSave}
             onClick={handleSave}
           >
-            Save
+            <SaveIcon size={16} />
           </button>
         </div>
       </div>

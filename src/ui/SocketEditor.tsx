@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { BackIcon, CopyIcon, SaveIcon, TrashIcon } from './icons';
 import { compilePattern } from '../core/match';
 import { normalizePattern } from '../core/sockets';
 import type { SocketMock, SocketPush, SocketReply } from '../core/types';
@@ -114,12 +115,14 @@ export interface SocketEditorProps {
   onSave: (socket: SocketMock) => void;
   onDelete: (socketId: string) => void;
   onDuplicate?: (socketId: string) => void;
+  /** Shown on a narrow panel, where the list and the editor take turns. */
+  onBack?: () => void;
   /** The header switch: saved at once. */
   onToggleEnabled?: (enabled: boolean) => void;
   isDark?: boolean;
 }
 
-export function SocketEditor({ socket, onSave, onDelete, onDuplicate, onToggleEnabled }: SocketEditorProps) {
+export function SocketEditor({ socket, onSave, onDelete, onDuplicate, onToggleEnabled, onBack }: SocketEditorProps) {
   const [draft, setDraft] = useState<SocketMock | null>(socket);
 
   useEffect(() => {
@@ -246,10 +249,30 @@ export function SocketEditor({ socket, onSave, onDelete, onDuplicate, onToggleEn
   };
 
   return (
-    <div className="mock-editor-container">
+    <div
+      className="mock-editor-container"
+      onKeyDown={(e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+          e.preventDefault();
+          if (canSave) handleSave();
+        }
+      }}
+    >
       <div className="mock-editor-header">
         <div className="mock-editor-title">
-          <h3>Edit Socket</h3>
+          {onBack && (
+            <button
+              type="button"
+              data-testid="editor-back"
+              className="ibtn editor-back"
+              aria-label="Back to the list"
+              title="Back to the list"
+              onClick={onBack}
+            >
+              <BackIcon size={16} />
+            </button>
+          )}
+          <h3>Edit socket mock</h3>
           <span className="mock-id-badge">{draft.kind}</span>
         </div>
         <div className="mock-editor-actions">
@@ -271,28 +294,34 @@ export function SocketEditor({ socket, onSave, onDelete, onDuplicate, onToggleEn
             <button
               type="button"
               data-testid="socket-duplicate"
-              className="btn-secondary"
+              className="ibtn boxed"
+              aria-label="Duplicate socket mock"
+              title="Duplicate socket mock"
               onClick={() => onDuplicate(draft.id)}
             >
-              Duplicate
+              <CopyIcon size={16} />
             </button>
           )}
           <button
             type="button"
             data-testid="socket-delete"
-            className="btn-danger"
+            className="ibtn boxed red"
+            aria-label="Delete socket mock"
+            title="Delete socket mock"
             onClick={() => onDelete(draft.id)}
           >
-            Delete
+            <TrashIcon size={16} />
           </button>
           <button
             type="button"
             data-testid="socket-save"
-            className="btn-primary"
+            className="ibtn solid-blue"
+            aria-label="Save socket mock"
+            title="Save (Ctrl+S)"
             disabled={!canSave}
             onClick={handleSave}
           >
-            Save
+            <SaveIcon size={16} />
           </button>
         </div>
       </div>

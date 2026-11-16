@@ -361,6 +361,7 @@ export default function App() {
   }
 
   const handleToggleRecording = () => {
+    notify(state?.settings.recording ? 'Recording paused' : 'Recording calls');
     update((s) => ({
       ...s,
       settings: { ...s.settings, recording: !s.settings.recording },
@@ -368,6 +369,7 @@ export default function App() {
   };
 
   const handleToggleEnabled = () => {
+    notify(state?.settings.enabled ? 'Mocking off: every call goes to the server' : 'Mocking on: mocks answer again');
     update((s) => ({
       ...s,
       settings: { ...s.settings, enabled: !s.settings.enabled },
@@ -375,6 +377,7 @@ export default function App() {
   };
 
   const handleToggleConsoleLog = () => {
+    notify(state?.settings.consoleLog === false ? 'Mocked calls now show in the Console' : 'Console lines off');
     update((s) => ({
       ...s,
       settings: { ...s.settings, consoleLog: s.settings.consoleLog === false },
@@ -429,6 +432,8 @@ export default function App() {
         projects: updatedProjects,
       };
     }).catch(() => {});
+    const into = project?.scenarios.find((s) => s.id === project.activeScenarioId) ?? project?.scenarios[0];
+    notify(`Mock added to ${into?.name ?? 'Default'}`);
   };
 
   const handleToggleSelectLog = (id: string) => {
@@ -654,6 +659,8 @@ export default function App() {
     setSelectedScenarioId(sc.id);
     setSelectedMockId(result.newId);
     setSelectedSocketId(null);
+    const copy = result.project.scenarios.flatMap((s) => s.mocks).find((m) => m.id === result.newId);
+    notify(`Mock duplicated: ${copy?.name || copy?.urlPattern || 'copy'}`);
   };
 
   const handleDuplicateSocket = (socketId: string) => {
@@ -671,6 +678,8 @@ export default function App() {
     setSelectedScenarioId(sc.id);
     setSelectedSocketId(result.newId);
     setSelectedMockId(null);
+    const copy = result.project.scenarios.flatMap((s) => s.sockets ?? []).find((x) => x.id === result.newId);
+    notify(`Socket mock duplicated: ${copy?.name || copy?.urlPattern || 'copy'}`);
   };
 
   const handleSaveHar = () => {
@@ -889,6 +898,7 @@ export default function App() {
         };
       }),
     })).catch(() => {});
+    notify(`Renamed to ${newName}`);
   };
 
   const handleDeleteScenario = (scenarioId: string) => {
@@ -911,6 +921,7 @@ export default function App() {
 
   const handleAddMock = (scenarioId: string, newMock: Mock) => {
     if (!project) return;
+    freshIdsRef.current.add(newMock.id);
     update((s) => ({
       ...s,
       projects: s.projects.map((p) => {
@@ -929,6 +940,7 @@ export default function App() {
 
   const handleSaveMock = (savedMock: Mock) => {
     if (!project) return;
+    notifySaved(savedMock.id, savedMock.name || savedMock.urlPattern, 'Mock');
     update((s) => ({
       ...s,
       projects: s.projects.map((p) => {
@@ -943,6 +955,17 @@ export default function App() {
         };
       }),
     })).catch(() => {});
+  };
+
+  // Mocks made with + New mock in this panel and not yet saved: their first Save says where they went.
+  const freshIdsRef = useRef<Set<string>>(new Set());
+  const notifySaved = (id: string, name: string, noun: string) => {
+    if (freshIdsRef.current.delete(id)) {
+      const into = project?.scenarios.find((s) => s.mocks.some((m) => m.id === id) || (s.sockets ?? []).some((x) => x.id === id));
+      notify(`${noun} added to ${into?.name ?? 'Default'}`);
+    } else {
+      notify(`Saved ${name}`);
+    }
   };
 
   /** Makes a scenario the one that answers, over Default, and says so. */
@@ -1050,6 +1073,7 @@ export default function App() {
 
   const handleAddSocket = (scenarioId: string, newSocket: SocketMock) => {
     if (!project) return;
+    freshIdsRef.current.add(newSocket.id);
     update((s) => ({
       ...s,
       projects: s.projects.map((p) => {
@@ -1070,6 +1094,7 @@ export default function App() {
 
   const handleSaveSocket = (savedSocket: SocketMock) => {
     if (!project) return;
+    notifySaved(savedSocket.id, savedSocket.name || savedSocket.urlPattern, 'Socket mock');
     update((s) => ({
       ...s,
       projects: s.projects.map((p) => {
@@ -1470,6 +1495,7 @@ export default function App() {
                     onSave={handleSaveSocket}
                     onDelete={handleDeleteSocket}
                     onDuplicate={handleDuplicateSocket}
+                    onBack={() => setSelectedSocketId(null)}
                     onToggleEnabled={(enabled) => selectedSocket && handleSetSocketEnabled(selectedSocket.id, enabled)}
                   />
                 ) : (
@@ -1481,6 +1507,7 @@ export default function App() {
                     onSave={handleSaveMock}
                     onDelete={handleDeleteMock}
                     onDuplicate={handleDuplicateMock}
+                    onBack={() => setSelectedMockId(null)}
                     onToggleEnabled={(enabled) => selectedMock && handleSetMockEnabled(selectedMock.id, enabled)}
                   />
                 )}

@@ -2773,3 +2773,13 @@ body.dark .mock-unreachable,
 .wm .editor-switch input:checked { background: var(--s2); }
 .wm .editor-switch input:checked::after { left: 14px; }
 @media (prefers-reduced-motion: reduce) { .wm .chev, .wm .editor-switch input::after { transition: none; } }
+
+/* Editor headers: a title, then the switch and the icon buttons. */
+.wm .mock-editor-header { display: flex; align-items: center; gap: 8px; }
+.wm .mock-editor-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.wm .mock-editor-title h3 { margin: 0; font-size: 15px; white-space: nowrap; }
+.wm .mock-editor-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.wm .editor-back { display: none; }
+.wm .mock-row.flash { animation: wm-flash .6s; }
+@keyframes wm-flash { from { background: var(--brand-soft); } }
+@media (prefers-reduced-motion: reduce) { .wm .mock-row.flash { animation: none; } }

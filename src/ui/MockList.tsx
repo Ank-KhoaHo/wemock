@@ -127,6 +127,8 @@ export function MockList({
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameText, setRenameText] = useState('');
+  // The row just moved up or down flashes once, in place of a message.
+  const [flashId, setFlashId] = useState<string | null>(null);
   const [foldedIds, setFoldedIds] = useState<string[]>(() => loadFoldedIds(project.id));
   const [headerRules, setHeaderRules] = useState<HeaderRule[]>(() => project.headerRules ?? []);
   const addMenuRef = useRef<HTMLDivElement | null>(null);
@@ -267,6 +269,8 @@ export function MockList({
       prev.map((s) => (s.id === scenarioId ? { ...s, mocks: nextMocks } : s)),
     );
     onUpdateScenarioMocks(scenarioId, nextMocks);
+    setFlashId(moved.id);
+    setTimeout(() => setFlashId((id) => (id === moved.id ? null : id)), 700);
   };
 
   const handleDragStart = (e: React.DragEvent, scenarioId: string, index: number) => {
@@ -628,7 +632,7 @@ export function MockList({
                         data-testid="mock-row"
                         tabIndex={0}
                         aria-selected={isSelected ? 'true' : undefined}
-                        className={`mock-row ${isSelected ? 'selected' : ''} ${!mock.enabled ? 'disabled off' : ''}`}
+                        className={`mock-row ${isSelected ? 'selected' : ''} ${!mock.enabled ? 'disabled off' : ''} ${flashId === mock.id ? 'flash' : ''}`}
                         draggable={!isFilterActive}
                         onDragStart={(e) => handleDragStart(e, sc.id, originalIndex)}
                         onDragOver={(e) => {
