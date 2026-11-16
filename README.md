@@ -19,7 +19,9 @@ A mockingbird copies the calls of other birds. wemock copies your API's.
 
 ## Get started
 
-wemock is not on the Chrome Web Store yet. Until it is:
+**Add wemock from the [Chrome Web Store](https://chromewebstore.google.com/detail/wemock/meoiipgffocfcgafaakjkodmfmmfoggk).** It is free.
+
+Or load a release yourself:
 
 1. Download `wemock-<version>-chrome.zip` from the
    [latest release](https://github.com/Ank-KhoaHo/wemock/releases/latest), and unzip it.
@@ -76,7 +78,7 @@ host, so the mock answers only that site. → [Your first mock](guide/first-mock
 The Default scenario always applies. Switch on "Checkout down" and checkout answers 503, while
 everything else keeps working. Switch back with one click.
 
-<img src=".github/screens/5-scenarios.png" alt="Four scenarios as chips at the top; Checkout down is on, and its mock answers 503">
+<img src=".github/screens/5-scenarios.png" alt="The Mocks list: Default and three scenarios, each with its own icons; Checkout down is active, and its mock answers 503">
 
 → [Scenarios](guide/scenarios.md)
 
@@ -96,7 +98,7 @@ real call through, then change one field) cover the cases in between. → [Repli
 Every call in the Log says who answered it: the real server, or a mock, by name and scenario.
 Click the name to open that mock.
 
-<img src=".github/screens/3-test-bar.png" alt="The Log: GET /api/products/42 answered by the mock Product by id, from Default">
+<img src=".github/screens/3-answered-by.png" alt="The Log: POST /api/checkout answered by the mock Checkout 503, from the scenario Checkout down">
 
 Each mocked call also writes one line to the page's Console. → [Checking your mocks](guide/checking.md)
 
@@ -113,7 +115,7 @@ socket**.
 
 ## Status
 
-Version 1.8.0, before its first Store release.
+Version 1.9.0, on the [Chrome Web Store](https://chromewebstore.google.com/detail/wemock/meoiipgffocfcgafaakjkodmfmmfoggk) since 2026-11-16.
 
 ## Limits
 

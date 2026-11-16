@@ -15,7 +15,7 @@ Each mocked call writes one line to the page's Console:
 [wemock] GET /doc/1 → 200 mock "Doc one" (12 ms)
 ```
 
-The **Console** button at the top of the panel switches it off and on.
+The **Console** button at the top right of the panel switches it off and on.
 
 ## The Log
 

@@ -1,8 +1,14 @@
 # Install
 
-wemock is not on the Chrome Web Store yet. Until it is, you load it as an unpacked extension.
+## From the Chrome Web Store
+
+Open [wemock on the Chrome Web Store](https://chromewebstore.google.com/detail/wemock/meoiipgffocfcgafaakjkodmfmmfoggk) and click **Add to Chrome**. Updates come by
+themselves.
 
 ## From a release
+
+To try a version before it reaches the Store, load it as an unpacked extension.
+
 
 1. Download `wemock-<version>-chrome.zip` from the
    [latest release](https://github.com/Ank-KhoaHo/wemock/releases/latest).

@@ -14,28 +14,35 @@ still come from Default.
 
 ## Switch
 
-The chips at the top of the panel are your scenarios. Click one to make it active; click
-**Default** to go back. The next call uses the new answers. No reload is needed unless the page
-already made the call.
+In the **Mocks** tab, click a scenario's header to make it active; it turns blue and says
+**Active**. Click **Default** to go back. The next call uses the new answers. No reload is
+needed unless the page already made the call.
+
+The popup (the wemock icon in Chrome's toolbar) has the same choice, as a dropdown.
 
 ## Manage
 
-In the **Mocks** tab:
+**+** at the top of the list adds a mock, a socket mock or a scenario. A new mock goes into the
+active scenario.
 
-| Button | What it does |
+Each scenario's header has its own icons:
+
+| Icon | What it does |
 |---|---|
-| New scenario | an empty scenario |
-| Rename, Duplicate | on the selected scenario; a duplicate copies every mock |
-| Export | saves the selected scenario alone as a file, to share it |
-| Delete, Delete all | with the tick boxes, delete several at once; Default always stays |
+| Pencil | renames it, in place: Enter saves, Escape cancels |
+| Copy | duplicates it, with every mock |
+| Arrow up | saves it alone as a file, to share it |
+| Bin | deletes it; on Default, deletes every mock in it and keeps Default |
 
-Every delete and clear can be undone from the bar that appears.
+The red bin beside the filter deletes every mock and scenario for the site, after asking.
+Every delete can be undone from the message that appears.
 
 Inside a scenario:
 
-- The tick box on a mock switches it on or off, without deleting it.
 - The arrows move a mock up or down. **The first mock that matches answers**, so order matters.
-- **Duplicate** in the mock editor copies a mock.
-- The filter box and the fold arrows keep long lists short.
+- The bin on a row deletes that mock.
+- The switch in the mock editor turns a mock on or off, without deleting it. An off mock is faded.
+- The filter box and the fold arrows keep long lists short. The list scrolls as one, and each
+  scenario's name stays in view over its mocks.
 
 ← [Your first mock](first-mock.md) · Next: [Matching](matching.md) →

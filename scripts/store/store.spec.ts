@@ -140,24 +140,29 @@ test('store images', async () => {
     // Not Run: its answer sits below the 800 px frame, and running scrolls the editor's header away (A36).
     await shot(panel, 'screenshot-2-code-mock');
 
-    // 4: a SignalR hub (taken before the Test bar runs, so no result shows).
+    // 4: a SignalR hub.
     await panel.getByTestId('socket-row').first().click();
     await expect(panel.getByTestId('socket-name')).toHaveValue('Notifications hub');
     await shot(panel, 'screenshot-4-signalr');
 
-    // 3: the Test bar.
-    await panel.getByTestId('test-method').selectOption('GET');
-    await panel.getByTestId('test-url').fill('/api/products/42');
-    await panel.getByTestId('test-run').click();
-    await expect(panel.getByTestId('test-status')).toBeVisible();
-    await panel.getByTestId('mock-row').filter({ hasText: 'Product by id' }).first().click();
-    await shot(panel, 'screenshot-3-test-bar');
-
-    // 5: one click to another scenario.
-    await panel.getByTestId('scenario-chip').filter({ hasText: 'Checkout down' }).first().click();
+    // 5: one click on a scenario's header makes it the one that answers.
+    const down = panel.locator('.scenario-group').filter({ has: panel.locator('.scenario-name-badge', { hasText: 'Checkout down' }) });
+    await down.getByTestId('scenario-name').click();
+    await expect(down.getByTestId('scenario-active')).toBeVisible();
     await panel.getByTestId('mock-row').filter({ hasText: 'Checkout 503' }).first().click();
     await expect(panel.getByTestId('field-name')).toHaveValue('Checkout 503');
+    // Let the "Checkout down is active" message go before the picture.
+    await panel.waitForTimeout(3500);
     await shot(panel, 'screenshot-5-scenarios');
+
+    // 3: the Log names the mock that answered a call, and its scenario.
+    await page.evaluate(async () => {
+      await fetch('/api/checkout', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"cart":"c-1042"}' });
+    });
+    await panel.getByTestId('tab-log').click();
+    await rows.filter({ hasText: '/api/checkout' }).first().click();
+    await expect(panel.getByTestId('answered-by')).toContainText('Checkout down');
+    await shot(panel, 'screenshot-3-answered-by');
 
     // Promo images, drawn from the icon and screenshot 1.
     // A44: the mockingbird, as SVG so it stays sharp at any size.

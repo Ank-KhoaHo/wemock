@@ -6,8 +6,28 @@ A released block's heading is the version, then the date: `## 0.1.0 — 2026-01-
 released version is also what the `VERSION` file holds, and the name of a git tag (`v` followed
 by the version).
 
-## Unreleased
+## 1.9.0 — 2026-11-17
 
+A new panel, shaped by what people said about 1.8.
+
+- **One header:** Import, Export and the yellow Sample sit at the top, beside the site's project.
+  Rec, Console and On/off are on the right. Log and Mocks moved to a rail on the left.
+- **Import** opens a window: drop or choose a file, see what it holds, then add it or replace
+  everything. A site with nothing yet imports without asking.
+- **Export** offers the whole project, or only the active scenario.
+- **Scenarios:** click a scenario's header to make it active. Each header has its own icons to
+  rename, duplicate, export and delete. Default's bin empties it and keeps it.
+- **No more checkboxes.** A mock's on and off is a switch in its editor; an off mock is faded.
+- **+** adds a mock, a socket mock or a scenario. The red bin beside the filter deletes everything,
+  after asking.
+- **Messages:** every change says what it did, at the bottom of the panel. Deletes have Undo.
+- **Icons in the editors:** duplicate, delete in red, save in blue. Ctrl+S saves.
+- **Bigger text:** 13 px, with labels in sentence case.
+- **Small panels:** docked narrow at the side or short at the bottom, the panel still fits; the
+  list and the editor take turns, with a back arrow.
+- **The popup** picks the active scenario from a dropdown, and says how to open wemock in
+  DevTools.
+- **The Test bar is gone.** The Log's Answered by says which mock answered each call.
 - **Long lists scroll again:** a scenario with hundreds of mocks was cut off at the panel's
   height, so its later mocks, and every scenario after it, could not be reached.
 - **Large text bodies no longer slow the panel:** a body over 100,000 characters, or one that does
