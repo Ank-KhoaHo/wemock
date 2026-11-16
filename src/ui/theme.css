@@ -1576,7 +1576,8 @@ body.panel-root {
   object-fit: contain;
 }
 
-.binary-actions {
+.binary-actions,
+.body-editor-actions {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1586,6 +1587,17 @@ body.panel-root {
   border: 1px solid var(--border-color);
   border-radius: 4px;
   overflow: hidden;
+}
+
+.cm-indent-guides {
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--border-color) 0 1px,
+    transparent 1px calc(var(--wm-indent) * 1ch)
+  );
+  background-origin: content-box;
+  background-size: calc(var(--wm-guides) * var(--wm-indent) * 1ch) 100%;
+  background-repeat: no-repeat;
 }
 
 .editor-loading {

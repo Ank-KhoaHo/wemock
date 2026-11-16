@@ -6,12 +6,17 @@ import { RUN_HANDLER } from '../core/messages';
 import { compilePattern } from '../core/match';
 import { isValidStatus, statusTextFor, STATUS_TEXT } from '../core/statusText';
 import type { BodyEncoding, HttpMethod, Mock, MockMatch, MockPatch, MockResponse, MockSequence, MockStream } from '../core/types';
+import { compactJson, formatJson, withBody } from '../core/bodies';
 import { BodyEditor } from './BodyEditor';
 import { HeadersTable } from './HeadersTable';
 
 const CodeEditor = React.lazy(() => import('./CodeEditor'));
 
 const HTTP_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'ANY'];
+
+function editable(mock: Mock | null): Mock | null {
+  return mock && withBody(mock, formatJson);
+}
 
 export interface MockEditorProps {
   mock: Mock | null;
@@ -59,7 +64,7 @@ export function MockEditor({
   pageOrigin = '',
   projectId,
 }: MockEditorProps) {
-  const [draft, setDraft] = useState<Mock | null>(mock);
+  const [draft, setDraft] = useState<Mock | null>(() => editable(mock));
   const [statusInput, setStatusInput] = useState<string>(mock ? String(mock.response.status) : '200');
   const [delayInput, setDelayInput] = useState<string>(mock ? String(mock.response.delayMs) : '0');
   const [seqDraft, setSeqDraft] = useState<{
@@ -130,7 +135,7 @@ export function MockEditor({
   const lastOriginRef = useRef<string>(pageOrigin);
 
   useEffect(() => {
-    setDraft(mock);
+    setDraft(editable(mock));
     if (mock) {
       setStatusInput(String(mock.response.status));
       setDelayInput(String(mock.response.delayMs));
@@ -215,6 +220,9 @@ export function MockEditor({
       </div>
     );
   }
+
+  const plainBody = () => compactJson(draft.response.body);
+  const save = (mock: Mock) => onSave(withBody(mock, compactJson));
 
   const patternResult = compilePattern(draft.urlPattern);
   const isCode = draft.reply === 'code';
@@ -326,7 +334,7 @@ export function MockEditor({
             {
               status: statusInput || String(draft.response.status || 200),
               delayMs: delayInput || String(draft.response.delayMs || 0),
-              body: draft.response.body,
+              body: plainBody(),
             },
           ],
           after: 'stay',
@@ -336,7 +344,7 @@ export function MockEditor({
     if (reply === 'stream') {
       if (!streamDraft || streamDraft.chunks.length === 0) {
         setStreamDraft({
-          chunks: [draft.response.body],
+          chunks: [plainBody()],
           gapMs: 50,
           sse: false,
         });
@@ -495,7 +503,7 @@ export function MockEditor({
         delete saved.match;
       }
 
-      onSave(saved);
+      save(saved);
       return;
     }
 
@@ -532,13 +540,13 @@ export function MockEditor({
         delete saved.match;
       }
 
-      onSave(saved);
+      save(saved);
       return;
     }
 
     if (draft.reply === 'stream') {
       const stream: MockStream = {
-        chunks: streamDraft ? streamDraft.chunks : [draft.response.body],
+        chunks: streamDraft ? streamDraft.chunks : [plainBody()],
         gapMs: Math.max(0, Number(streamDraft?.gapMs) || 0),
         sse: Boolean(streamDraft?.sse),
       };
@@ -561,7 +569,7 @@ export function MockEditor({
         delete saved.match;
       }
 
-      onSave(saved);
+      save(saved);
       return;
     }
 
@@ -580,7 +588,7 @@ export function MockEditor({
       delete saved.match;
     }
 
-    onSave(saved);
+    save(saved);
   };
 
   return (
@@ -1303,7 +1311,7 @@ export function MockEditor({
                   value={streamDraft ? streamDraft.gapMs : 0}
                   onChange={(e) => {
                     const val = Number(e.target.value);
-                    setStreamDraft((prev) => (prev ? { ...prev, gapMs: val } : { chunks: [draft.response.body], gapMs: val, sse: false }));
+                    setStreamDraft((prev) => (prev ? { ...prev, gapMs: val } : { chunks: [plainBody()], gapMs: val, sse: false }));
                   }}
                 />
               </div>
@@ -1316,7 +1324,7 @@ export function MockEditor({
                     checked={Boolean(streamDraft?.sse)}
                     onChange={(e) => {
                       const checked = e.target.checked;
-                      setStreamDraft((prev) => (prev ? { ...prev, sse: checked } : { chunks: [draft.response.body], gapMs: 50, sse: checked }));
+                      setStreamDraft((prev) => (prev ? { ...prev, sse: checked } : { chunks: [plainBody()], gapMs: 50, sse: checked }));
                     }}
                   />
                   As Server-Sent Events
@@ -1376,7 +1384,7 @@ export function MockEditor({
                 className="btn-secondary stream-chunk-add-btn"
                 onClick={() => {
                   setStreamDraft((prev) => {
-                    if (!prev) return { chunks: [draft.response.body, ''], gapMs: 50, sse: false };
+                    if (!prev) return { chunks: [plainBody(), ''], gapMs: 50, sse: false };
                     return {
                       ...prev,
                       chunks: [...prev.chunks, ''],
