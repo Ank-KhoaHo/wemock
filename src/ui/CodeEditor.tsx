@@ -10,8 +10,8 @@ export interface CodeEditorProps {
   value: string;
   onChange: (value: string) => void;
   dark?: boolean;
-  /** A2: code mocks edit JavaScript; bodies edit JSON. */
-  language?: 'json' | 'javascript';
+  /** Code mocks edit JavaScript; bodies edit JSON, or plain text when large or not JSON. */
+  language?: 'json' | 'javascript' | 'text';
   paramNames?: string[];
 }
 
@@ -39,6 +39,7 @@ export default function CodeEditor({
       };
       return [javascript(), autocompletion({ override: [source] }), indentGuides()];
     }
+    if (language === 'text') return [indentGuides()];
     return [json(), indentGuides()];
   }, [language]);
 

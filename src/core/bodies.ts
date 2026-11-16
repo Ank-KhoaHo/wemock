@@ -51,6 +51,19 @@ export function encodeBody(
   return { body, encoding: 'base64', truncated: false };
 }
 
+/**
+ * Above this many characters the body editor shows plain text. CodeMirror's JSON parser
+ * re-reads a large body while the user types elsewhere in the panel (150 ms a key at 1.4 MB).
+ */
+export const JSON_EDITOR_MAX_CHARS = 100_000;
+
+/** The editor language for a body: JSON when it is small and starts like JSON, else plain text. */
+export function bodyLanguage(body: string): 'json' | 'text' {
+  if (body.length > JSON_EDITOR_MAX_CHARS) return 'text';
+  const first = body.trimStart()[0];
+  return first === '{' || first === '[' ? 'json' : 'text';
+}
+
 const JSON_INDENT = '  ';
 const JSON_TOKEN = /"(?:[^"\\]|\\.)*"|[{}[\],:]|[^\s{}[\],:"]+/g;
 const JSON_OPENERS = new Set(['{', '[']);

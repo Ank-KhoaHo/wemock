@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useState } from 'react';
-import { base64ToBytes, bytesToBase64, formatJson, isJsonContainer } from '../core/bodies';
+import { base64ToBytes, bodyLanguage, bytesToBase64, formatJson, isJsonContainer } from '../core/bodies';
 import type { BodyEncoding } from '../core/types';
 
 const CodeEditor = React.lazy(() => import('./CodeEditor'));
@@ -189,6 +189,7 @@ export function BodyEditor({
             <CodeEditor
               value={body}
               dark={isDark}
+              language={bodyLanguage(body)}
               onChange={(val) => onChangeBody(val, 'text')}
             />
           </Suspense>

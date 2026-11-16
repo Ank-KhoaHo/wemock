@@ -8,6 +8,13 @@ by the version).
 
 ## Unreleased
 
+- **Long lists scroll again:** a scenario with hundreds of mocks was cut off at the panel's
+  height, so its later mocks, and every scenario after it, could not be reached.
+- **Large text bodies no longer slow the panel:** a body over 100,000 characters, or one that does
+  not start like JSON, opens as plain text. Typing in Filter mocks with such a body open took up to
+  150 ms a key.
+- The editor shows a JSON body over lines, with a guide line for each level, and **Format** spreads
+  it again. Saving and exporting keep it compact. Thanks to an outside contributor (#2).
 - An unknown file's import error now names the formats wemock reads: wemock, HAR, OpenAPI or
   a JSON mock file.
 - Releases are built from a version tag by a workflow, which stops at a draft.

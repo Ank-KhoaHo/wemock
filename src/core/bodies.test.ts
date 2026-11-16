@@ -9,6 +9,8 @@ import {
   formatJson,
   compactJson,
   isJsonContainer,
+  bodyLanguage,
+  JSON_EDITOR_MAX_CHARS,
 } from './bodies';
 import { BODY_CAP_BYTES, type MockResponse } from './types';
 
@@ -222,5 +224,31 @@ describe('bodies', () => {
         expect(compactJson(text)).toBe(text);
       },
     );
+  });
+});
+
+describe('bodyLanguage', () => {
+  it('reads a small body that looks like JSON as JSON', () => {
+    expect(bodyLanguage('{"a":1}')).toBe('json');
+    expect(bodyLanguage('  \n[1, 2]')).toBe('json');
+    expect(bodyLanguage('{"id": {{params.id}} }')).toBe('json');
+  });
+
+  it('reads base64, plain text and empty bodies as plain text', () => {
+    expect(bodyLanguage('QUJD'.repeat(100))).toBe('text');
+    expect(bodyLanguage('hello')).toBe('text');
+    expect(bodyLanguage('<x/>')).toBe('text');
+    expect(bodyLanguage('')).toBe('text');
+  });
+
+  it('reads any body over the limit as plain text, JSON or not', () => {
+    const big = '[' + '1,'.repeat(JSON_EDITOR_MAX_CHARS / 2) + '1]';
+    expect(big.length).toBeGreaterThan(JSON_EDITOR_MAX_CHARS);
+    expect(bodyLanguage(big)).toBe('text');
+    expect(bodyLanguage('{' + ' '.repeat(JSON_EDITOR_MAX_CHARS - 2) + '}')).toBe('json');
+  });
+
+  it('puts the limit at 100,000 characters', () => {
+    expect(JSON_EDITOR_MAX_CHARS).toBe(100_000);
   });
 });
