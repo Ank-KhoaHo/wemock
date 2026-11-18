@@ -82,6 +82,71 @@ test('dialogs are named by their title and close on Escape or a click outside', 
   }
 });
 
+test('leaving a mock with unsaved edits asks to save, discard or stay', async () => {
+  const { state } = ensureProject({ ...emptyState(), enabledOrigins: [fixture.origin] }, fixture.origin, newId);
+  const mock = (id: string, urlPattern: string) => ({
+    id,
+    enabled: true,
+    method: 'GET' as const,
+    urlPattern,
+    response: { status: 200, headers: {}, body: '{"a":1}', bodyEncoding: 'text' as const, delayMs: 0 },
+    source: 'manual' as const,
+    createdAt: 0,
+  });
+  state.projects[0]!.scenarios[0]!.mocks = [mock('m1', '/api/a'), mock('m2', '/api/b')];
+  await session.setState(state);
+  const page = await session.context.newPage();
+  const panelPage = await session.context.newPage();
+  try {
+    await page.goto(`${fixture.url}/index.html`);
+    const tabId = await session.tabIdOf(page);
+    await panelPage.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
+    await panelPage.getByTestId('tab-mocks').click();
+
+    const rows = panelPage.getByTestId('mock-row');
+    const pattern = panelPage.getByTestId('field-pattern');
+    const name = panelPage.getByTestId('field-name');
+    const dirty = panelPage.getByTestId('editor-dirty');
+    const dialog = panelPage.getByTestId('unsaved-dialog');
+
+    await rows.nth(0).click();
+    await expect(pattern).toHaveValue('/api/a');
+    await panelPage.getByTestId('mock-enabled').click();
+    await expect(dirty).toBeHidden();
+
+    await name.fill('changed');
+    await expect(dirty).toBeVisible();
+    await rows.nth(1).click();
+    await expect(dialog).toBeVisible();
+    await panelPage.getByTestId('unsaved-cancel').click();
+    await expect(dialog).toBeHidden();
+    await expect(pattern).toHaveValue('/api/a');
+    await expect(name).toHaveValue('changed');
+
+    await rows.nth(1).click();
+    await panelPage.getByTestId('unsaved-discard').click();
+    await expect(pattern).toHaveValue('/api/b');
+    await rows.nth(0).click();
+    await expect(dialog).toBeHidden();
+    await expect(name).toHaveValue('');
+
+    await name.fill('kept');
+    await rows.nth(1).click();
+    await panelPage.getByTestId('unsaved-save').click();
+    await expect(pattern).toHaveValue('/api/b');
+    await rows.nth(0).click();
+    await expect(name).toHaveValue('kept');
+    await expect(dirty).toBeHidden();
+
+    await name.fill('kept again');
+    await panelPage.getByTestId('mock-save').click();
+    await expect(dirty).toBeHidden();
+  } finally {
+    await panelPage.close();
+    await page.close();
+  }
+});
+
 test('a JSON body shows over lines in the editor but is saved and served without spacing', async () => {
   const page = await session.context.newPage();
   const panelPage = await session.context.newPage();

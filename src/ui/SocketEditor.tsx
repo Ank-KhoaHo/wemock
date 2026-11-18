@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { type Ref, useEffect, useState } from 'react';
 import { BackIcon, CopyIcon, SaveIcon, TrashIcon } from './icons';
+import { DirtyMark, type EditorHandle, IDLE_EDITOR, useUnsavedChanges } from './unsaved';
 import { compilePattern } from '../core/match';
 import { normalizePattern } from '../core/sockets';
 import type { SocketMock, SocketPush, SocketReply } from '../core/types';
@@ -112,7 +113,7 @@ function PushRow({ push, kind, onChange, onRemove }: PushRowProps) {
 
 export interface SocketEditorProps {
   socket: SocketMock | null;
-  onSave: (socket: SocketMock) => void;
+  onSave: (socket: SocketMock) => void | Promise<void>;
   onDelete: (socketId: string) => void;
   onDuplicate?: (socketId: string) => void;
   /** Shown on a narrow panel, where the list and the editor take turns. */
@@ -120,16 +121,19 @@ export interface SocketEditorProps {
   /** The header switch: saved at once. */
   onToggleEnabled?: (enabled: boolean) => void;
   isDark?: boolean;
+  ref?: Ref<EditorHandle>;
 }
 
-export function SocketEditor({ socket, onSave, onDelete, onDuplicate, onToggleEnabled, onBack }: SocketEditorProps) {
+export function SocketEditor({ socket, onSave, onDelete, onDuplicate, onToggleEnabled, onBack, ref }: SocketEditorProps) {
   const [draft, setDraft] = useState<SocketMock | null>(socket);
+  const unsaved = useUnsavedChanges(ref);
 
   useEffect(() => {
     setDraft(socket);
   }, [socket?.id]);
 
   if (!draft) {
+    unsaved.expose(IDLE_EDITOR);
     return (
       <div className="mock-editor-empty">
         <p>Select a socket or click &quot;New socket&quot; to edit</p>
@@ -152,14 +156,17 @@ export function SocketEditor({ socket, onSave, onDelete, onDuplicate, onToggleEn
 
   const canSave = !patternError && !hasOnConnectError && !hasReplyPushError && !hasReplyResultError;
 
-  const handleSave = () => {
-    if (!canSave || !draft) return;
-    const toSave: SocketMock = {
-      ...draft,
-      name: draft.name ? draft.name : undefined,
-    };
-    onSave(toSave);
+  const snapshot = JSON.stringify({ ...draft, enabled: true });
+  const isDirty = unsaved.isDirty(draft.id, snapshot);
+
+  const handleSave = async (): Promise<boolean> => {
+    if (!canSave) return false;
+    unsaved.markSaved(draft.id, snapshot);
+    await onSave({ ...draft, name: draft.name ? draft.name : undefined });
+    return true;
   };
+
+  unsaved.expose({ isDirty: () => isDirty, canSave: () => canSave, save: handleSave });
 
   const handleAddOnConnectPush = () => {
     const newPush: SocketPush = {
@@ -272,7 +279,7 @@ export function SocketEditor({ socket, onSave, onDelete, onDuplicate, onToggleEn
               <BackIcon size={16} />
             </button>
           )}
-          <h3>Edit socket mock</h3>
+          <h3>Edit socket mock{isDirty && <DirtyMark />}</h3>
           <span className="mock-id-badge">{draft.kind}</span>
         </div>
         <div className="mock-editor-actions">

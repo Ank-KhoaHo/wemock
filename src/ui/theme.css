@@ -2778,6 +2778,7 @@ body.dark .mock-unreachable,
 .wm .mock-editor-header { display: flex; align-items: center; gap: 8px; }
 .wm .mock-editor-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .wm .mock-editor-title h3 { margin: 0; font-size: 15px; white-space: nowrap; }
+.wm .editor-dirty { margin-left: 6px; color: var(--brand); }
 .wm .mock-editor-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 .wm .editor-back { display: none; }
 .wm .mock-row.flash { animation: wm-flash .6s; }
