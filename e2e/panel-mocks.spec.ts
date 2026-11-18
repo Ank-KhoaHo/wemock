@@ -58,6 +58,30 @@ test('a new manual mock is served after save', async () => {
   }
 });
 
+test('dialogs are named by their title and close on Escape or a click outside', async () => {
+  const page = await session.context.newPage();
+  const panelPage = await session.context.newPage();
+  try {
+    await page.goto(`${fixture.url}/index.html`);
+    const tabId = await session.tabIdOf(page);
+    await panelPage.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
+    await panelPage.getByTestId('tab-mocks').click();
+
+    await panelPage.getByTestId('import-open').click();
+    await expect(panelPage.getByRole('dialog', { name: 'Import' })).toBeVisible();
+    await panelPage.keyboard.press('Escape');
+    await expect(panelPage.getByTestId('import-dialog')).toBeHidden();
+
+    await panelPage.getByTestId('delete-all').click();
+    await expect(panelPage.getByRole('alertdialog', { name: /^Delete all scenarios and mocks/ })).toBeVisible();
+    await panelPage.locator('.scrim').click({ position: { x: 5, y: 5 } });
+    await expect(panelPage.getByTestId('confirm-dialog')).toBeHidden();
+  } finally {
+    await panelPage.close();
+    await page.close();
+  }
+});
+
 test('a JSON body shows over lines in the editor but is saved and served without spacing', async () => {
   const page = await session.context.newPage();
   const panelPage = await session.context.newPage();
