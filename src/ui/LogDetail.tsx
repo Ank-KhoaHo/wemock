@@ -256,7 +256,7 @@ export function LogDetail({
               )}
             </section>
 
-            <section className="detail-section">
+            <section className="detail-section detail-section-fill">
               <h4 className="section-title">Response Body</h4>
               <pre data-testid="response-body" className="detail-body-pre monospace">
                 {formattedBody}

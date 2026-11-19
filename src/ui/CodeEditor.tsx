@@ -13,6 +13,7 @@ export interface CodeEditorProps {
   /** Code mocks edit JavaScript; bodies edit JSON, or plain text when large or not JSON. */
   language?: 'json' | 'javascript' | 'text';
   paramNames?: string[];
+  fill?: boolean;
 }
 
 export default function CodeEditor({
@@ -21,6 +22,7 @@ export default function CodeEditor({
   dark = false,
   language = 'json',
   paramNames,
+  fill = false,
 }: CodeEditorProps) {
   const paramNamesRef = useRef(paramNames);
   paramNamesRef.current = paramNames;
@@ -46,7 +48,8 @@ export default function CodeEditor({
   return (
     <CodeMirror
       value={value}
-      height="220px"
+      height={fill ? '100%' : '220px'}
+      className={fill ? 'cm-fill' : undefined}
       theme={dark ? 'dark' : 'light'}
       extensions={extensions}
       onChange={onChange}

@@ -190,6 +190,7 @@ export function BodyEditor({
               value={body}
               dark={isDark}
               language={bodyLanguage(body)}
+              fill
               onChange={(val) => onChangeBody(val, 'text')}
             />
           </Suspense>
