@@ -25,6 +25,7 @@ import { ImportDialog, type PendingImport } from '../../ui/ImportDialog';
 import { clearUndo, notify, ToastContainer } from '../../ui/Toasts';
 import { LogIcon, MocksIcon } from '../../ui/icons';
 import { PanelErrorBoundary } from '../../ui/PanelErrorBoundary';
+import { Splitter, usePaneWidth } from '../../ui/Splitter';
 import { type EditorHandle, UnsavedDialog } from '../../ui/unsaved';
 import { useTabLog, useWemockState } from '../../ui/useWemockState';
 
@@ -80,6 +81,10 @@ export default function App() {
   const editorRef = useRef<EditorHandle>(null);
   const [pendingLeave, setPendingLeave] = useState<(() => void) | null>(null);
   const [revealRequest, setRevealRequest] = useState(0);
+  const logPaneRef = useRef<HTMLDivElement>(null);
+  const mockPaneRef = useRef<HTMLDivElement>(null);
+  const logPane = usePaneWidth('log');
+  const mockPane = usePaneWidth('mocks');
 
   const leaveEditor = (go: () => void) => {
     if (editorRef.current?.isDirty()) setPendingLeave(() => go);
@@ -1469,7 +1474,8 @@ export default function App() {
                 onToggleSelect={handleToggleSelectLog}
               />
             </div>
-            <div className="panel-split-right">
+            <Splitter paneRef={logPaneRef} onResize={logPane.resize} />
+            <div className="panel-split-right" ref={logPaneRef} style={logPane.style}>
               <LogDetail
                 entry={selectedEntry}
                 onMockThis={handleMockThis}
@@ -1531,7 +1537,8 @@ export default function App() {
                   revealRequest={revealRequest}
                 />
               </div>
-              <div className="panel-split-right">
+              <Splitter paneRef={mockPaneRef} onResize={mockPane.resize} />
+              <div className="panel-split-right" ref={mockPaneRef} style={mockPane.style}>
                 {selectedSocketId ? (
                   <SocketEditor
                     ref={editorRef}

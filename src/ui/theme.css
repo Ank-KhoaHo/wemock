@@ -2779,6 +2779,9 @@ body.dark .mock-unreachable,
   margin-top: -12px; padding-top: 12px; background: var(--bg-primary); }
 .wm .mock-editor-body { isolation: isolate; }
 .wm .detail-header { position: sticky; top: 0; z-index: 3; margin-top: -12px; padding-top: 12px; background: var(--bg-primary); }
+.wm .split-handle { display: flex; flex: 0 0 8px; align-items: center; justify-content: center; padding: 0; border: 0;
+  background: none; color: var(--muted); cursor: col-resize; touch-action: none; }
+.wm .split-handle:hover, .wm .split-handle:focus-visible, .wm .split-handle.dragging { color: var(--brand); background: var(--brand-soft); outline: none; }
 .wm .mock-editor-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .wm .mock-editor-title h3 { margin: 0; font-size: 15px; white-space: nowrap; }
 .wm .editor-dirty { margin-left: 6px; color: var(--brand); }
@@ -2807,6 +2810,7 @@ body.dark .mock-unreachable,
   .wm .panel-split-view.has-detail .panel-split-left { display: none; }
   .wm .panel-split-view.has-detail .panel-split-right { display: flex; flex: 1; min-height: 0; }
   .wm .editor-back { display: inline-grid; }
+  .wm .split-handle { display: none; }
   /* No hover on a touch screen: the delete icon always shows. */
   .wm .row-del { opacity: 1; }
   .wm .log-th-duration, .wm .log-col-duration { display: none; }
