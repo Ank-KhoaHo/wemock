@@ -2778,6 +2778,7 @@ body.dark .mock-unreachable,
 .wm .mock-editor-header { position: sticky; top: -12px; z-index: 3; display: flex; align-items: center; gap: 8px;
   margin-top: -12px; padding-top: 12px; background: var(--bg-primary); }
 .wm .mock-editor-body { isolation: isolate; }
+.wm .detail-header { position: sticky; top: 0; z-index: 3; margin-top: -12px; padding-top: 12px; background: var(--bg-primary); }
 .wm .mock-editor-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .wm .mock-editor-title h3 { margin: 0; font-size: 15px; white-space: nowrap; }
 .wm .editor-dirty { margin-left: 6px; color: var(--brand); }
