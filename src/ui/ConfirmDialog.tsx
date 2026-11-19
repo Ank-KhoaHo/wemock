@@ -14,7 +14,7 @@ export function ConfirmDialog({
   siteName,
   onConfirm,
   onCancel,
-}: ConfirmDialogProps): React.JSX.Element | null {
+}: Readonly<ConfirmDialogProps>): React.JSX.Element | null {
   if (!isOpen) return null;
 
   return (

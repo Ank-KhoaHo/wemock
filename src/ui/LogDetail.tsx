@@ -62,7 +62,7 @@ export function LogDetail({
   onClose,
   answeredBy,
   onOpenMock,
-}: LogDetailProps) {
+}: Readonly<LogDetailProps>) {
   if (!entry) {
     return (
       <div className="log-detail empty">
@@ -181,7 +181,7 @@ export function LogDetail({
         </section>
 
         {isSocket ? (
-          socketMessage !== null && socketMessage !== undefined && socketMessage !== '' ? (
+          socketMessage && (
             <section className="detail-section">
               <h4 className="section-title">
                 {entry.method === 'WS ↑' ? 'Message sent' : 'Message received'}
@@ -192,7 +192,7 @@ export function LogDetail({
                 </pre>
               </Copyable>
             </section>
-          ) : null
+          )
         ) : (
           <>
             {entry.requestBody ? (

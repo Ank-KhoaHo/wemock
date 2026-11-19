@@ -247,7 +247,7 @@ export function MockList({
   onExportScenario,
   onLoadSample,
   revealRequest,
-}: MockListProps) {
+}: Readonly<MockListProps>) {
   const [scenarios, setScenarios] = useState(project.scenarios);
   const [filterText, setFilterText] = useState('');
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);

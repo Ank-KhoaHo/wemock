@@ -124,7 +124,7 @@ export interface SocketEditorProps {
   ref?: Ref<EditorHandle>;
 }
 
-export function SocketEditor({ socket, onSave, onDelete, onDuplicate, onToggleEnabled, onBack, ref }: SocketEditorProps) {
+export function SocketEditor({ socket, onSave, onDelete, onDuplicate, onToggleEnabled, onBack, ref }: Readonly<SocketEditorProps>) {
   const [draft, setDraft] = useState<SocketMock | null>(socket);
   const unsaved = useUnsavedChanges(ref);
 

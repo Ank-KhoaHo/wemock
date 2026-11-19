@@ -73,7 +73,7 @@ export function ImportDialog({
   onImportAdd,
   onImportReplace,
   onCreateProjectFromImport,
-}: ImportDialogProps): React.JSX.Element | null {
+}: Readonly<ImportDialogProps>): React.JSX.Element | null {
   const [pendingImport, setPendingImport] = useState<PendingImport | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [choice, setChoice] = useState<'add' | 'replace'>('add');

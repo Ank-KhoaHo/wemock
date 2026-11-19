@@ -25,7 +25,7 @@ export function BodyEditor({
   onLoadFile,
   mockName,
   isDark = false,
-}: BodyEditorProps) {
+}: Readonly<BodyEditorProps>) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [unformattableBody, setUnformattableBody] = useState<string | null>(null);
   const isText = bodyEncoding === 'text';

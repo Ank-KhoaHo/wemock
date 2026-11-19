@@ -23,7 +23,7 @@ export default function CodeEditor({
   language = 'json',
   paramNames,
   fill = false,
-}: CodeEditorProps) {
+}: Readonly<CodeEditorProps>) {
   const paramNamesRef = useRef(paramNames);
   paramNamesRef.current = paramNames;
 

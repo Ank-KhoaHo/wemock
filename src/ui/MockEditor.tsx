@@ -72,7 +72,7 @@ export function MockEditor({
   pageOrigin = '',
   projectId,
   ref,
-}: MockEditorProps) {
+}: Readonly<MockEditorProps>) {
   const [draft, setDraft] = useState<Mock | null>(() => editable(mock));
   const [statusInput, setStatusInput] = useState<string>(mock ? String(mock.response.status) : '200');
   const [delayInput, setDelayInput] = useState<string>(mock ? String(mock.response.delayMs) : '0');
