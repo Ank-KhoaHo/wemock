@@ -79,6 +79,7 @@ export default function App() {
   const [selectedSocketId, setSelectedSocketId] = useState<string | null>(null);
   const editorRef = useRef<EditorHandle>(null);
   const [pendingLeave, setPendingLeave] = useState<(() => void) | null>(null);
+  const [revealRequest, setRevealRequest] = useState(0);
 
   const leaveEditor = (go: () => void) => {
     if (editorRef.current?.isDirty()) setPendingLeave(() => go);
@@ -371,6 +372,7 @@ export default function App() {
         setSelectedScenarioId(scId);
         setSelectedMockId(mId);
         setSelectedSocketId(sId);
+        setRevealRequest((n) => n + 1);
       });
     } else {
       answeredBy = 'deleted';
@@ -1526,6 +1528,7 @@ export default function App() {
                   onDuplicateScenario={handleDuplicateScenario}
                   onExportScenario={handleExportScenario}
                   onLoadSample={handleLoadSample}
+                  revealRequest={revealRequest}
                 />
               </div>
               <div className="panel-split-right">

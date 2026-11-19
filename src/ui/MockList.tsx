@@ -43,7 +43,11 @@ export interface MockListProps {
   onDuplicateScenario?: (scenarioId: string) => void;
   onExportScenario?: (scenarioId: string) => void;
   onLoadSample?: () => void;
+  /** Bumped to bring the selected row into view again, even when the selection did not change. */
+  revealRequest?: number;
 }
+
+const STICKY_HEADER_PX = 40;
 
 function loadFoldedIds(projectId: string): string[] {
   try {
@@ -139,6 +143,7 @@ const MockRow = memo(function MockRow({
   const label = mock.name || mock.urlPattern;
   return (
     <div
+      data-row-id={mock.id}
       data-testid="mock-row"
       tabIndex={0}
       aria-selected={isSelected ? 'true' : undefined}
@@ -241,6 +246,7 @@ export function MockList({
   onDuplicateScenario,
   onExportScenario,
   onLoadSample,
+  revealRequest,
 }: MockListProps) {
   const [scenarios, setScenarios] = useState(project.scenarios);
   const [filterText, setFilterText] = useState('');
@@ -251,6 +257,8 @@ export function MockList({
   // The row just moved up or down flashes once, in place of a message.
   const [flashId, setFlashId] = useState<string | null>(null);
   const [foldedIds, setFoldedIds] = useState<string[]>(() => loadFoldedIds(project.id));
+  const [revealId, setRevealId] = useState<string | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
   const [headerRules, setHeaderRules] = useState<HeaderRule[]>(() => project.headerRules ?? []);
   // The rule lists this panel saved and has not yet seen come back. A typed rule saves on every key;
   // if the echo of an older save arrived after a newer key and reset the list, the next key would
@@ -308,6 +316,40 @@ export function MockList({
       document.removeEventListener('click', onClick);
     };
   }, [isAddMenuOpen]);
+
+  const flashRow = (rowId: string) => {
+    setFlashId(rowId);
+    setTimeout(() => setFlashId((id) => (id === rowId ? null : id)), 700);
+  };
+
+  const selectedId = selectedMockId ?? selectedSocketId;
+
+  useEffect(() => {
+    if (!selectedId) return;
+    const owner = scenarios.find(
+      (s) => s.mocks.some((m) => m.id === selectedId) || (s.sockets ?? []).some((so) => so.id === selectedId),
+    );
+    if (!owner) return;
+    if (foldedIds.includes(owner.id)) {
+      const next = foldedIds.filter((id) => id !== owner.id);
+      setFoldedIds(next);
+      saveFoldedIds(project.id, next);
+    }
+    setRevealId(selectedId);
+  }, [selectedId, revealRequest]);
+
+  useEffect(() => {
+    const list = listRef.current;
+    if (!revealId || !list) return;
+    setRevealId(null);
+    const row = list.querySelector<HTMLElement>(`[data-row-id="${CSS.escape(revealId)}"]`);
+    if (!row) return;
+    const rowBox = row.getBoundingClientRect();
+    const listBox = list.getBoundingClientRect();
+    if (rowBox.top >= listBox.top + STICKY_HEADER_PX && rowBox.bottom <= listBox.bottom) return;
+    row.scrollIntoView({ block: 'center' });
+    flashRow(revealId);
+  }, [revealId, foldedIds]);
 
   const handleToggleFold = (scenarioId: string) => {
     setFoldedIds((prev) => {
@@ -417,8 +459,7 @@ export function MockList({
       prev.map((s) => (s.id === scenarioId ? { ...s, mocks: nextMocks } : s)),
     );
     onUpdateScenarioMocks(scenarioId, nextMocks);
-    setFlashId(moved.id);
-    setTimeout(() => setFlashId((id) => (id === moved.id ? null : id)), 700);
+    flashRow(moved.id);
   };
 
   const handleDragStart = (e: React.DragEvent, scenarioId: string, index: number) => {
@@ -601,7 +642,7 @@ export function MockList({
         onCancel={() => setIsConfirmOpen(false)}
       />
 
-      <div className="scenarios-list">
+      <div className="scenarios-list" ref={listRef}>
         {totalItems === 0 && (
           <div data-testid="mocks-empty" className="mocks-empty">
             No mocks yet. Click a call in the Log, then Mock this, or import a file.
@@ -811,6 +852,7 @@ export function MockList({
                     return (
                       <div
                         key={socket.id}
+                        data-row-id={socket.id}
                         data-testid="socket-row"
                         tabIndex={0}
                         aria-selected={isSelected ? 'true' : undefined}

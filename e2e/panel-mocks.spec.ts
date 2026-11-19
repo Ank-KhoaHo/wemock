@@ -58,6 +58,51 @@ test('a new manual mock is served after save', async () => {
   }
 });
 
+test('Answered by in the Log unfolds the mock\'s scenario and scrolls its row into view', async () => {
+  const { state } = ensureProject({ ...emptyState(), enabledOrigins: [fixture.origin] }, fixture.origin, newId);
+  const mock = (id: string, urlPattern: string) => ({
+    id,
+    enabled: true,
+    method: 'GET' as const,
+    urlPattern,
+    response: { status: 200, headers: {}, body: id, bodyEncoding: 'text' as const, delayMs: 0 },
+    source: 'manual' as const,
+    createdAt: 0,
+  });
+  const project = state.projects[0]!;
+  project.scenarios[0]!.mocks = Array.from({ length: 30 }, (_, i) => mock(`f${i}`, `/api/f${i}`));
+  project.scenarios.push({ id: 'other', name: 'Other', mocks: [mock('target', '/api/goals')] });
+  project.activeScenarioId = 'other';
+  await session.setState(state);
+  const page = await session.context.newPage();
+  const panelPage = await session.context.newPage();
+  try {
+    await page.goto(`${fixture.url}/index.html`);
+    const tabId = await session.tabIdOf(page);
+    await panelPage.setViewportSize({ width: 900, height: 500 });
+    await panelPage.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
+
+    await panelPage.getByTestId('tab-mocks').click();
+    const group = panelPage.locator('.scenario-group').filter({ hasText: 'Other' });
+    await panelPage.getByRole('button', { name: 'Fold Other' }).click();
+    await expect(group).toHaveClass(/folded/);
+
+    await panelPage.getByTestId('tab-log').click();
+    await page.click('#btn-fetch');
+    await expect(page.locator('#out')).toHaveText('target');
+    await panelPage.getByTestId('log-row').first().click();
+    await panelPage.getByTestId('answered-by-link').click();
+
+    const row = panelPage.getByTestId('mock-row').filter({ hasText: '/api/goals' });
+    await expect(group).not.toHaveClass(/folded/);
+    await expect(row).toHaveClass(/selected/);
+    await expect(row).toBeInViewport();
+  } finally {
+    await panelPage.close();
+    await page.close();
+  }
+});
+
 test('the editor header with Save stays in view while the form scrolls', async () => {
   const page = await session.context.newPage();
   const panelPage = await session.context.newPage();
