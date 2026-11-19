@@ -1,6 +1,7 @@
 import { base64ToBytes } from '../core/bodies';
 import { isValidStatus, statusTextFor } from '../core/statusText';
 import type { LogEntry } from '../core/types';
+import { Copyable, headersText } from './Copyable';
 
 export interface LogDetailProps {
   entry: LogEntry | null;
@@ -185,9 +186,11 @@ export function LogDetail({
               <h4 className="section-title">
                 {entry.method === 'WS ↑' ? 'Message sent' : 'Message received'}
               </h4>
-              <pre data-testid="socket-message" className="detail-body-pre monospace">
-                {socketMessage}
-              </pre>
+              <Copyable text={socketMessage} label="Copy message">
+                <pre data-testid="socket-message" className="detail-body-pre monospace">
+                  {socketMessage}
+                </pre>
+              </Copyable>
             </section>
           ) : null
         ) : (
@@ -195,48 +198,52 @@ export function LogDetail({
             {entry.requestBody ? (
               <section className="detail-section">
                 <h4 className="section-title">Request Body</h4>
-                <pre data-testid="request-body" className="detail-body-pre monospace">
-                  {entry.requestBody}
-                </pre>
+                <Copyable text={entry.requestBody} label="Copy request body">
+                  <pre data-testid="request-body" className="detail-body-pre monospace">
+                    {entry.requestBody}
+                  </pre>
+                </Copyable>
               </section>
             ) : null}
 
             {entry.requestHeaders && (
               <section className="detail-section">
                 <h4 className="section-title">Request Headers</h4>
-                <div data-testid="request-headers" className="headers-grid monospace">
-                  {Object.entries(entry.requestHeaders).map(([key, value]) => {
-                    const isChanged = entry.changedHeaders?.some(
-                      (c) => c.toLowerCase() === key.toLowerCase(),
-                    );
-                    return (
-                      <div
-                        key={key}
-                        className={`header-entry ${isChanged ? 'header-changed' : ''}`}
-                        data-testid={isChanged ? 'request-header-changed' : undefined}
-                      >
-                        <span className="header-name">{key}:</span>{' '}
-                        <span className="header-value">{value}</span>
-                        {isChanged && (
-                          <span
-                            className="header-changed-marker"
-                            title="changed by a header rule"
-                          >
-                            {' '}(changed by a header rule)
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                  {(entry.changedHeaders ?? [])
-                    .filter((c) => !Object.keys(entry.requestHeaders ?? {}).some((k) => k.toLowerCase() === c.toLowerCase()))
-                    .map((c) => (
-                      <div key={`removed-${c}`} className="header-entry header-changed" data-testid="request-header-removed">
-                        <span className="header-name">{c}</span>{' '}
-                        <span className="header-changed-marker">(removed by a header rule)</span>
-                      </div>
-                    ))}
-                </div>
+                <Copyable text={headersText(entry.requestHeaders)} label="Copy request headers">
+                  <div data-testid="request-headers" className="headers-grid monospace">
+                    {Object.entries(entry.requestHeaders).map(([key, value]) => {
+                      const isChanged = entry.changedHeaders?.some(
+                        (c) => c.toLowerCase() === key.toLowerCase(),
+                      );
+                      return (
+                        <div
+                          key={key}
+                          className={`header-entry ${isChanged ? 'header-changed' : ''}`}
+                          data-testid={isChanged ? 'request-header-changed' : undefined}
+                        >
+                          <span className="header-name">{key}:</span>{' '}
+                          <span className="header-value">{value}</span>
+                          {isChanged && (
+                            <span
+                              className="header-changed-marker"
+                              title="changed by a header rule"
+                            >
+                              {' '}(changed by a header rule)
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {(entry.changedHeaders ?? [])
+                      .filter((c) => !Object.keys(entry.requestHeaders ?? {}).some((k) => k.toLowerCase() === c.toLowerCase()))
+                      .map((c) => (
+                        <div key={`removed-${c}`} className="header-entry header-changed" data-testid="request-header-removed">
+                          <span className="header-name">{c}</span>{' '}
+                          <span className="header-changed-marker">(removed by a header rule)</span>
+                        </div>
+                      ))}
+                  </div>
+                </Copyable>
               </section>
             )}
 
@@ -245,22 +252,26 @@ export function LogDetail({
               {Object.keys(entry.responseHeaders).length === 0 ? (
                 <p className="muted-text">No headers</p>
               ) : (
-                <div className="headers-grid monospace">
-                  {Object.entries(entry.responseHeaders).map(([key, value]) => (
-                    <div key={key} className="header-entry">
-                      <span className="header-name">{key}:</span>{' '}
-                      <span className="header-value">{value}</span>
-                    </div>
-                  ))}
-                </div>
+                <Copyable text={headersText(entry.responseHeaders)} label="Copy response headers">
+                  <div className="headers-grid monospace">
+                    {Object.entries(entry.responseHeaders).map(([key, value]) => (
+                      <div key={key} className="header-entry">
+                        <span className="header-name">{key}:</span>{' '}
+                        <span className="header-value">{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </Copyable>
               )}
             </section>
 
             <section className="detail-section detail-section-fill">
               <h4 className="section-title">Response Body</h4>
-              <pre data-testid="response-body" className="detail-body-pre monospace">
-                {formattedBody}
-              </pre>
+              <Copyable text={formattedBody} label="Copy response body">
+                <pre data-testid="response-body" className="detail-body-pre monospace">
+                  {formattedBody}
+                </pre>
+              </Copyable>
             </section>
           </>
         )}

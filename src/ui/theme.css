@@ -2783,11 +2783,19 @@ body.dark .mock-unreachable,
 .wm .log-detail { flex: 1 0 auto; }
 .wm .log-detail > .detail-content { flex: 1; }
 .wm .detail-section-fill { flex: 1 1 0; }
-.wm .detail-section-fill .detail-body-pre { flex: 1 1 0; min-height: 200px; max-height: none; }
+.wm .detail-section-fill > .copyable { display: flex; flex: 1 1 0; flex-direction: column; min-height: 200px; }
+.wm .detail-section-fill .detail-body-pre { flex: 1 1 0; min-height: 0; max-height: none; }
 /* Likewise the mock's response body takes the room left in the editor, above the templates option. */
 .wm .mock-editor-body > .body-editor-container { flex: 1 1 0; }
+.wm .body-editor-container > .copyable { display: flex; flex: 1 1 0; flex-direction: column; }
 .wm .body-editor-container .text-editor-view { display: flex; flex: 1 1 0; flex-direction: column; min-height: 200px; }
 .wm .text-editor-view > .cm-fill { flex: 1 1 0; min-height: 0; }
+.wm .copyable { position: relative; }
+.wm .copyable > .detail-body-pre, .wm .copyable > .headers-grid { padding-right: 40px; }
+.wm .copy-btn { position: absolute; top: 4px; right: 14px; z-index: 1; display: grid; place-items: center; width: 24px; height: 24px;
+  padding: 0; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-primary); color: var(--muted);
+  opacity: .6; cursor: pointer; }
+.wm .copyable:hover .copy-btn, .wm .copy-btn:focus-visible { opacity: 1; color: var(--brand); }
 .wm .split-handle { display: flex; flex: 0 0 8px; align-items: center; justify-content: center; padding: 0; border: 0;
   background: none; color: var(--muted); cursor: col-resize; touch-action: none; }
 .wm .split-handle:hover, .wm .split-handle:focus-visible, .wm .split-handle.dragging { color: var(--brand); background: var(--brand-soft); outline: none; }
