@@ -252,13 +252,31 @@ export function MockList({
   const [flashId, setFlashId] = useState<string | null>(null);
   const [foldedIds, setFoldedIds] = useState<string[]>(() => loadFoldedIds(project.id));
   const [headerRules, setHeaderRules] = useState<HeaderRule[]>(() => project.headerRules ?? []);
+  // The rule lists this panel saved and has not yet seen come back. A typed rule saves on every key;
+  // if the echo of an older save arrived after a newer key and reset the list, the next key would
+  // save on top of the older list and lose what was typed in between.
+  const sentRulesRef = useRef<{ pending: Set<string>; last: string | null }>({ pending: new Set(), last: null });
   const addMenuRef = useRef<HTMLDivElement | null>(null);
   // Set when New scenario is chosen: the next scenario to appear opens for naming.
   const knownIdsRef = useRef<string[] | null>(null);
 
   useEffect(() => {
     setScenarios(project.scenarios);
-    setHeaderRules(project.headerRules ?? []);
+    const incoming = project.headerRules ?? [];
+    const key = JSON.stringify(incoming);
+    const sent = sentRulesRef.current;
+    if (sent.pending.has(key)) {
+      // This panel's own save coming back: the list on screen is already as new, or newer.
+      if (key === sent.last) {
+        sent.pending.clear();
+        sent.last = null;
+      }
+    } else {
+      // A change from elsewhere (Import, Undo, another panel): show it.
+      sent.pending.clear();
+      sent.last = null;
+      setHeaderRules(incoming);
+    }
     const known = knownIdsRef.current;
     if (known) {
       const added = project.scenarios.find((s) => !known.includes(s.id));
@@ -431,6 +449,14 @@ export function MockList({
     } catch {}
   };
 
+  const saveRules = (nextRules: HeaderRule[]) => {
+    const key = JSON.stringify(nextRules);
+    sentRulesRef.current.pending.add(key);
+    sentRulesRef.current.last = key;
+    setHeaderRules(nextRules);
+    onUpdateHeaderRules?.(nextRules);
+  };
+
   const handleAddRule = () => {
     const newRule: HeaderRule = {
       id: newId(),
@@ -441,22 +467,19 @@ export function MockList({
       value: '',
     };
     const nextRules = [...headerRules, newRule];
-    setHeaderRules(nextRules);
-    onUpdateHeaderRules?.(nextRules);
+    saveRules(nextRules);
   };
 
   const handleUpdateRule = (ruleId: string, patch: Partial<HeaderRule>) => {
     const nextRules = headerRules.map((r) =>
       r.id === ruleId ? { ...r, ...patch } : r,
     );
-    setHeaderRules(nextRules);
-    onUpdateHeaderRules?.(nextRules);
+    saveRules(nextRules);
   };
 
   const handleRemoveRule = (ruleId: string) => {
     const nextRules = headerRules.filter((r) => r.id !== ruleId);
-    setHeaderRules(nextRules);
-    onUpdateHeaderRules?.(nextRules);
+    saveRules(nextRules);
   };
 
   const latest = useRef({ handleMoveMock, handleDragStart, handleDrop, onSelectScenario, onSelectMock, onSelectSocket, onDeleteMock });

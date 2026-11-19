@@ -6,6 +6,14 @@ A released block's heading is the version, then the date: `## 0.1.0 — 2026-01-
 released version is also what the `VERSION` file holds, and the name of a git tag (`v` followed
 by the version).
 
+## Unreleased
+
+- **Hundreds of mocks stay quick:** with 900 mocks, a key in Filter mocks took 838 ms and a key in
+  the Log's filter 751 ms; both now take about a tenth of that (#10).
+- A header rule typed quickly no longer saves an older value.
+- **A lab** (`lab/`): a real ASP.NET Core shop in Docker that exercises every kind of mock, with
+  900 endpoints and a timing test. `bash lab/run.sh serve` starts it.
+
 ## 1.9.0 — 2026-11-17
 
 A new panel, shaped by what people said about 1.8.
