@@ -54,3 +54,9 @@ Thumbs.db
 # .NET build output of the real-hub check, if it is ever built outside its container.
 scripts/real-hub/hub/bin/
 scripts/real-hub/hub/obj/
+
+# The lab: client libraries copied at start, and timing results
+/lab/server/wwwroot/vendor/
+/lab/out/
+/lab/server/bin/
+/lab/server/obj/

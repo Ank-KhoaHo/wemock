@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>wemock lab</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>wemock lab</h1>
+  <p>A small real shop. Each button makes one kind of call; its answer shows beside it. Open DevTools, then the
+    wemock tab, to record these calls and mock them.</p>
+</header>
+<main>
+  <section>
+    <h2>Fixed reply, URL parameters, query</h2>
+    <div class="row"><button id="products">GET /api/products</button><output data-r="products"></output></div>
+    <div class="row"><button id="product">GET /api/products/7</button><output data-r="product"></output></div>
+    <div class="row"><button id="category">GET /api/categories/tea/products/4</button><output data-r="category"></output></div>
+    <div class="row"><button id="search">GET /api/products/search?q=green&amp;page=1&amp;sort=price</button><output data-r="search"></output></div>
+  </section>
+
+  <section>
+    <h2>Code, sequence, scenario</h2>
+    <div class="row"><button id="price">GET /api/price/7?qty=12</button><output data-r="price"></output></div>
+    <div class="row"><button id="status">GET /api/orders/1042/status</button><output data-r="status"></output></div>
+    <div class="row"><button id="checkout">POST /api/checkout</button><output data-r="checkout"></output></div>
+  </section>
+
+  <section>
+    <h2>Conditions, Change real</h2>
+    <div class="row"><button id="cart">POST /api/cart</button><output data-r="cart"></output></div>
+    <div class="row"><button id="cart-coupon">POST /api/cart with coupon TEA10</button><output data-r="cart-coupon"></output></div>
+    <div class="row"><button id="me">GET /api/me</button><output data-r="me"></output></div>
+    <div class="row"><button id="me-auth">GET /api/me signed in</button><output data-r="me-auth"></output></div>
+    <div class="row"><button id="recommendations">GET /api/recommendations</button><output data-r="recommendations"></output></div>
+  </section>
+
+  <section>
+    <h2>Other clients and bodies</h2>
+    <div class="row"><button id="xhr">XMLHttpRequest /api/products/3</button><output data-r="xhr"></output></div>
+    <div class="row"><button id="axios">axios /api/products/5</button><output data-r="axios"></output></div>
+    <div class="row"><button id="image">GET /api/products/7/image</button><output data-r="image"></output><img id="image-out" alt="" width="32" height="32"></div>
+    <div class="row"><button id="assistant">EventSource /api/assistant</button><output data-r="assistant"></output></div>
+    <div class="row"><button id="graphql-products">GraphQL GetProducts</button><output data-r="graphql-products"></output></div>
+    <div class="row"><button id="graphql-order">GraphQL GetOrder</button><output data-r="graphql-order"></output></div>
+  </section>
+
+  <section>
+    <h2>Sockets</h2>
+    <div class="row"><button id="ws">WebSocket /ws/echo</button><output data-r="ws"></output></div>
+    <div class="row"><button id="hub">SignalR /hubs/orders</button><output data-r="hub"></output></div>
+  </section>
+
+  <section>
+    <h2>Many mocks</h2>
+    <div class="row"><button id="many">Call all 900: GET /api/items/1 to 900</button><output data-r="many"></output></div>
+    <p class="note"><a href="/openapi.json" download="lab-items.openapi.json">openapi.json</a> lists the same 900
+      calls. Import it in wemock to make 900 mocks at once.</p>
+  </section>
+</main>
+<script src="vendor/signalr.min.js"></script>
+<script src="vendor/axios.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
