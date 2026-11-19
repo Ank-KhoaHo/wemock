@@ -58,6 +58,30 @@ test('a new manual mock is served after save', async () => {
   }
 });
 
+test('the editor header with Save stays in view while the form scrolls', async () => {
+  const page = await session.context.newPage();
+  const panelPage = await session.context.newPage();
+  try {
+    await page.goto(`${fixture.url}/index.html`);
+    const tabId = await session.tabIdOf(page);
+    await panelPage.setViewportSize({ width: 900, height: 400 });
+    await panelPage.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
+
+    await panelPage.getByTestId('tab-mocks').click();
+    await panelPage.getByTestId('add-menu-open').click();
+    await panelPage.getByTestId('mock-new').click();
+    await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
+
+    await panelPage.locator('.mock-editor-container').evaluate((el) => el.scrollTo(0, el.scrollHeight));
+
+    await expect(panelPage.getByTestId('field-pattern')).not.toBeInViewport();
+    await expect(panelPage.getByTestId('mock-save')).toBeInViewport();
+  } finally {
+    await panelPage.close();
+    await page.close();
+  }
+});
+
 test('dialogs are named by their title and close on Escape or a click outside', async () => {
   const page = await session.context.newPage();
   const panelPage = await session.context.newPage();
