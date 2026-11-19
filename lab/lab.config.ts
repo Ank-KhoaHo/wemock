@@ -4,7 +4,7 @@ import { defineConfig } from '@playwright/test';
 // `npm run build`. Not part of CI: the lab needs Docker.
 export default defineConfig({
   testDir: '.',
-  testMatch: ['features.spec.ts', 'perf.spec.ts'],
+  testMatch: ['features.spec.ts', 'realcalls.spec.ts', 'perf.spec.ts'],
   workers: 1,
   timeout: 180_000,
   reporter: [['list']],

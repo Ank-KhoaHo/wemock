@@ -44,11 +44,13 @@ export function syncRegistrations(enabledOrigins: string[]): Promise<void> {
       }
     }
 
+    // allFrames: a call from an iframe on the site (a widget, a micro-frontend, a preview) is logged
+    // and mocked as one from the page itself. Without it, those calls never reached the Log.
     const wanted = [
       { id: 'wemock-page', matches, runAt: 'document_start' as const, world: 'MAIN' as const,
-        js: ['content-scripts/page.js'] },
+        allFrames: true, js: ['content-scripts/page.js'] },
       { id: 'wemock-bridge', matches, runAt: 'document_start' as const, world: 'ISOLATED' as const,
-        js: ['content-scripts/bridge.js'] },
+        allFrames: true, js: ['content-scripts/bridge.js'] },
     ];
     const ids = wanted.map((s) => s.id);
 
@@ -58,7 +60,8 @@ export function syncRegistrations(enabledOrigins: string[]): Promise<void> {
     if (existing.length === wanted.length) {
       const same = wanted.every((w) => {
         const e = existing.find((x) => x.id === w.id);
-        return e !== undefined && sameList(e.matches ?? [], w.matches);
+        // An install from before allFrames keeps its old registration unless this sees the difference.
+        return e !== undefined && sameList(e.matches ?? [], w.matches) && e.allFrames === true;
       });
       if (!same) {
         await browser.scripting.updateContentScripts(wanted);

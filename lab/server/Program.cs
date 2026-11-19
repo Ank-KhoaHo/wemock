@@ -11,8 +11,12 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<Shop>();
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase);
+// The page at localhost:5199 also calls 127.0.0.1:5199, another origin, as an app calling its API on
+// another host does.
+builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.SetIsOriginAllowed(_ => true).AllowAnyHeader().AllowAnyMethod()));
 
 var app = builder.Build();
+app.UseCors();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 app.UseWebSockets();

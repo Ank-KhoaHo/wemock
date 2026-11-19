@@ -60,6 +60,29 @@ export function startFixtureServer(host = '127.0.0.1', port = 0): Promise<Fixtur
       return;
     }
 
+    // A page with a same-site iframe, and the iframe: its own fetch, run when the page asks.
+    if (req.method === 'GET' && pathname === '/frame-host.html') {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.end(`<!doctype html><title>frame host</title><output id="out"></output>
+<iframe id="f" src="/frame.html"></iframe>
+<script>
+  addEventListener('message', (e) => { if (e.data && e.data.frame) document.getElementById('out').textContent = e.data.frame; });
+  function callFromFrame() { document.getElementById('f').contentWindow.postMessage('call', '*'); }
+</script>`);
+      return;
+    }
+    if (req.method === 'GET' && pathname === '/frame.html') {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.end(`<!doctype html><title>frame</title><script>
+  addEventListener('message', async (e) => {
+    if (e.data !== 'call') return;
+    const res = await fetch('/api/goals');
+    parent.postMessage({ frame: await res.text() }, '*');
+  });
+</script>`);
+      return;
+    }
+
     if (req.method === 'GET' && pathname === '/early.html') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       res.end(earlyHtml);

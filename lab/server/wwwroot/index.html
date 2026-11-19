@@ -54,6 +54,14 @@
   </section>
 
   <section>
+    <h2>Calls from other places</h2>
+    <div class="row"><button id="frame">fetch from an iframe: /api/products/9</button><output data-r="frame"></output></div>
+    <div class="row"><button id="worker">fetch from a Web Worker: /api/products/10</button><output data-r="worker"></output></div>
+    <div class="row"><button id="cross">fetch another origin: http://127.0.0.1:5199/api/products/11</button><output data-r="cross"></output></div>
+    <iframe id="lab-frame" src="frame.html" title="A frame on the same site" width="1" height="1" style="border:0"></iframe>
+  </section>
+
+  <section>
     <h2>Many mocks</h2>
     <div class="row"><button id="many">Call all 900: GET /api/items/1 to 900</button><output data-r="many"></output></div>
     <p class="note"><a href="/openapi.json" download="lab-items.openapi.json">openapi.json</a> lists the same 900

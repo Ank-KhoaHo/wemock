@@ -7,6 +7,7 @@ interface RegisteredScript {
   matches: string[];
   runAt: string;
   world: string;
+  allFrames?: boolean;
   js: string[];
 }
 
@@ -83,10 +84,10 @@ describe('sites', () => {
     });
 
     const page = (matches: string[]) => ({
-      id: 'wemock-page', matches, runAt: 'document_start', world: 'MAIN', js: ['content-scripts/page.js'],
+      id: 'wemock-page', matches, runAt: 'document_start', world: 'MAIN', allFrames: true, js: ['content-scripts/page.js'],
     });
     const bridge = (matches: string[]) => ({
-      id: 'wemock-bridge', matches, runAt: 'document_start', world: 'ISOLATED', js: ['content-scripts/bridge.js'],
+      id: 'wemock-bridge', matches, runAt: 'document_start', world: 'ISOLATED', allFrames: true, js: ['content-scripts/bridge.js'],
     });
 
     it('registers both scripts for localhost plus each permitted origin', async () => {
@@ -108,6 +109,17 @@ describe('sites', () => {
       calls.length = 0;
       await syncRegistrations(['https://a.com']);
       expect(calls).toEqual(['get']);
+    });
+
+    it('updates a registration made before iframes were covered, though its sites are the same', async () => {
+      registered.set('wemock-page', { ...page(LOCALHOST_MATCHES), allFrames: false } as RegisteredScript);
+      registered.set('wemock-bridge', { ...bridge(LOCALHOST_MATCHES), allFrames: false } as RegisteredScript);
+      calls.length = 0;
+      await syncRegistrations([]);
+      expect(calls).toContain('update');
+      expect(calls).not.toContain('unregister');
+      expect(registered.get('wemock-page')?.allFrames).toBe(true);
+      expect(registered.get('wemock-bridge')?.allFrames).toBe(true);
     });
 
     it('updates in place, never unregistering, when the site list changes', async () => {

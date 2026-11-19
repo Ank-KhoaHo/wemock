@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>wemock lab frame</title></head>
+<body>
+<script>
+  // Asked by the page above, this frame makes its own call and posts back what it got.
+  window.addEventListener('message', async (e) => {
+    if (e.data !== 'call') return;
+    try {
+      const res = await fetch('/api/products/9');
+      parent.postMessage({ frame: `${res.status} ${await res.text()}` }, '*');
+    } catch (err) {
+      parent.postMessage({ frame: `failed: ${err.message}` }, '*');
+    }
+  });
+</script>
+</body>
+</html>

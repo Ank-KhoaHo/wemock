@@ -11,6 +11,8 @@ by the version).
 - **Hundreds of mocks stay quick:** with 900 mocks, a key in Filter mocks took 838 ms and a key in
   the Log's filter 751 ms; both now take about a tenth of that (#10).
 - A header rule typed quickly no longer saves an older value.
+- **Calls from iframes:** a call made by an iframe on the site now shows in the Log, and mocks answer
+  it. Before, only the page's own calls did.
 - **A lab** (`lab/`): a real ASP.NET Core shop in Docker that exercises every kind of mock, with
   900 endpoints and a timing test. `bash lab/run.sh serve` starts it.
 

@@ -152,3 +152,24 @@ on('many', async () => {
   }
   show('many', `${ok} of 900 ok, ${mocked} mocked, ${Math.round(performance.now() - started)} ms`);
 });
+
+window.addEventListener('message', (e) => {
+  if (e.data && typeof e.data.frame === 'string') show('frame', e.data.frame);
+});
+on('frame', () => {
+  show('frame', '...');
+  document.getElementById('lab-frame').contentWindow.postMessage('call', '*');
+});
+
+on('worker', () => {
+  show('worker', '...');
+  const w = new Worker('worker.js');
+  w.onmessage = (e) => {
+    show('worker', e.data);
+    w.terminate();
+  };
+  w.postMessage('go');
+});
+
+on('cross', () => call('cross', 'http://127.0.0.1:5199/api/products/11'));
+

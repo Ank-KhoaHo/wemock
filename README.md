@@ -119,7 +119,8 @@ Version 1.9.0, on the [Chrome Web Store](https://chromewebstore.google.com/detai
 
 ## Limits
 
-- Calls made by Service Workers are not seen. Server-Sent Events can be mocked, but real ones are
+- Calls made by Service Workers and Web Workers are not seen. Calls from the page and from its
+  iframes on the same site are. Server-Sent Events can be mocked, but real ones are
   not logged.
 - A real socket logs at most 200 messages. "Mock this socket" replays a plain socket's
   messages on a timeline; it cannot tell which message answered which.
