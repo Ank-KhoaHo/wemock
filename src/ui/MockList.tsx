@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { forbiddenHeaderReason } from '../core/headerRules';
 import { compilePattern } from '../core/match';
 import { unreachableMocks } from '../core/reachability';
@@ -98,6 +98,127 @@ function isControl(target: EventTarget | null): boolean {
   return (target as HTMLElement | null)?.closest('button, input, select, textarea') != null;
 }
 
+
+/** What a row can do. One object for the whole list, so a row never re-renders for a new handler. */
+interface RowActions {
+  open: (scenarioId: string, mockId: string) => void;
+  remove: (mockId: string) => void;
+  move: (scenarioId: string, fromIndex: number, delta: number) => void;
+  dragStart: (e: React.DragEvent, scenarioId: string, index: number) => void;
+  drop: (e: React.DragEvent, scenarioId: string, index: number) => void;
+}
+
+interface MockRowProps {
+  mock: Mock;
+  scenarioId: string;
+  index: number;
+  isLast: boolean;
+  isSelected: boolean;
+  isFlash: boolean;
+  unreachableReason: string | undefined;
+  isFilterActive: boolean;
+  actions: RowActions;
+}
+
+/**
+ * One mock row. Memoized: with hundreds of mocks, a key typed anywhere in the panel re-renders the
+ * list, and a row redraws only when its own mock or state changed.
+ */
+const MockRow = memo(function MockRow({
+  mock,
+  scenarioId,
+  index,
+  isLast,
+  isSelected,
+  isFlash,
+  unreachableReason,
+  isFilterActive,
+  actions,
+}: Readonly<MockRowProps>) {
+  const status = mock.response.status;
+  const label = mock.name || mock.urlPattern;
+  return (
+    <div
+      data-testid="mock-row"
+      tabIndex={0}
+      aria-selected={isSelected ? 'true' : undefined}
+      className={`mock-row ${isSelected ? 'selected' : ''} ${!mock.enabled ? 'disabled off' : ''} ${isFlash ? 'flash' : ''}`}
+      draggable={!isFilterActive}
+      onDragStart={(e) => actions.dragStart(e, scenarioId, index)}
+      onDragOver={(e) => {
+        if (isFilterActive) return;
+        e.preventDefault();
+      }}
+      onDrop={(e) => actions.drop(e, scenarioId, index)}
+      onClick={(e) => {
+        if (isControl(e.target)) return;
+        actions.open(scenarioId, mock.id);
+      }}
+      onKeyDown={(e) => {
+        if (isControl(e.target)) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          actions.open(scenarioId, mock.id);
+        }
+      }}
+    >
+      <span className={`method-tag meth method-${mock.method.toLowerCase()}`}>{mock.method}</span>
+      <span className="mock-name-or-pattern" title={mock.urlPattern}>
+        {mock.urlPattern}
+        {mock.name && <span className="nm">{mock.name}</span>}
+      </span>
+      {mock.reply === 'code' && (
+        <span className="code-chip" data-testid="code-chip" title="Answers with code">
+          code
+        </span>
+      )}
+      {unreachableReason && (
+        <span data-testid="mock-unreachable" className="mock-unreachable" title={unreachableReason}>
+          Never answers
+        </span>
+      )}
+      {!mock.enabled && <span className="offtag">off</span>}
+      <button
+        type="button"
+        data-testid="mock-row-delete"
+        className="ibtn sm red row-del"
+        aria-label={`Delete ${label}`}
+        title="Delete mock"
+        onClick={() => actions.remove(mock.id)}
+      >
+        <TrashIcon size={14} />
+      </button>
+      <span data-testid="mock-status" className={`mock-status st${String(status)[0]}`}>
+        {status}
+      </span>
+      <span className="updown">
+        <button
+          type="button"
+          data-testid="mock-up"
+          className="ibtn mock-up-btn"
+          disabled={isFilterActive || index === 0}
+          onClick={() => actions.move(scenarioId, index, -1)}
+          title="Move up"
+          aria-label={`Move ${label} up`}
+        >
+          <ChevronUpIcon size={12} />
+        </button>
+        <button
+          type="button"
+          data-testid="mock-down"
+          className="ibtn mock-down-btn"
+          disabled={isFilterActive || isLast}
+          onClick={() => actions.move(scenarioId, index, 1)}
+          title="Move down"
+          aria-label={`Move ${label} down`}
+        >
+          <ChevronDownIcon size={12} />
+        </button>
+      </span>
+    </div>
+  );
+});
+
 export function MockList({
   project,
   selectedMockId,
@@ -180,10 +301,18 @@ export function MockList({
     });
   };
 
+  // The "never answers" check compares every pair of mocks. Work it out only when a scenario's mocks
+  // change, not on every render: the panel renders on each key typed anywhere in it.
+  const unreachableByScenario = useMemo(
+    () => new Map(scenarios.map((sc) => [sc.id, unreachableMocks(sc.mocks)])),
+    [scenarios],
+  );
+
   const activeScenario =
     scenarios.find((s) => s.id === project.activeScenarioId) ?? scenarios[0];
 
-  const trimmedFilter = filterText.trim().toLowerCase();
+  const deferredFilter = useDeferredValue(filterText);
+  const trimmedFilter = deferredFilter.trim().toLowerCase();
   const isFilterActive = trimmedFilter.length > 0;
 
   const totalItems = scenarios.reduce(
@@ -330,6 +459,24 @@ export function MockList({
     onUpdateHeaderRules?.(nextRules);
   };
 
+  const latest = useRef({ handleMoveMock, handleDragStart, handleDrop, onSelectScenario, onSelectMock, onSelectSocket, onDeleteMock });
+  latest.current = { handleMoveMock, handleDragStart, handleDrop, onSelectScenario, onSelectMock, onSelectSocket, onDeleteMock };
+  const rowActions = useMemo<RowActions>(
+    () => ({
+      open: (scenarioId, mockId) => {
+        const l = latest.current;
+        l.onSelectScenario(scenarioId);
+        l.onSelectMock(mockId);
+        l.onSelectSocket(null);
+      },
+      remove: (mockId) => latest.current.onDeleteMock(mockId),
+      move: (scenarioId, fromIndex, delta) => latest.current.handleMoveMock(scenarioId, fromIndex, delta),
+      dragStart: (e, scenarioId, index) => latest.current.handleDragStart(e, scenarioId, index),
+      drop: (e, scenarioId, index) => latest.current.handleDrop(e, scenarioId, index),
+    }),
+    [],
+  );
+
   return (
     <div className="mock-list-container">
       <div className="list-bar">
@@ -453,7 +600,7 @@ export function MockList({
           const isActive = sc.id === activeScenario?.id;
           const isScDefault = scIndex === 0;
           const isFolded = foldedIds.includes(sc.id);
-          const unreachable = unreachableMocks(sc.mocks);
+          const unreachable = unreachableByScenario.get(sc.id) ?? new Map();
           const count = sc.mocks.length + (sc.sockets?.length ?? 0);
 
           const displayMocks = isFilterActive
@@ -622,101 +769,20 @@ export function MockList({
 
               {showRows && (
                 <div className="mock-rows-container">
-                  {displayMocks.map(({ mock, originalIndex }) => {
-                    const unreachableInfo = unreachable.get(mock.id);
-                    const isSelected = mock.id === selectedMockId;
-                    const status = mock.response.status;
-                    const label = mock.name || mock.urlPattern;
-                    return (
-                      <div
-                        key={mock.id}
-                        data-testid="mock-row"
-                        tabIndex={0}
-                        aria-selected={isSelected ? 'true' : undefined}
-                        className={`mock-row ${isSelected ? 'selected' : ''} ${!mock.enabled ? 'disabled off' : ''} ${flashId === mock.id ? 'flash' : ''}`}
-                        draggable={!isFilterActive}
-                        onDragStart={(e) => handleDragStart(e, sc.id, originalIndex)}
-                        onDragOver={(e) => {
-                          if (isFilterActive) return;
-                          e.preventDefault();
-                        }}
-                        onDrop={(e) => handleDrop(e, sc.id, originalIndex)}
-                        onClick={(e) => {
-                          if (isControl(e.target)) return;
-                          onSelectScenario(sc.id);
-                          onSelectMock(mock.id);
-                          onSelectSocket(null);
-                        }}
-                        onKeyDown={(e) => {
-                          if (isControl(e.target)) return;
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            onSelectScenario(sc.id);
-                            onSelectMock(mock.id);
-                            onSelectSocket(null);
-                          }
-                        }}
-                      >
-                        <span className={`method-tag meth method-${mock.method.toLowerCase()}`}>{mock.method}</span>
-                        <span className="mock-name-or-pattern" title={mock.urlPattern}>
-                          {mock.urlPattern}
-                          {mock.name && <span className="nm">{mock.name}</span>}
-                        </span>
-                        {mock.reply === 'code' && (
-                          <span className="code-chip" data-testid="code-chip" title="Answers with code">
-                            code
-                          </span>
-                        )}
-                        {unreachableInfo && (
-                          <span
-                            data-testid="mock-unreachable"
-                            className="mock-unreachable"
-                            title={unreachableInfo.reason}
-                          >
-                            Never answers
-                          </span>
-                        )}
-                        {!mock.enabled && <span className="offtag">off</span>}
-                        <button
-                          type="button"
-                          data-testid="mock-row-delete"
-                          className="ibtn sm red row-del"
-                          aria-label={`Delete ${label}`}
-                          title="Delete mock"
-                          onClick={() => onDeleteMock(mock.id)}
-                        >
-                          <TrashIcon size={14} />
-                        </button>
-                        <span data-testid="mock-status" className={`mock-status st${String(status)[0]}`}>
-                          {status}
-                        </span>
-                        <span className="updown">
-                          <button
-                            type="button"
-                            data-testid="mock-up"
-                            className="ibtn mock-up-btn"
-                            disabled={isFilterActive || originalIndex === 0}
-                            onClick={() => handleMoveMock(sc.id, originalIndex, -1)}
-                            title="Move up"
-                            aria-label={`Move ${label} up`}
-                          >
-                            <ChevronUpIcon size={12} />
-                          </button>
-                          <button
-                            type="button"
-                            data-testid="mock-down"
-                            className="ibtn mock-down-btn"
-                            disabled={isFilterActive || originalIndex === sc.mocks.length - 1}
-                            onClick={() => handleMoveMock(sc.id, originalIndex, 1)}
-                            title="Move down"
-                            aria-label={`Move ${label} down`}
-                          >
-                            <ChevronDownIcon size={12} />
-                          </button>
-                        </span>
-                      </div>
-                    );
-                  })}
+                  {displayMocks.map(({ mock, originalIndex }) => (
+                    <MockRow
+                      key={mock.id}
+                      mock={mock}
+                      scenarioId={sc.id}
+                      index={originalIndex}
+                      isLast={originalIndex === sc.mocks.length - 1}
+                      isSelected={mock.id === selectedMockId}
+                      isFlash={flashId === mock.id}
+                      unreachableReason={unreachable.get(mock.id)?.reason}
+                      isFilterActive={isFilterActive}
+                      actions={rowActions}
+                    />
+                  ))}
                   {displaySockets.map((socket) => {
                     const isSelected = socket.id === selectedSocketId;
                     return (

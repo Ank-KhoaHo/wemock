@@ -16,88 +16,72 @@ function getSegments(path: string): string[] {
   return trimmed.split('/');
 }
 
-export function patternCovers(a: string, b: string): boolean {
-  // Any {, }, ( or ) in either (optional parts, groups): false
-  if (/[{}()]/.test(a) || /[{}()]/.test(b)) {
-    return false;
-  }
+/** A pattern read once: what patternCovers compares. null when the pattern is one we cannot judge. */
+interface ParsedPattern {
+  absolute: boolean;
+  origin: string | null;
+  segments: string[];
+  endsWithWildcard: boolean;
+}
 
-  const isAbsA = a.startsWith('http://') || a.startsWith('https://');
-  const isAbsB = b.startsWith('http://') || b.startsWith('https://');
-  if (isAbsA !== isAbsB) {
-    return false;
-  }
-
+function parsePattern(p: string): ParsedPattern | null {
+  // Any {, }, ( or ) (optional parts, groups): too hard to judge, so never "covers".
+  if (/[{}()]/.test(p)) return null;
   // splitPattern, not new URL(): the URL parser turns `\:` into `/:`, which reads as a parameter.
-  let pathA: string;
-  let pathB: string;
+  let split: { origin: string | null; path: string };
   try {
-    const sa = splitPattern(a);
-    const sb = splitPattern(b);
-    if (sa.origin !== sb.origin) {
-      return false;
-    }
-    pathA = sa.path;
-    pathB = sb.path;
+    split = splitPattern(p);
   } catch {
-    return false;
+    return null;
   }
+  const segments = getSegments(split.path);
+  return {
+    absolute: p.startsWith('http://') || p.startsWith('https://'),
+    origin: split.origin,
+    segments,
+    endsWithWildcard: segments.length > 0 && isWildcard(segments[segments.length - 1]!),
+  };
+}
 
-  const aSegments = getSegments(pathA);
-  const bSegments = getSegments(pathB);
+/** One pattern segment against another: a :param takes any one segment but not a *wildcard. */
+function segmentCovers(segA: string, segB: string): boolean {
+  return isParam(segA) ? !isWildcard(segB) : segA === segB;
+}
 
-  const aLen = aSegments.length;
-  const bLen = bSegments.length;
-
-  const aEndsWithWildcard = aLen > 0 && isWildcard(aSegments[aLen - 1]!);
-
-  if (aEndsWithWildcard) {
-    // a's last segment is a *name wildcard.
-    // It covers one or more remaining segments of b (including b's own : or * segments).
-    const prefixLen = aLen - 1;
-    if (bLen < aLen) {
-      return false;
+function parsedCovers(a: ParsedPattern | null, b: ParsedPattern | null): boolean {
+  if (!a || !b) return false;
+  if (a.absolute !== b.absolute || a.origin !== b.origin) return false;
+  const aLen = a.segments.length;
+  const bLen = b.segments.length;
+  if (a.endsWithWildcard) {
+    // a's last segment is a *name wildcard: it covers one or more remaining segments of b.
+    if (bLen < aLen) return false;
+    for (let i = 0; i < aLen - 1; i++) {
+      if (!segmentCovers(a.segments[i]!, b.segments[i]!)) return false;
     }
-
-    for (let i = 0; i < prefixLen; i++) {
-      const segA = aSegments[i]!;
-      const segB = bSegments[i]!;
-      if (isParam(segA)) {
-        if (isWildcard(segB)) {
-          return false;
-        }
-      } else if (segA !== segB) {
-        return false;
-      }
-    }
-
     return true;
   }
-
-  // Lengths must otherwise agree
-  if (aLen !== bLen) {
-    return false;
-  }
-
+  if (aLen !== bLen) return false;
   for (let i = 0; i < aLen; i++) {
-    const segA = aSegments[i]!;
-    const segB = bSegments[i]!;
-    if (isParam(segA)) {
-      if (isWildcard(segB)) {
-        return false;
-      }
-    } else if (segA !== segB) {
-      return false;
-    }
+    if (!segmentCovers(a.segments[i]!, b.segments[i]!)) return false;
   }
-
   return true;
+}
+
+export function patternCovers(a: string, b: string): boolean {
+  return parsedCovers(parsePattern(a), parsePattern(b));
 }
 
 export function unreachableMocks(
   mocks: Mock[],
 ): Map<string, { byId: string; reason: string }> {
   const result = new Map<string, { byId: string; reason: string }>();
+  // Each pattern is read once here, not once per pair: with 900 mocks that is 900 reads, not 810,000.
+  const parsed: (ParsedPattern | null | undefined)[] = new Array(mocks.length);
+  const parsedAt = (k: number) => {
+    if (parsed[k] === undefined) parsed[k] = parsePattern(mocks[k]!.urlPattern);
+    return parsed[k] ?? null;
+  };
 
   for (let i = 0; i < mocks.length; i++) {
     const b = mocks[i]!;
@@ -120,7 +104,7 @@ export function unreachableMocks(
       const graphqlMatches = !aOp || aOp === bOp;
       if (!graphqlMatches) continue;
 
-      if (!patternCovers(a.urlPattern, b.urlPattern)) continue;
+      if (!parsedCovers(parsedAt(j), parsedAt(i))) continue;
 
       const nameOrPattern = a.name?.trim() ? a.name : a.urlPattern;
       result.set(b.id, {

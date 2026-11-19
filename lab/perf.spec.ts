@@ -56,10 +56,11 @@ async function timed(panel: Page, act: () => Promise<void>): Promise<number> {
 }
 
 async function typeTimed(panel: Page, selector: string, text: string): Promise<number[]> {
-  const field = panel.getByTestId(selector);
-  await field.click();
+  // Focus once, then send plain keys: a locator per key would make Playwright search the whole
+  // page each time, and with hundreds of rows that search, not the panel, would be measured.
+  await panel.getByTestId(selector).click();
   const times: number[] = [];
-  for (const ch of text) times.push(await timed(panel, () => field.press(ch === ' ' ? 'Space' : ch)));
+  for (const ch of text) times.push(await timed(panel, () => panel.keyboard.press(ch === ' ' ? 'Space' : ch)));
   return times;
 }
 

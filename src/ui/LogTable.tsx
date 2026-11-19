@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 import type { SiteStatus } from '../core/siteStatus';
 import type { LogEntry } from '../core/types';
 
@@ -24,6 +24,70 @@ function extractPath(urlStr: string): string {
     return path || urlStr;
   }
 }
+
+
+interface LogRowProps {
+  entry: LogEntry;
+  isSelected: boolean;
+  isTicked: boolean;
+  onSelect: (entry: LogEntry) => void;
+  onToggle: (id: string) => void;
+}
+
+/** One logged call. Memoized: a key typed in the panel re-renders the Log, and a row redraws only when it changed. */
+const LogRow = memo(function LogRow({ entry, isSelected, isTicked, onSelect, onToggle }: Readonly<LogRowProps>) {
+  const isSocket = entry.method.startsWith('WS');
+  const path = extractPath(entry.url);
+  return (
+    <tr
+      data-testid="log-row"
+      tabIndex={0}
+      aria-selected={isSelected ? 'true' : undefined}
+      className={`log-row ${isSelected ? 'selected' : ''}`}
+      onClick={() => onSelect(entry)}
+      onKeyDown={(e) => {
+        const target = e.target as HTMLElement | null;
+        if (target?.closest('input, select, textarea, button')) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect(entry);
+        }
+      }}
+    >
+      <td className="log-col-select" onClick={(e) => e.stopPropagation()}>
+        {!isSocket && (
+          <input
+            type="checkbox"
+            data-testid="log-select"
+            className="log-select-checkbox"
+            checked={isTicked}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              e.stopPropagation();
+              onToggle(entry.id);
+            }}
+          />
+        )}
+      </td>
+      <td className="log-col-method">{entry.method}</td>
+      <td className="log-col-path monospace" title={entry.url}>
+        {path}
+      </td>
+      {/* A socket message has no status; 0 there is not a failure. */}
+      <td
+        className={`log-col-status ${
+          entry.method.startsWith('WS ') ? '' : entry.status >= 400 || entry.status === 0 ? 'status-error' : ''
+        }`}
+      >
+        {entry.method.startsWith('WS ') && entry.status === 0 ? '\u2014' : entry.status}
+      </td>
+      <td className="log-col-duration">{Math.round(entry.durationMs)} ms</td>
+      <td className="log-col-badge">
+        <span className={`log-badge badge-${entry.badge.toLowerCase()}`}>{entry.badge}</span>
+      </td>
+    </tr>
+  );
+});
 
 export function LogTable({
   entries,
@@ -56,6 +120,16 @@ export function LogTable({
   }, [entries]);
 
   const effectiveTotal = totalCount !== undefined ? totalCount : entries.length;
+
+  const latest = useRef({ onSelectEntry, onToggleSelect });
+  latest.current = { onSelectEntry, onToggleSelect };
+  const rowHandlers = useMemo(
+    () => ({
+      select: (entry: LogEntry) => latest.current.onSelectEntry(entry),
+      toggle: (id: string) => latest.current.onToggleSelect?.(id),
+    }),
+    [],
+  );
 
   return (
     <div
@@ -116,64 +190,16 @@ export function LogTable({
               </td>
             </tr>
           ) : (
-            entries.map((entry) => {
-              const isSelected = entry.id === selectedEntryId;
-              const isSocket = entry.method.startsWith('WS');
-              const isTicked = selectedLogIds?.has(entry.id) ?? false;
-              const path = extractPath(entry.url);
-              return (
-                <tr
-                  key={entry.id}
-                  data-testid="log-row"
-                  tabIndex={0}
-                  aria-selected={isSelected ? 'true' : undefined}
-                  className={`log-row ${isSelected ? 'selected' : ''}`}
-                  onClick={() => onSelectEntry(entry)}
-                  onKeyDown={(e) => {
-                    const target = e.target as HTMLElement | null;
-                    if (target?.closest('input, select, textarea, button')) return;
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      onSelectEntry(entry);
-                    }
-                  }}
-                >
-                  <td className="log-col-select" onClick={(e) => e.stopPropagation()}>
-                    {!isSocket && (
-                      <input
-                        type="checkbox"
-                        data-testid="log-select"
-                        className="log-select-checkbox"
-                        checked={isTicked}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          onToggleSelect?.(entry.id);
-                        }}
-                      />
-                    )}
-                  </td>
-                  <td className="log-col-method">{entry.method}</td>
-                  <td className="log-col-path monospace" title={entry.url}>
-                    {path}
-                  </td>
-                  {/* A6: a socket message has no status; 0 there is not a failure. */}
-                  <td
-                    className={`log-col-status ${
-                      entry.method.startsWith('WS ') ? '' : entry.status >= 400 || entry.status === 0 ? 'status-error' : ''
-                    }`}
-                  >
-                    {entry.method.startsWith('WS ') && entry.status === 0 ? '—' : entry.status}
-                  </td>
-                  <td className="log-col-duration">{Math.round(entry.durationMs)} ms</td>
-                  <td className="log-col-badge">
-                    <span className={`log-badge badge-${entry.badge.toLowerCase()}`}>
-                      {entry.badge}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })
+            entries.map((entry) => (
+              <LogRow
+                key={entry.id}
+                entry={entry}
+                isSelected={entry.id === selectedEntryId}
+                isTicked={selectedLogIds?.has(entry.id) ?? false}
+                onSelect={rowHandlers.select}
+                onToggle={rowHandlers.toggle}
+              />
+            ))
           )}
         </tbody>
       </table>

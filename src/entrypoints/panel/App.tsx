@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useIsDark } from '../../ui/useIsDark';
 import { exportProject, exportScenario, parseProjectFile, parseScenarioFile } from '../../core/exportFile';
 import { logToHar } from '../../core/harExport';
@@ -249,9 +249,11 @@ export default function App() {
     selectedMethods.size > 0 ||
     selectedStatuses.size > 0;
 
+  // The box shows each key at once; the list of calls follows when it can.
+  const deferredFilter = useDeferredValue(filter);
   const filteredEntries = useMemo(() => {
     return entries.filter((entry) => {
-      if (filter && !entry.url.toLowerCase().includes(filter.toLowerCase())) {
+      if (deferredFilter && !entry.url.toLowerCase().includes(deferredFilter.toLowerCase())) {
         return false;
       }
       if (selectedTypes.size > 0 && !selectedTypes.has(entry.badge)) {
@@ -293,7 +295,7 @@ export default function App() {
       }
       return true;
     });
-  }, [entries, filter, selectedTypes, selectedMethods, selectedStatuses]);
+  }, [entries, deferredFilter, selectedTypes, selectedMethods, selectedStatuses]);
 
   const handleReloadTab = () => {
     if (tabId <= 0 || typeof browser === 'undefined' || !browser.tabs?.reload) return;
