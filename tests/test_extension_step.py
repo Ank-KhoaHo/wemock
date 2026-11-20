@@ -297,8 +297,11 @@ def test_each_step_gives_up_before_the_gate_does():
         return
     fragment = ROOT.parent / "gate-steps.txt"            # where the pack lies, in the template
     text = (gate if gate.is_file() else fragment).read_text(encoding="utf-8")
-    limits = dict(re.findall(r'"scripts/extension_step\.py", "(\w+)"\], timeout=(\d+)', text))
-    assert set(limits) == {"typecheck", "build", "checks", "unit", "browser"}, limits
+    limits = dict(re.findall(r'"scripts/extension_step\.py", "([\w-]+)"\], timeout=(\d+)', text))
+    # Read from the script, never typed here: a step added to LIMITS is added in one place,
+    # and this test then asks the gate for it. `checks` starts nothing, so it has no limit of its own.
+    every_step = set(step.LIMITS) | {"checks"}
+    assert set(limits) == every_step, f"the gate runs {sorted(limits)}, and the script has {sorted(every_step)}"
     for name, own in step.LIMITS.items():
         assert own < int(limits[name]), f"{name}: the step's own limit ({own} s) is not below the gate's ({limits[name]} s)"
 

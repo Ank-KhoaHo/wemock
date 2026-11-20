@@ -582,6 +582,19 @@ def _outside_fences(text: str):
 _QUESTION_RE = re.compile(r"^##\s+Q(\d+)\b")
 _DEFAULT_LINE = "**Default taken:**"
 
+# A heading that looks like a question but is not `## Q<number>`. Such a heading
+# cannot be read for a default, so it is reported directly.
+_QUESTION_LIKE_RE = re.compile(r"^##\s+Q(?:[-:.#_\d]|\s|$)")
+
+# A question written as a list item instead of a `## Q<number>` heading.
+_QUESTION_ITEM_RE = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+(?:\*\*)?Q(\d+)\b")
+
+# A question numbered at or above this one must carry the **Default taken:**
+# line. A new project keeps 1, which is every question; a project that took
+# the rule late sets it once to its first new question, and never raises it
+# afterwards. It sits here for the same reason as LESSONS_EXEMPT further down.
+QUESTIONS_RULE_FROM = 1
+
 
 def _question_problems(text: str) -> list[str]:
     """What is wrong with the questions in a QUESTIONS.md, as sentences. Empty when sound.
@@ -589,6 +602,10 @@ def _question_problems(text: str) -> list[str]:
     A question that names no default stops the work until someone answers, which is the one
     thing the file exists to prevent. A number used twice makes `Q7` in an old ticket point at
     two things.
+
+    A heading that looks like a question without matching `## Q<number>`, and a question
+    written as a list item, are also reported: each passed unread in a real project, one
+    under a heading with letters before its number, one as bullets under a plain heading.
     """
     problems: list[str] = []
     seen: dict[str, int] = {}
@@ -596,7 +613,7 @@ def _question_problems(text: str) -> list[str]:
     has_default = False
 
     def close() -> None:
-        if current is not None and not has_default:
+        if current is not None and int(current) >= QUESTIONS_RULE_FROM and not has_default:
             problems.append(f"Q{current} names no default: add a `{_DEFAULT_LINE}` line")
 
     for lineno, line in _outside_fences(text):
@@ -607,12 +624,30 @@ def _question_problems(text: str) -> list[str]:
             if current in seen:
                 problems.append(f"Q{current} is used twice (lines {seen[current]} and {lineno})")
             seen[current] = lineno
+        elif _QUESTION_LIKE_RE.match(line):
+            close()
+            current = None
+            has_default = False
+            heading_text = line.strip()
+            problems.append(
+                f"line {lineno}: '{heading_text}' looks like a question, but only "
+                f"`## Q<number>` is read, so its default is not checked"
+            )
         elif line.startswith("## ") or line.startswith("# "):
             close()
             current = None
+            has_default = False
         elif current is not None and line.strip().startswith(_DEFAULT_LINE):
             # The line must say something after the label; a bare label is not a default.
             has_default = bool(line.strip()[len(_DEFAULT_LINE):].strip())
+        elif current is None:
+            item = _QUESTION_ITEM_RE.match(line)
+            if item and int(item.group(1)) >= QUESTIONS_RULE_FROM:
+                n = item.group(1)
+                problems.append(
+                    f"line {lineno}: Q{n} is written as a list item, "
+                    f"so its default is not checked: give it a `## Q{n}` heading"
+                )
     close()
     return problems
 

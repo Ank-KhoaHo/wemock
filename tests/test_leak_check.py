@@ -121,7 +121,7 @@ def test_the_patterns_file_is_ignored_and_never_tracked():
 # A commit message may cite a ticket: that harms nobody, and it is how history is searched.
 
 
-def _repo_with_a_backlog(tmp_path: Path, staged: dict[str, str], tickets=("Z34", "Z2")) -> Path:
+def _repo_with_a_backlog(tmp_path: Path, staged: dict[str, str], tickets=("A9034", "D9002")) -> Path:
     """One clean commit, a gitignored backlog holding the given tickets, and the given files staged."""
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -143,26 +143,66 @@ def _repo_with_a_backlog(tmp_path: Path, staged: dict[str, str], tickets=("Z34",
 
 
 def test_a_ticket_id_in_staged_code_is_flagged_with_its_file(tmp_path, monkeypatch, capsys):
-    repo = _repo_with_a_backlog(tmp_path, {"src/tool.py": "limit = 3  # raised for Z34\n"})
+    repo = _repo_with_a_backlog(tmp_path, {"src/tool.py": "limit = 3  # raised for A9034\n"})
     code, out = _scan(repo, monkeypatch, capsys)
     assert code == 1
-    assert "staged code: src/tool.py cites ticket Z34" in out
+    assert "staged code: src/tool.py cites ticket A9034" in out
     assert "raised for" not in out, "the scan printed the line it matched"
 
 
 def test_a_ticket_id_in_a_test_name_is_flagged(tmp_path, monkeypatch, capsys):
-    repo = _repo_with_a_backlog(tmp_path, {"tests/test_tool.py": "def test_z2_regression():\n    pass\n"})
+    repo = _repo_with_a_backlog(tmp_path, {"tests/test_tool.py": "def test_d9002_regression():\n    pass\n"})
     code, out = _scan(repo, monkeypatch, capsys)
     assert code == 1
-    assert "staged code: tests/test_tool.py cites ticket Z2" in out
+    assert "staged code: tests/test_tool.py cites ticket D9002" in out
+
+
+def test_standing_alone_a_ticket_id_counts_only_in_the_case_its_spec_spells(tmp_path, monkeypatch, capsys):
+    """`d3`, a library's name in a script's help text, was read as the third ticket of section
+    D in one project, and its leak check refused a script of this template."""
+    clean = "\n".join([
+        "topics = 'd9002,web'             # a word in lower case, standing alone",
+        "parser.add_argument('--a9034')   # an option, in lower case",
+        "print('see a9034.')",
+        "",
+    ])
+    repo = _repo_with_a_backlog(tmp_path, {"src/tool.py": clean})
+    code, out = _scan(repo, monkeypatch, capsys)
+    assert code == 0, out
+
+
+@pytest.mark.parametrize("line, ticket", [
+    ("def test_d9002_regression():", "D9002"),
+    ("fix_for_a9034 = True", "A9034"),
+    ("a9034_limit = 3", "A9034"),
+    ("FIX_FOR_A9034 = True", "A9034"),
+])
+def test_inside_a_name_a_ticket_id_is_a_citation_in_lower_case_too(tmp_path, monkeypatch, capsys, line, ticket):
+    """A name is written in lower case, and a test named after its ticket is the commonest way
+    an ID reaches public code. So next to an underscore, the lower-case spelling counts."""
+    repo = _repo_with_a_backlog(tmp_path, {"src/tool.py": line + "\n    pass\n"})
+    code, out = _scan(repo, monkeypatch, capsys)
+    assert code == 1, out
+    assert f"staged code: src/tool.py cites ticket {ticket}" in out
+
+
+def test_an_id_its_spec_spells_in_lower_case_is_read_in_lower_case(tmp_path, monkeypatch, capsys):
+    repo = _repo_with_a_backlog(tmp_path, {"src/tool.py": "limit = 3  # raised for i9245\n"}, tickets=("i9245",))
+    code, out = _scan(repo, monkeypatch, capsys)
+    assert code == 1 and "staged code: src/tool.py cites ticket i9245" in out, out
+
+    (tmp_path / "other").mkdir()
+    other = _repo_with_a_backlog(tmp_path / "other", {"src/tool.py": "limit = 3  # the I9245 bus\n"}, tickets=("i9245",))
+    code, out = _scan(other, monkeypatch, capsys)
+    assert code == 0, out
 
 
 def test_only_a_real_ticket_standing_alone_is_a_citation(tmp_path, monkeypatch, capsys):
     clean = "\n".join([
-        "paper = 'B5'            # a paper size: there is no ticket B5 in this backlog",
-        "colour = '#A34F00'      # inside a longer token",
-        "code = 'XA34'           # inside a longer token",
-        "version = 'A340'        # a different number",
+        "paper = 'B9005'         # shaped like an ID, and there is no ticket B9005 in this backlog",
+        "colour = '#A9034F00'      # inside a longer token",
+        "code = 'XA9034'           # inside a longer token",
+        "version = 'A90340'        # a different number",
         "released = '2026-01-01' # a date: a dated design document is not a ticket, and its year is not an ID",
         "",
     ])
@@ -172,11 +212,11 @@ def test_only_a_real_ticket_standing_alone_is_a_citation(tmp_path, monkeypatch, 
 
 
 def test_prose_may_cite_a_ticket_and_a_removed_line_is_not_new(tmp_path, monkeypatch, capsys):
-    repo = _repo_with_a_backlog(tmp_path, {"src/tool.py": "limit = 3  # raised for Z34\n"})
+    repo = _repo_with_a_backlog(tmp_path, {"src/tool.py": "limit = 3  # raised for A9034\n"})
     _git(repo, "commit", "-q", "-m", "Add the tool")
     (repo / "src" / "tool.py").write_text("limit = 3  # the smallest batch that still fills a page\n",
                                           encoding="utf-8", newline="\n")
-    (repo / "NOTES.md").write_text("The limit was raised by Z34.\n", encoding="utf-8", newline="\n")
+    (repo / "NOTES.md").write_text("The limit was raised by A9034.\n", encoding="utf-8", newline="\n")
     _git(repo, "add", "src/tool.py", "NOTES.md")
     code, out = _scan(repo, monkeypatch, capsys)
     assert "cites ticket" not in out, out
@@ -184,7 +224,7 @@ def test_prose_may_cite_a_ticket_and_a_removed_line_is_not_new(tmp_path, monkeyp
 
 def test_a_commit_message_may_cite_a_ticket(tmp_path, monkeypatch, capsys):
     repo = _repo_with_a_backlog(tmp_path, {"src/tool.py": "limit = 3\n"})
-    _git(repo, "commit", "-q", "-m", "Z34: raise the limit")
+    _git(repo, "commit", "-q", "-m", "A9034: raise the limit")
     code, out = _scan(repo, monkeypatch, capsys)
     assert code == 0, out
 
@@ -192,7 +232,7 @@ def test_a_commit_message_may_cite_a_ticket(tmp_path, monkeypatch, capsys):
 def test_without_a_backlog_on_disk_ticket_ids_are_not_checked_and_it_says_so(tmp_path, monkeypatch, capsys):
     """A clone has no backlog, so it cannot know which words are ticket IDs. It must say that it
     did not look, not report that it looked and found nothing."""
-    repo = _repo(tmp_path, "limit = 3  # raised for Z34\n")
+    repo = _repo(tmp_path, "limit = 3  # raised for A9034\n")
     code, out = _scan(repo, monkeypatch, capsys)
     assert code == 0
     assert "ticket IDs were not checked" in out
@@ -225,16 +265,3 @@ def test_a_code_only_pattern_is_not_an_everywhere_pattern(tmp_path):
     path.write_text("bluebird\ncode: (unclosed\n", encoding="utf-8", newline="\n")
     with pytest.raises(ValueError, match="line 2"):
         check_leaks.load_code_patterns(path)
-
-
-def test_the_backlog_builders_samples_are_not_citations(tmp_path, monkeypatch, capsys):
-    """Its test needs IDs of every length a real one has, so they overlap this project's own.
-    It is spared the ticket scan, and nothing else."""
-    (tmp_path / "a").mkdir()
-    (tmp_path / "b").mkdir()
-    repo =_repo_with_a_backlog(tmp_path / "a", {"tests/test_backlog_builder.py": "ids = ['Z34', 'Z2']\n"})
-    code, out = _scan(repo, monkeypatch, capsys)
-    assert code == 0 and "cites ticket" not in out, out
-    repo = _repo_with_a_backlog(tmp_path / "b", {"tests/test_other.py": "ids = ['Z34']\n"})
-    code, out = _scan(repo, monkeypatch, capsys)
-    assert code == 1 and "cites ticket Z34" in out, out

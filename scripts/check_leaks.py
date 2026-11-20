@@ -241,13 +241,6 @@ def _is_code_file(path_str: str) -> bool:
     return p.suffix.lower() not in NON_CODE_EXTENSIONS
 
 
-# Files whose subject IS the shape of a ticket ID. The IDs in them are sample data for
-# the code that reads IDs, not citations of this project's tickets, and the samples need
-# every length a real ID has. They are spared the ticket-ID scan only; every other scan
-# still reads them.
-ID_SAMPLE_FILES = {"tests/test_backlog_builder.py"}
-
-
 def load_ticket_ids(specs_dir: Path) -> list[str]:
     """Load ticket IDs from ticket spec files in specs_dir.
 
@@ -263,7 +256,7 @@ def load_ticket_ids(specs_dir: Path) -> list[str]:
         # Design specs start with a 4-digit year and are not tickets.
         if re.match(r"^\d{4}-", path.name):
             continue
-        # The ticket ID is the token before the first hyphen, e.g. A34 from A34-a-ticket.md.
+        # The ticket ID is the token before the first hyphen, e.g. A934 from A934-a-ticket.md.
         ticket_id = path.name.split("-")[0]
         if ticket_id and ticket_id not in ticket_ids:
             ticket_ids.append(ticket_id)
@@ -280,12 +273,19 @@ def _scan_staged_code(
     A diff names the file in a `+++ b/<path>` line; an added line starts with
     `+` and is not that header. A removed line is not new, and is never judged.
     """
-    # Ticket IDs must stand alone: preceded and followed by a non-alphanumeric character.
+    # An ID standing alone counts only in the case its spec spells, because a lower-case
+    # word such as a library's name is not a ticket; next to an underscore the lower-case
+    # spelling counts too, because a name is written in lower case.
     # An underscore counts as a separator, so \b cannot be used as it treats _ as a word char.
-    ticket_regexes = [
-        (tid, re.compile(rf"(?<![a-zA-Z0-9]){re.escape(tid)}(?![a-zA-Z0-9])", re.I))
-        for tid in ticket_ids
-    ]
+    ticket_regexes = []
+    for tid in ticket_ids:
+        escaped = re.escape(tid)
+        low = re.escape(tid.lower())
+        ticket_regexes.append((
+            tid,
+            re.compile(rf"(?<![a-zA-Z0-9]){escaped}(?![a-zA-Z0-9])"),
+            re.compile(rf"(?:(?<=_){low}(?![a-zA-Z0-9])|(?<![a-zA-Z0-9]){low}(?=_))"),
+        ))
     code_regexes = [
         (pat, re.compile(pat, re.I))
         for pat in code_patterns
@@ -303,8 +303,8 @@ def _scan_staged_code(
             if not current_file or not _is_code_file(current_file):
                 continue
             line_content = line[1:]
-            for tid, rx in ([] if current_file in ID_SAMPLE_FILES else ticket_regexes):
-                if rx.search(line_content):
+            for tid, rx_exact, rx_low in ticket_regexes:
+                if rx_exact.search(line_content) or rx_low.search(line_content):
                     # Never print the line that matched, only the file and the cited ticket ID.
                     findings.append(f"staged code: {current_file} cites ticket {tid}")
             for pat, rx in code_regexes:

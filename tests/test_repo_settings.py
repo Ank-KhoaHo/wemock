@@ -49,11 +49,29 @@ def _github_holds(description: str = DESCRIPTION, topics: list[str] | None = Non
     })
 
 
+def _rule(force: bool = False, deletions: bool = False, admins: bool = True) -> str:
+    """What GitHub prints for a branch's rule, in the shape it really has (read on 2026-11-19)."""
+    return json.dumps({
+        "url": "https://api.github.com/repos/octo-dev/widget-forge/branches/main/protection",
+        "allow_force_pushes": {"enabled": force},
+        "allow_deletions": {"enabled": deletions},
+        "enforce_admins": {"url": "https://api.github.com/x", "enabled": admins},
+        "required_linear_history": {"enabled": False},
+    })
+
+
 def _wire(monkeypatch, origin: str = "git@github.com:octo-dev/widget-forge.git",
-          read_back: str | None = None) -> _Recorder:
+          read_back: str | None = None, branch: str = "main", rule: str | None = None,
+          reporting: str = "true") -> _Recorder:
+    """Replace the one function that runs a command. The longer beginnings come first: the
+    recorder answers with the first beginning that fits."""
     recorder = _Recorder({
         "git remote get-url origin": origin,
+        "gh repo view --json defaultBranchRef": branch,
         "gh repo view": _github_holds() if read_back is None else read_back,
+        "gh api -X PUT": "{}",
+        "gh api repos/{owner}/{repo}/private-vulnerability-reporting": reporting,
+        "gh api repos/{owner}/{repo}/branches/": _rule() if rule is None else rule,
     })
     monkeypatch.setattr(repo_settings, "_run", recorder)
     return recorder
@@ -120,7 +138,7 @@ def test_a_real_run_applies_the_plan_once_and_reads_the_settings_back(monkeypatc
     gh_calls = [call for call in recorder.calls if call[0] == "gh"]
     assert gh_calls[0] == repo_settings.plan(DESCRIPTION, TOPICS, HOMEPAGE)
     assert len([call for call in gh_calls if call[:3] == ["gh", "repo", "edit"]]) == 1
-    assert gh_calls[-1][:3] == ["gh", "repo", "view"], "the settings were not read back after being set"
+    assert gh_calls[1] == repo_settings._READ_BACK, "the settings were not read back right after being set"
 
 
 def test_it_ends_by_naming_what_no_command_can_do(monkeypatch, capsys):
@@ -182,3 +200,132 @@ def test_no_answer_from_github_is_a_failure(monkeypatch):
     with pytest.raises(SystemExit) as caught:
         repo_settings.main(_arguments())
     assert "gh auth status" in str(caught.value)
+
+
+# ---------------------------------------------------------------- the default branch
+#
+# A public repository whose default branch has no rule shows GitHub's notice that it is not
+# protected, and anyone who can push can rewrite or delete its history. The rule was set by
+# hand on three repositories before this script set it.
+
+
+def test_the_rule_is_one_gh_command():
+    assert repo_settings.protection_plan("main") == [
+        "gh", "api", "-X", "PUT", "repos/{owner}/{repo}/branches/main/protection",
+        "-F", "required_status_checks=null",
+        "-F", "enforce_admins=true",
+        "-F", "required_pull_request_reviews=null",
+        "-F", "restrictions=null",
+        "-F", "allow_force_pushes=false",
+        "-F", "allow_deletions=false",
+    ]
+
+
+def test_a_name_that_is_not_a_branch_is_refused():
+    for name in ("", "main branch", "main;rm", "$(whoami)", "a\nb"):
+        with pytest.raises(SystemExit):
+            repo_settings.protection_plan(name)
+    for name in ("main", "trunk", "release/1.x", "dev_2"):
+        assert f"/branches/{name}/protection" in repo_settings.protection_plan(name)[4]
+
+
+def test_a_real_run_protects_the_default_branch_and_reads_the_rule_back(monkeypatch, capsys):
+    recorder = _wire(monkeypatch)
+    repo_settings.main(_arguments())
+    gh_calls = [call for call in recorder.calls if call[0] == "gh"]
+    plan = repo_settings.protection_plan("main")
+    assert gh_calls.count(plan) == 1, "the rule was not set exactly once"
+    read = ["gh", "api", "repos/{owner}/{repo}/branches/main/protection"]
+    assert read in gh_calls and gh_calls.index(read) > gh_calls.index(plan), "the rule was not read back after being set"
+    out = capsys.readouterr().out
+    assert "main protected (no force push, no deletion)" in out, out
+
+
+def test_the_default_branch_is_asked_for_never_assumed(monkeypatch, capsys):
+    recorder = _wire(monkeypatch, branch="trunk")
+    repo_settings.main(_arguments())
+    assert repo_settings.protection_plan("trunk") in recorder.calls
+    assert repo_settings.protection_plan("main") not in recorder.calls
+    assert "trunk protected" in capsys.readouterr().out
+
+
+def test_a_rule_that_did_not_take_is_reported_not_announced(monkeypatch, capsys):
+    cases = {
+        "force push": _rule(force=True),
+        "deleted": _rule(deletions=True),
+        "administrators": _rule(admins=False),
+        "not protected": "",                          # gh failed: a private repository on the free plan
+        "not protected ": "[]",                       # an answer that is not a rule
+    }
+    for word, held in cases.items():
+        _wire(monkeypatch, rule=held)
+        with pytest.raises(SystemExit) as caught:
+            repo_settings.main(_arguments())
+        assert word.strip() in str(caught.value), f"the message does not say what did not take: {caught.value}"
+        assert "read back" not in capsys.readouterr().out, "it still announced success"
+
+
+def test_a_missing_rule_says_that_a_private_repository_cannot_have_one(monkeypatch):
+    assert repo_settings._not_protected("") == [
+        "the default branch is not protected: GitHub gave no rule back "
+        "(a private repository on the free plan cannot have one)"]
+    assert repo_settings._not_protected(_rule()) == []
+    assert repo_settings._not_protected(_rule(force=True, deletions=True, admins=False)) == [
+        "the default branch still allows a force push",
+        "the default branch can still be deleted",
+        "the rule does not hold for administrators",
+    ]
+    assert len(repo_settings._not_protected("{}")) == 3, "a rule with nothing in it protects nothing"
+
+
+def test_a_default_branch_github_does_not_name_is_a_failure(monkeypatch, capsys):
+    for answer in ("", "two words"):
+        recorder = _wire(monkeypatch, branch=answer)
+        with pytest.raises(SystemExit) as caught:
+            repo_settings.main(_arguments())
+        assert "default branch could not be read" in str(caught.value)
+        assert not [call for call in recorder.calls if "-X" in call and "protection" in " ".join(call)], (
+            "a rule was sent for a branch whose name was never read")
+
+
+def test_every_difference_is_reported_in_one_run(monkeypatch):
+    _wire(monkeypatch, read_back=_github_holds(wiki=True), rule=_rule(force=True), reporting="false")
+    with pytest.raises(SystemExit) as caught:
+        repo_settings.main(_arguments())
+    for word in ("wiki", "force push", "vulnerability reporting"):
+        assert word in str(caught.value), f"{word!r} is missing from: {caught.value}"
+
+
+def test_a_dry_run_shows_the_rule_too_and_still_calls_nothing(monkeypatch, capsys):
+    recorder = _wire(monkeypatch)
+    repo_settings.main(_arguments("--dry-run"))
+    out = capsys.readouterr().out
+    assert "branches/<default-branch>/protection" in out, out
+    assert "allow_force_pushes=false" in out and "allow_deletions=false" in out and "enforce_admins=true" in out
+    assert "private-vulnerability-reporting" in out
+    assert [call for call in recorder.calls if call[0] == "gh"] == [], "a dry run called gh"
+
+
+# ---------------------------------------------------------------- where a vulnerability is reported
+#
+# SECURITY.md sends a reporter to GitHub's private advisory form. That form answers "not found"
+# until the repository turns private vulnerability reporting on: one of four repositories had
+# it off.
+
+
+def test_a_real_run_turns_private_reporting_on_and_reads_it_back(monkeypatch):
+    recorder = _wire(monkeypatch)
+    repo_settings.main(_arguments())
+    turn_on = ["gh", "api", "-X", "PUT", "repos/{owner}/{repo}/private-vulnerability-reporting"]
+    read = ["gh", "api", "repos/{owner}/{repo}/private-vulnerability-reporting", "--jq", ".enabled"]
+    assert recorder.calls.count(turn_on) == 1, "private vulnerability reporting was not turned on exactly once"
+    assert read in recorder.calls and recorder.calls.index(read) > recorder.calls.index(turn_on)
+
+
+def test_reporting_that_stayed_off_is_reported_not_announced(monkeypatch, capsys):
+    for answer in ("false", ""):
+        _wire(monkeypatch, reporting=answer)
+        with pytest.raises(SystemExit) as caught:
+            repo_settings.main(_arguments())
+        assert "private vulnerability reporting is still off" in str(caught.value), caught.value
+        assert "read back" not in capsys.readouterr().out

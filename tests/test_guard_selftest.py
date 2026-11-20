@@ -350,6 +350,13 @@ def _scratch_root(monkeypatch, folder: Path, files: dict[str, str]) -> None:
 # ---------------------------------------------------------------- open questions
 
 
+@pytest.fixture(autouse=True)
+def _the_question_examples_start_at_the_first_question(monkeypatch):
+    """A project that took the rule late raises QUESTIONS_RULE_FROM. The examples in this file
+    use small numbers, so each one starts from the first question, whatever the project set."""
+    monkeypatch.setattr(guard, "QUESTIONS_RULE_FROM", 1)
+
+
 def test_a_question_without_a_default_is_reported():
     problems = guard._question_problems(_doc(
         "# Open questions", "",
@@ -394,6 +401,127 @@ def test_a_question_without_a_default_fails_the_guard(monkeypatch, tmp_path):
     _scratch_root(monkeypatch, tmp_path, {"QUESTIONS.md": _doc("## Q9 — Which?", "", "**Asked:** today.")})
     with pytest.raises(AssertionError, match="Q9"):
         guard.test_every_open_question_names_its_default()
+
+
+def test_a_question_heading_the_check_cannot_read_is_reported():
+    """A heading with letters before its number passed unseen in one project. The check read
+    `## Q<number>` and nothing else, so a question under any other heading was never asked
+    for its default."""
+    problems = guard._question_problems(_doc(
+        "# Open questions", "",
+        "## Q-A9082 — Which border?", "", "Default taken: thin.", "",
+        "## Q12b — Which size?", "", "**Default taken:** small.", "",
+        "## Q 7 — Which font?", "", "**Default taken:** serif.", "",
+        "## Q: Which colour?", "", "**Default taken:** blue.", "",
+        "## Q", "", "**Default taken:** none.", "",
+    ))
+    assert len(problems) == 5, problems
+    assert all("Q<number>" in problem for problem in problems), problems
+    for problem, line, heading in zip(problems, (3, 7, 11, 15, 19),
+                                      ("## Q-A9082 — Which border?", "## Q12b — Which size?", "## Q 7 — Which font?",
+                                       "## Q: Which colour?", "## Q")):
+        assert f"line {line}:" in problem and f"'{heading}'" in problem, problem
+
+
+def test_a_heading_that_only_begins_with_q_is_not_a_question():
+    """`Questions`, `Quick notes`, `QA` and `Q&A` are words. Only `Q` alone, or `Q` followed by
+    a digit or one of `-:.#_`, reads like a question that lost its number."""
+    assert guard._question_problems(_doc(
+        "# Open questions", "",
+        "## Questions answered this week", "", "None.", "",
+        "## Quick notes", "", "Text.", "",
+        "## QA", "", "Text.", "",
+        "## Q&A", "", "Text.", "",
+        "### Q-A9082 — a level-3 heading is not read", "", "Text.", "",
+    )) == []
+
+
+def test_a_heading_the_check_cannot_read_ends_the_question_above_it():
+    problems = guard._question_problems(_doc(
+        "## Q5 — Which one?", "", "**Asked:** today.", "",
+        "## Q-6 — And this?", "", "**Default taken:** the first.", "",
+    ))
+    assert len(problems) == 2, problems
+    assert "Q5 names no default" in problems[0], "the default under the unreadable heading was given to Q5"
+    assert "line 5:" in problems[1] and "Q<number>" in problems[1], problems
+
+
+def test_a_question_written_as_a_list_item_is_reported():
+    """One project kept its questions as bullets under a plain heading. The check found no
+    `## Q` heading, read nothing, and passed for weeks."""
+    problems = guard._question_problems(_doc(
+        "# Open questions", "",
+        "## Waiting", "",
+        "- **Q66** Which colour for the border (default: grey).",
+        "* Q67 Does the panel remember its width (default: yes).",
+        "  + **Q68:** Which key opens it.",
+        "1. Q69 — Light or dark first.",
+        "2) **Q70** How long a notice stays.",
+    ))
+    assert len(problems) == 5, problems
+    for problem, line, number in zip(problems, (5, 6, 7, 8, 9), (66, 67, 68, 69, 70)):
+        assert f"line {line}:" in problem and f"Q{number} is written as a list item" in problem, problem
+        assert f"`## Q{number}`" in problem, "the sentence does not say how to fix it"
+
+
+def test_a_list_item_that_only_mentions_a_question_is_not_one():
+    assert guard._question_problems(_doc(
+        "# Open questions", "",
+        "- See Q12 in the archive.",
+        "- Answered: Q13 and Q14.",
+        "Q15 is answered, in a plain line.",
+        "- Quick notes, not a question.",
+        "- Q&A is on the picker.",
+        "",
+        "## Q16 — Which one?", "", "**Default taken:** the first.", "",
+        "**Options:**", "",
+        "- Q12 asked the same of the old screen.",
+        "1. **Q13** is the other way to read it.",
+        "",
+        "```", "- **Q17** shown as an example", "```",
+    )) == []
+
+
+def test_the_rule_can_start_at_a_number(monkeypatch):
+    """One project had hundreds of questions older than the rule, in other words and other
+    shapes. A rule that lands late needs a start line, or it lands as a skip. Numbers stay
+    unique all the same."""
+    text = _doc(
+        "## Q266 — Old?", "", "Default: yes.", "",
+        "## Q267 — Old too?", "",
+        "- **Q12** an old one, kept as a bullet.",
+        "",
+        "## Notes", "",
+        "- **Q13** another old one.",
+        "- **Q268** a new one, as a bullet.",
+        "",
+        "## Q268 — New?", "", "**Asked:** today.", "",
+        "## Q269 — Newer?", "", "**Default taken:** yes.", "",
+        "## Q266 — The old number again?", "",
+    )
+    monkeypatch.setattr(guard, "QUESTIONS_RULE_FROM", 268)
+    problems = guard._question_problems(text)
+    assert len(problems) == 3, problems
+    assert "line 12:" in problems[0] and "Q268 is written as a list item" in problems[0], problems
+    assert "Q268 names no default" in problems[1], problems
+    assert "Q266 is used twice" in problems[2], problems
+
+    monkeypatch.setattr(guard, "QUESTIONS_RULE_FROM", 1)
+    assert len(guard._question_problems(text)) == 7, "with no start line, every old question is asked too"
+
+
+def test_a_heading_the_check_cannot_read_is_reported_whatever_the_start_line(monkeypatch):
+    monkeypatch.setattr(guard, "QUESTIONS_RULE_FROM", 500)
+    problems = guard._question_problems(_doc("## Q-A9082 — Which border?", "", "Default taken: thin."))
+    assert len(problems) == 1 and "Q<number>" in problems[0], problems
+
+
+def test_the_start_line_is_a_whole_number_from_one_up():
+    """Read from the file, not from the module: the fixture above sets the module's value."""
+    source = Path(guard.__file__).read_text(encoding="utf-8")
+    found = re.findall(r"^QUESTIONS_RULE_FROM(?:\s*:\s*int)?\s*=\s*(\S+)\s*$", source, re.M)
+    assert len(found) == 1, f"expected one QUESTIONS_RULE_FROM line in the guard, found {len(found)}"
+    assert found[0].isdigit() and int(found[0]) >= 1, f"QUESTIONS_RULE_FROM is {found[0]}"
 
 
 # ---------------------------------------------------------------- the changelog and the version
@@ -574,6 +702,17 @@ def _scratch_specs(monkeypatch, folder: Path, specs: dict[str, str]) -> None:
     for name, text in specs.items():
         (target / name).write_text(text, encoding="utf-8", newline="\n")
     monkeypatch.setattr(guard, "_repo_root", lambda: folder)
+    # A project that took the rule late lists its old tickets in LESSONS_EXEMPT. The scratch
+    # tree is not that project: it starts with no exempt ticket, whatever the project lists.
+    monkeypatch.setattr(guard, "LESSONS_EXEMPT", frozenset())
+
+
+def test_the_examples_here_do_not_read_the_projects_own_exempt_list(monkeypatch, tmp_path):
+    """Both projects that took this file saw the examples below fail that day. Each had
+    listed its old tickets in LESSONS_EXEMPT, and an example used one of those IDs."""
+    monkeypatch.setattr(guard, "LESSONS_EXEMPT", frozenset({"A9003", "A9004"}))
+    _scratch_specs(monkeypatch, tmp_path, {"A9003-old.md": _ticket("A9003", "DONE")})
+    assert guard._done_tickets_without_lessons() == ["A9003"]
 
 
 def test_only_a_done_ticket_without_lessons_is_reported(monkeypatch, tmp_path):
