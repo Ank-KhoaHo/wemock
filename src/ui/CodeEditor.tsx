@@ -6,6 +6,7 @@ import { autocompletion, type CompletionContext, type CompletionResult } from '@
 import { search } from '@codemirror/search';
 import { codeCompletions } from '../core/codeHints';
 import { indentGuides } from './indentGuides';
+import { keepHandledKeys } from './keepHandledKeys';
 import { searchMarks } from './searchMarks';
 
 export interface CodeEditorProps {
@@ -32,7 +33,7 @@ export default function CodeEditor({
   paramNamesRef.current = paramNames;
 
   const extensions = useMemo(() => {
-    const shared = [search({ top: true }), searchMarks(), indentGuides()];
+    const shared = [search({ top: true }), searchMarks(), keepHandledKeys(), indentGuides()];
     if (language === 'javascript') {
       const source = (context: CompletionContext): CompletionResult | null => {
         const textBefore = context.state.sliceDoc(0, context.pos);

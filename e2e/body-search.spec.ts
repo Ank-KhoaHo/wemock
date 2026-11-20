@@ -104,6 +104,38 @@ test('the find box of the mock body stays below the editor header when the body 
   }
 });
 
+test('Ctrl+F and Escape used by the editor do not reach the document, where DevTools picks up shortcuts', async () => {
+  const { page, panel } = await openPanel();
+  try {
+    await page.click('#btn-fetch');
+    await panel.getByTestId('log-row').click();
+    const content = panel.getByTestId('response-body').locator('.cm-content');
+    await expect(content).toContainText('"source": "server"');
+    await panel.evaluate(() => {
+      const keys: string[] = [];
+      Object.assign(window, { forwardedKeys: keys });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'f' || e.key === 'Escape') keys.push(e.key);
+      });
+    });
+    const forwarded = () => panel.evaluate(() => (window as unknown as { forwardedKeys: string[] }).forwardedKeys);
+
+    await content.click();
+    await panel.keyboard.press('Control+f');
+    await expect(panel.locator('.cm-search')).toBeVisible();
+    await panel.keyboard.press('Escape');
+    await expect(panel.locator('.cm-search')).toHaveCount(0);
+    expect(await forwarded()).toEqual([]);
+
+    await panel.locator('.detail-header').click();
+    await panel.keyboard.press('Control+f');
+    expect(await forwarded()).toEqual(['f']);
+  } finally {
+    await panel.close();
+    await page.close();
+  }
+});
+
 test('the find box counts the matches and marks them at the right edge of the body', async () => {
   const { page, panel } = await openPanel();
   try {
