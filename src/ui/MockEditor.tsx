@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useRef, useState } from 'react';
+import React, { type Ref, Suspense, useEffect, useRef, useState } from 'react';
 import { BackIcon, CopyIcon, SaveIcon, TrashIcon } from './icons';
 import { paramNamesOf, sampleUrl } from '../core/codeHints';
 import { hasConditions } from '../core/conditions';
@@ -10,6 +10,7 @@ import type { BodyEncoding, HttpMethod, Mock, MockMatch, MockPatch, MockResponse
 import { compactJson, formatJson, withBody } from '../core/bodies';
 import { BodyEditor } from './BodyEditor';
 import { HeadersTable } from './HeadersTable';
+import { DirtyMark, type EditorHandle, IDLE_EDITOR, useUnsavedChanges } from './unsaved';
 
 const CodeEditor = React.lazy(() => import('./CodeEditor'));
 
@@ -21,7 +22,7 @@ function editable(mock: Mock | null): Mock | null {
 
 export interface MockEditorProps {
   mock: Mock | null;
-  onSave: (mock: Mock) => void;
+  onSave: (mock: Mock) => void | Promise<void>;
   onDelete: (mockId: string) => void;
   onDuplicate?: (mockId: string) => void;
   /** Shown on a narrow panel, where the list and the editor take turns. */
@@ -30,6 +31,7 @@ export interface MockEditorProps {
   isDark?: boolean;
   pageOrigin?: string;
   projectId?: string;
+  ref?: Ref<EditorHandle>;
 }
 
 interface KeyValueRow {
@@ -69,7 +71,8 @@ export function MockEditor({
   isDark = false,
   pageOrigin = '',
   projectId,
-}: MockEditorProps) {
+  ref,
+}: Readonly<MockEditorProps>) {
   const [draft, setDraft] = useState<Mock | null>(() => editable(mock));
   const [statusInput, setStatusInput] = useState<string>(mock ? String(mock.response.status) : '200');
   const [delayInput, setDelayInput] = useState<string>(mock ? String(mock.response.delayMs) : '0');
@@ -137,6 +140,7 @@ export function MockEditor({
   const [tryBody, setTryBody] = useState<string>('');
   const [runReply, setRunReply] = useState<HandlerReply | null>(null);
   const [isRunningRun, setIsRunningRun] = useState<boolean>(false);
+  const unsaved = useUnsavedChanges(ref);
   const lastPatternRef = useRef<string>(mock?.urlPattern ?? '');
   const lastOriginRef = useRef<string>(pageOrigin);
 
@@ -220,6 +224,7 @@ export function MockEditor({
   }, [draft?.urlPattern, pageOrigin]);
 
   if (!draft) {
+    unsaved.expose(IDLE_EDITOR);
     return (
       <div className="mock-editor-empty">
         <p>Select a mock or click &quot;New mock&quot; to edit</p>
@@ -426,8 +431,7 @@ export function MockEditor({
     }
   };
 
-  const handleSave = () => {
-    if (!canSave) return;
+  const buildMock = (): Mock | null => {
     const finalStatus = Number(statusInput);
     const finalDelay = Math.max(0, Math.min(60000, Number(delayInput) || 0));
 
@@ -509,12 +513,11 @@ export function MockEditor({
         delete saved.match;
       }
 
-      save(saved);
-      return;
+      return saved;
     }
 
     if (draft.reply === 'sequence') {
-      if (!seqDraft || seqDraft.steps.length === 0) return;
+      if (!seqDraft || seqDraft.steps.length === 0) return null;
       const sequence: MockSequence = {
         steps: seqDraft.steps.map((s) => ({
           status: Number(s.status),
@@ -546,8 +549,7 @@ export function MockEditor({
         delete saved.match;
       }
 
-      save(saved);
-      return;
+      return saved;
     }
 
     if (draft.reply === 'stream') {
@@ -575,8 +577,7 @@ export function MockEditor({
         delete saved.match;
       }
 
-      save(saved);
-      return;
+      return saved;
     }
 
     const saved: Mock = {
@@ -594,8 +595,22 @@ export function MockEditor({
       delete saved.match;
     }
 
-    save(saved);
+    return saved;
   };
+
+  // `enabled` is left out: the switch saves it straight away, so it is never pending.
+  const snapshot = JSON.stringify({ ...buildMock(), enabled: true });
+  const isDirty = unsaved.isDirty(draft.id, snapshot);
+
+  const handleSave = async (): Promise<boolean> => {
+    const built = canSave ? buildMock() : null;
+    if (!built) return false;
+    unsaved.markSaved(draft.id, snapshot);
+    await save(built);
+    return true;
+  };
+
+  unsaved.expose({ isDirty: () => isDirty, canSave: () => canSave, save: handleSave });
 
   return (
     <div
@@ -621,7 +636,7 @@ export function MockEditor({
               <BackIcon size={16} />
             </button>
           )}
-          <h3>Edit mock</h3>
+          <h3>Edit mock{isDirty && <DirtyMark />}</h3>
           <span className="mock-id-badge">{draft.source}</span>
         </div>
         <div className="mock-editor-actions">
@@ -1449,6 +1464,7 @@ export function MockEditor({
         ) : (
           <>
             <BodyEditor
+              key={draft.id}
               body={draft.response.body}
               bodyEncoding={draft.response.bodyEncoding}
               contentType={getContentType()}

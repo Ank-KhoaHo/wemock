@@ -1,8 +1,7 @@
-import React, { Suspense, useEffect, useState } from 'react';
-import { base64ToBytes, bodyLanguage, bytesToBase64, formatJson, isJsonContainer } from '../core/bodies';
+import React, { useEffect, useState } from 'react';
+import { base64ToBytes, bytesToBase64, formatJson, isJsonContainer } from '../core/bodies';
 import type { BodyEncoding } from '../core/types';
-
-const CodeEditor = React.lazy(() => import('./CodeEditor'));
+import { ResponseBody } from './ResponseBody';
 
 export interface BodyEditorProps {
   body: string;
@@ -24,7 +23,7 @@ export function BodyEditor({
   onLoadFile,
   mockName,
   isDark = false,
-}: BodyEditorProps) {
+}: Readonly<BodyEditorProps>) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [unformattableBody, setUnformattableBody] = useState<string | null>(null);
   const isText = bodyEncoding === 'text';
@@ -184,16 +183,7 @@ export function BodyEditor({
           </div>
         </div>
       ) : (
-        <div className="text-editor-view">
-          <Suspense fallback={<div className="editor-loading">Loading editor...</div>}>
-            <CodeEditor
-              value={body}
-              dark={isDark}
-              language={bodyLanguage(body)}
-              onChange={(val) => onChangeBody(val, 'text')}
-            />
-          </Suspense>
-        </div>
+        <ResponseBody value={body} dark={isDark} onChange={(val) => onChangeBody(val, 'text')} />
       )}
     </div>
   );

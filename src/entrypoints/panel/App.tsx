@@ -25,6 +25,8 @@ import { ImportDialog, type PendingImport } from '../../ui/ImportDialog';
 import { clearUndo, notify, ToastContainer } from '../../ui/Toasts';
 import { LogIcon, MocksIcon } from '../../ui/icons';
 import { PanelErrorBoundary } from '../../ui/PanelErrorBoundary';
+import { Splitter, usePaneWidth } from '../../ui/Splitter';
+import { type EditorHandle, UnsavedDialog } from '../../ui/unsaved';
 import { useTabLog, useWemockState } from '../../ui/useWemockState';
 
 export function formatImportSummary(summary: {
@@ -76,6 +78,24 @@ export default function App() {
   const [selectedScenarioId, setSelectedScenarioId] = useState<string>('default');
   const [selectedMockId, setSelectedMockId] = useState<string | null>(null);
   const [selectedSocketId, setSelectedSocketId] = useState<string | null>(null);
+  const editorRef = useRef<EditorHandle>(null);
+  const [pendingLeave, setPendingLeave] = useState<(() => void) | null>(null);
+  const [revealRequest, setRevealRequest] = useState(0);
+  const logPaneRef = useRef<HTMLDivElement>(null);
+  const mockPaneRef = useRef<HTMLDivElement>(null);
+  const logPane = usePaneWidth('log');
+  const mockPane = usePaneWidth('mocks');
+
+  const leaveEditor = (go: () => void) => {
+    if (editorRef.current?.isDirty()) setPendingLeave(() => go);
+    else go();
+  };
+
+  const finishLeave = () => {
+    const go = pendingLeave;
+    setPendingLeave(null);
+    go?.();
+  };
   // The note under Save as HAR in the Log: what the saved file left out.
   const [harSkippedNote, setHarSkippedNote] = useState<string | null>(null);
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -352,12 +372,13 @@ export default function App() {
       const scId = foundScenario.id;
       const mId = foundMock?.id ?? null;
       const sId = foundSocket?.id ?? null;
-      handleOpenMockFromLog = () => {
+      handleOpenMockFromLog = () => leaveEditor(() => {
         setActiveTab('mocks');
         setSelectedScenarioId(scId);
         setSelectedMockId(mId);
         setSelectedSocketId(sId);
-      };
+        setRevealRequest((n) => n + 1);
+      });
     } else {
       answeredBy = 'deleted';
     }
@@ -954,7 +975,7 @@ export default function App() {
     clearUndo();
     if (!project) return;
     notifySaved(savedMock.id, savedMock.name || savedMock.urlPattern, 'Mock');
-    update((s) => ({
+    return update((s) => ({
       ...s,
       projects: s.projects.map((p) => {
         if (p.id !== project.id) return p;
@@ -1114,7 +1135,7 @@ export default function App() {
     clearUndo();
     if (!project) return;
     notifySaved(savedSocket.id, savedSocket.name || savedSocket.urlPattern, 'Socket mock');
-    update((s) => ({
+    return update((s) => ({
       ...s,
       projects: s.projects.map((p) => {
         if (p.id !== project.id) return p;
@@ -1215,7 +1236,7 @@ export default function App() {
         project={project}
         projects={state?.projects ?? []}
         selectedProjectId={project?.id}
-        onSelectProject={(projId) => {
+        onSelectProject={(projId) => leaveEditor(() => {
           setSelectedProjectId(projId);
           const p = state?.projects.find((proj) => proj.id === projId);
           if (p && p.scenarios.length > 0) {
@@ -1223,7 +1244,7 @@ export default function App() {
             setSelectedMockId(null);
             setSelectedSocketId(null);
           }
-        }}
+        })}
         onPickScenario={handlePickScenario}
         recording={recording}
         onToggleRecording={handleToggleRecording}
@@ -1453,7 +1474,8 @@ export default function App() {
                 onToggleSelect={handleToggleSelectLog}
               />
             </div>
-            <div className="panel-split-right">
+            <Splitter paneRef={logPaneRef} onResize={logPane.resize} />
+            <div className="panel-split-right" ref={logPaneRef} style={logPane.style}>
               <LogDetail
                 entry={selectedEntry}
                 onMockThis={handleMockThis}
@@ -1461,6 +1483,7 @@ export default function App() {
                 onClose={() => setSelectedEntryId(null)}
                 answeredBy={answeredBy}
                 onOpenMock={handleOpenMockFromLog}
+                isDark={isDark}
               />
             </div>
           </div>
@@ -1487,12 +1510,18 @@ export default function App() {
                   onDeleteMock={handleDeleteMock}
                   onDeleteSocket={handleDeleteSocket}
                   onSelectMock={(mockId) => {
-                    setSelectedMockId(mockId);
-                    if (mockId !== null) setSelectedSocketId(null);
+                    if (mockId === selectedMockId) return;
+                    leaveEditor(() => {
+                      setSelectedMockId(mockId);
+                      if (mockId !== null) setSelectedSocketId(null);
+                    });
                   }}
                   onSelectSocket={(socketId) => {
-                    setSelectedSocketId(socketId);
-                    if (socketId !== null) setSelectedMockId(null);
+                    if (socketId === selectedSocketId) return;
+                    leaveEditor(() => {
+                      setSelectedSocketId(socketId);
+                      if (socketId !== null) setSelectedMockId(null);
+                    });
                   }}
                   onUpdateScenarioMocks={handleUpdateScenarioMocks}
                   onUpdateScenarioSockets={handleUpdateScenarioSockets}
@@ -1500,35 +1529,39 @@ export default function App() {
                   onRenameScenario={handleRenameScenario}
                   onDeleteScenario={handleDeleteScenario}
                   onDeleteAll={handleClearAll}
-                  onAddMock={handleAddMock}
-                  onAddSocket={handleAddSocket}
+                  onAddMock={(scenarioId, newMock) => leaveEditor(() => handleAddMock(scenarioId, newMock))}
+                  onAddSocket={(scenarioId, newSocket) => leaveEditor(() => handleAddSocket(scenarioId, newSocket))}
                   onUpdateHeaderRules={handleUpdateHeaderRules}
                   onDuplicateScenario={handleDuplicateScenario}
                   onExportScenario={handleExportScenario}
                   onLoadSample={handleLoadSample}
+                  revealRequest={revealRequest}
                 />
               </div>
-              <div className="panel-split-right">
+              <Splitter paneRef={mockPaneRef} onResize={mockPane.resize} />
+              <div className="panel-split-right" ref={mockPaneRef} style={mockPane.style}>
                 {selectedSocketId ? (
                   <SocketEditor
+                    ref={editorRef}
                     socket={selectedSocket}
                     isDark={isDark}
                     onSave={handleSaveSocket}
                     onDelete={handleDeleteSocket}
-                    onDuplicate={handleDuplicateSocket}
-                    onBack={() => setSelectedSocketId(null)}
+                    onDuplicate={(socketId) => leaveEditor(() => handleDuplicateSocket(socketId))}
+                    onBack={() => leaveEditor(() => setSelectedSocketId(null))}
                     onToggleEnabled={(enabled) => selectedSocket && handleSetSocketEnabled(selectedSocket.id, enabled)}
                   />
                 ) : (
                   <MockEditor
+                    ref={editorRef}
                     mock={selectedMock}
                     isDark={isDark}
                     pageOrigin={tabOrigin || project?.origins[0] || ''}
                     projectId={project?.id}
                     onSave={handleSaveMock}
                     onDelete={handleDeleteMock}
-                    onDuplicate={handleDuplicateMock}
-                    onBack={() => setSelectedMockId(null)}
+                    onDuplicate={(mockId) => leaveEditor(() => handleDuplicateMock(mockId))}
+                    onBack={() => leaveEditor(() => setSelectedMockId(null))}
                     onToggleEnabled={(enabled) => selectedMock && handleSetMockEnabled(selectedMock.id, enabled)}
                   />
                 )}
@@ -1555,6 +1588,19 @@ export default function App() {
         onImportReplace={handleImportReplace}
         onCreateProjectFromImport={handleCreateProjectFromImport}
       />
+
+      {pendingLeave && (
+        <UnsavedDialog
+          canSave={editorRef.current?.canSave() ?? false}
+          onSave={() => {
+            editorRef.current?.save().then((saved) => {
+              if (saved) finishLeave();
+            });
+          }}
+          onDiscard={finishLeave}
+          onCancel={() => setPendingLeave(null)}
+        />
+      )}
     </div>
   );
 }

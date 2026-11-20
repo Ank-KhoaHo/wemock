@@ -58,6 +58,164 @@ test('a new manual mock is served after save', async () => {
   }
 });
 
+test('Answered by in the Log unfolds the mock\'s scenario and scrolls its row into view', async () => {
+  const { state } = ensureProject({ ...emptyState(), enabledOrigins: [fixture.origin] }, fixture.origin, newId);
+  const mock = (id: string, urlPattern: string) => ({
+    id,
+    enabled: true,
+    method: 'GET' as const,
+    urlPattern,
+    response: { status: 200, headers: {}, body: id, bodyEncoding: 'text' as const, delayMs: 0 },
+    source: 'manual' as const,
+    createdAt: 0,
+  });
+  const project = state.projects[0]!;
+  project.scenarios[0]!.mocks = Array.from({ length: 30 }, (_, i) => mock(`f${i}`, `/api/f${i}`));
+  project.scenarios.push({ id: 'other', name: 'Other', mocks: [mock('target', '/api/goals')] });
+  project.activeScenarioId = 'other';
+  await session.setState(state);
+  const page = await session.context.newPage();
+  const panelPage = await session.context.newPage();
+  try {
+    await page.goto(`${fixture.url}/index.html`);
+    const tabId = await session.tabIdOf(page);
+    await panelPage.setViewportSize({ width: 900, height: 500 });
+    await panelPage.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
+
+    await panelPage.getByTestId('tab-mocks').click();
+    const group = panelPage.locator('.scenario-group').filter({ hasText: 'Other' });
+    await panelPage.getByRole('button', { name: 'Fold Other' }).click();
+    await expect(group).toHaveClass(/folded/);
+
+    await panelPage.getByTestId('tab-log').click();
+    await page.click('#btn-fetch');
+    await expect(page.locator('#out')).toHaveText('target');
+    await panelPage.getByTestId('log-row').first().click();
+    await panelPage.getByTestId('answered-by-link').click();
+
+    const row = panelPage.getByTestId('mock-row').filter({ hasText: '/api/goals' });
+    await expect(group).not.toHaveClass(/folded/);
+    await expect(row).toHaveClass(/selected/);
+    await expect(row).toBeInViewport();
+  } finally {
+    await panelPage.close();
+    await page.close();
+  }
+});
+
+test('the editor header with Save stays in view while the form scrolls', async () => {
+  const page = await session.context.newPage();
+  const panelPage = await session.context.newPage();
+  try {
+    await page.goto(`${fixture.url}/index.html`);
+    const tabId = await session.tabIdOf(page);
+    await panelPage.setViewportSize({ width: 900, height: 400 });
+    await panelPage.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
+
+    await panelPage.getByTestId('tab-mocks').click();
+    await panelPage.getByTestId('add-menu-open').click();
+    await panelPage.getByTestId('mock-new').click();
+    await expect(panelPage.getByTestId('field-pattern')).toHaveValue('/');
+
+    await panelPage.locator('.mock-editor-container').evaluate((el) => el.scrollTo(0, el.scrollHeight));
+
+    await expect(panelPage.getByTestId('field-pattern')).not.toBeInViewport();
+    await expect(panelPage.getByTestId('mock-save')).toBeInViewport();
+  } finally {
+    await panelPage.close();
+    await page.close();
+  }
+});
+
+test('dialogs are named by their title and close on Escape or a click outside', async () => {
+  const page = await session.context.newPage();
+  const panelPage = await session.context.newPage();
+  try {
+    await page.goto(`${fixture.url}/index.html`);
+    const tabId = await session.tabIdOf(page);
+    await panelPage.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
+    await panelPage.getByTestId('tab-mocks').click();
+
+    await panelPage.getByTestId('import-open').click();
+    await expect(panelPage.getByRole('dialog', { name: 'Import' })).toBeVisible();
+    await panelPage.keyboard.press('Escape');
+    await expect(panelPage.getByTestId('import-dialog')).toBeHidden();
+
+    await panelPage.getByTestId('delete-all').click();
+    await expect(panelPage.getByRole('alertdialog', { name: /^Delete all scenarios and mocks/ })).toBeVisible();
+    await panelPage.locator('.scrim').click({ position: { x: 5, y: 5 } });
+    await expect(panelPage.getByTestId('confirm-dialog')).toBeHidden();
+  } finally {
+    await panelPage.close();
+    await page.close();
+  }
+});
+
+test('leaving a mock with unsaved edits asks to save, discard or stay', async () => {
+  const { state } = ensureProject({ ...emptyState(), enabledOrigins: [fixture.origin] }, fixture.origin, newId);
+  const mock = (id: string, urlPattern: string) => ({
+    id,
+    enabled: true,
+    method: 'GET' as const,
+    urlPattern,
+    response: { status: 200, headers: {}, body: '{"a":1}', bodyEncoding: 'text' as const, delayMs: 0 },
+    source: 'manual' as const,
+    createdAt: 0,
+  });
+  state.projects[0]!.scenarios[0]!.mocks = [mock('m1', '/api/a'), mock('m2', '/api/b')];
+  await session.setState(state);
+  const page = await session.context.newPage();
+  const panelPage = await session.context.newPage();
+  try {
+    await page.goto(`${fixture.url}/index.html`);
+    const tabId = await session.tabIdOf(page);
+    await panelPage.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
+    await panelPage.getByTestId('tab-mocks').click();
+
+    const rows = panelPage.getByTestId('mock-row');
+    const pattern = panelPage.getByTestId('field-pattern');
+    const name = panelPage.getByTestId('field-name');
+    const dirty = panelPage.getByTestId('editor-dirty');
+    const dialog = panelPage.getByTestId('unsaved-dialog');
+
+    await rows.nth(0).click();
+    await expect(pattern).toHaveValue('/api/a');
+    await panelPage.getByTestId('mock-enabled').click();
+    await expect(dirty).toBeHidden();
+
+    await name.fill('changed');
+    await expect(dirty).toBeVisible();
+    await rows.nth(1).click();
+    await expect(dialog).toBeVisible();
+    await panelPage.getByTestId('unsaved-cancel').click();
+    await expect(dialog).toBeHidden();
+    await expect(pattern).toHaveValue('/api/a');
+    await expect(name).toHaveValue('changed');
+
+    await rows.nth(1).click();
+    await panelPage.getByTestId('unsaved-discard').click();
+    await expect(pattern).toHaveValue('/api/b');
+    await rows.nth(0).click();
+    await expect(dialog).toBeHidden();
+    await expect(name).toHaveValue('');
+
+    await name.fill('kept');
+    await rows.nth(1).click();
+    await panelPage.getByTestId('unsaved-save').click();
+    await expect(pattern).toHaveValue('/api/b');
+    await rows.nth(0).click();
+    await expect(name).toHaveValue('kept');
+    await expect(dirty).toBeHidden();
+
+    await name.fill('kept again');
+    await panelPage.getByTestId('mock-save').click();
+    await expect(dirty).toBeHidden();
+  } finally {
+    await panelPage.close();
+    await page.close();
+  }
+});
+
 test('a JSON body shows over lines in the editor but is saved and served without spacing', async () => {
   const page = await session.context.newPage();
   const panelPage = await session.context.newPage();
