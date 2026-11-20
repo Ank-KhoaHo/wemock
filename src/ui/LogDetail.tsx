@@ -2,7 +2,7 @@ import { base64ToBytes } from '../core/bodies';
 import { isValidStatus, statusTextFor } from '../core/statusText';
 import type { LogEntry } from '../core/types';
 import { Copyable, headersText } from './Copyable';
-import { ResizableBody } from './Splitter';
+import { ResponseBody } from './ResponseBody';
 
 export interface LogDetailProps {
   entry: LogEntry | null;
@@ -12,6 +12,7 @@ export interface LogDetailProps {
   onClose?: () => void;
   answeredBy?: { label: string; scenarioName: string } | 'deleted' | null;
   onOpenMock?: () => void;
+  isDark?: boolean;
 }
 
 function formatResponseBody(entry: LogEntry): string {
@@ -63,6 +64,7 @@ export function LogDetail({
   onClose,
   answeredBy,
   onOpenMock,
+  isDark = false,
 }: Readonly<LogDetailProps>) {
   if (!entry) {
     return (
@@ -268,13 +270,7 @@ export function LogDetail({
 
             <section className="detail-section detail-section-fill">
               <h4 className="section-title">Response Body</h4>
-              <ResizableBody key={entry.id}>
-                <Copyable text={formattedBody} label="Copy response body">
-                  <pre data-testid="response-body" className="detail-body-pre monospace">
-                    {formattedBody}
-                  </pre>
-                </Copyable>
-              </ResizableBody>
+              <ResponseBody key={entry.id} value={formattedBody} dark={isDark} testId="response-body" />
             </section>
           </>
         )}

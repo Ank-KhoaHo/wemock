@@ -1483,6 +1483,7 @@ export default function App() {
                 onClose={() => setSelectedEntryId(null)}
                 answeredBy={answeredBy}
                 onOpenMock={handleOpenMockFromLog}
+                isDark={isDark}
               />
             </div>
           </div>

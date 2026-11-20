@@ -2777,34 +2777,38 @@ body.dark .mock-unreachable,
 /* Editor headers: a title, then the switch and the icon buttons. */
 .wm .mock-editor-header { position: sticky; top: -12px; z-index: 3; display: flex; align-items: center; gap: 8px;
   margin-top: -12px; padding-top: 12px; background: var(--bg-primary); }
-.wm .mock-editor-body { flex: 1 0 auto; isolation: isolate; }
+.wm .mock-editor-body { --find-top: 40px; flex: 1 0 auto; isolation: isolate; }
 .wm .detail-header { position: sticky; top: 0; z-index: 3; margin-top: -12px; padding-top: 12px; background: var(--bg-primary); }
 /* The response body takes the room left below the other sections, and scrolls inside it. */
-.wm .log-detail { flex: 1 0 auto; }
+.wm .log-detail { --find-top: 48px; flex: 1 0 auto; }
 .wm .log-detail > .detail-content { flex: 1; }
 .wm .detail-section-fill { flex: 1 1 0; }
-.wm .detail-section-fill > .resizable-body { display: flex; flex: 1 1 0; flex-direction: column; min-height: 200px; }
-.wm .detail-section-fill .detail-body-pre { flex: 1 1 0; min-height: 0; max-height: none; }
 /* Likewise the mock's response body takes the room left in the editor, above the templates option. */
 .wm .mock-editor-body > .body-editor-container { flex: 1 1 0; }
-.wm .body-editor-container > .resizable-body { display: flex; flex: 1 1 0; flex-direction: column; }
-.wm .resizable-body > .copyable { display: flex; flex: 1 1 0; flex-direction: column; }
-.wm .body-editor-container .text-editor-view { display: flex; flex: 1 1 0; flex-direction: column; min-height: 200px; }
-.wm .text-editor-view > .cm-fill { flex: 1 1 0; min-height: 0; }
-.wm .copyable { position: relative; }
 /* Room below the body for its resize grip, so the grip never covers the body's own scrollbars. */
-.wm .resizable-body { position: relative; margin-bottom: 16px; }
+.wm .resizable-body { position: relative; display: flex; flex: 1 1 0; flex-direction: column; margin-bottom: 16px; }
+.wm .resizable-body > .copyable { display: flex; flex: 1 1 0; flex-direction: column; }
+.wm .resizable-body .text-editor-view { display: flex; flex: 1 1 0; flex-direction: column; min-height: 200px; overflow: clip; }
+.wm .text-editor-view > .cm-fill { flex: 1 1 0; min-height: 0; }
+/* The find box floats over the body like VS Code's, and stays in view below the sticky header: the body
+   clips rather than hides its overflow, as a hidden overflow would hold the box inside the body's own box. */
+.wm .cm-editor .cm-panels-top { top: var(--find-top); z-index: 2; height: 0; border: 0; }
+.wm .cm-panels-top > .cm-panel.cm-search { position: absolute; top: 4px; right: 76px; max-width: calc(100% - 90px);
+  padding: 4px 28px 4px 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-primary);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 20%); }
+.wm .cm-search .cm-textfield, .wm .cm-search .cm-button { border: 1px solid var(--border-color); border-radius: 4px;
+  background: var(--bg-primary); color: inherit; }
+.wm .cm-search .cm-button:hover, .wm .cm-search .cm-textfield:focus { border-color: var(--brand); outline: none; }
+.wm .copyable { position: relative; }
 .wm .copyable > .detail-body-pre, .wm .copyable > .headers-grid { padding-right: 40px; }
-.wm .resizable-body .detail-body-pre { padding-right: 72px; }
 .wm .copy-btn, .wm .maximize-btn { position: absolute; top: 4px; right: 14px; z-index: 1; display: grid; place-items: center;
   width: 24px; height: 24px; padding: 0; border: 1px solid var(--border-color); border-radius: 4px;
   background: var(--bg-primary); color: var(--muted); opacity: .6; cursor: pointer; }
 .wm .maximize-btn { right: 44px; }
 .wm .copyable:hover .copy-btn, .wm .resizable-body:hover .maximize-btn, .wm .copy-btn:focus-visible,
 .wm .maximize-btn:focus-visible { opacity: 1; color: var(--brand); }
-.wm .resizable-body.maximized { position: fixed; inset: 12px; z-index: 50; display: flex; flex-direction: column; min-height: 0;
+.wm .resizable-body.maximized { --find-top: 0px; position: fixed; inset: 12px; z-index: 50; display: flex; flex-direction: column; min-height: 0;
   overflow: hidden; border-radius: 8px; background: var(--bg-primary); box-shadow: 0 8px 32px rgb(0 0 0 / 30%); }
-.wm .resizable-body.maximized .detail-body-pre { flex: 1 1 0; min-height: 0; max-height: none; }
 .wm .resizable-body.maximized .text-editor-view { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
 .wm .resize-handle { display: flex; align-items: center; justify-content: center; padding: 0; border: 0; background: none;
   color: var(--muted); touch-action: none; }
