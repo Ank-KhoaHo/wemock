@@ -2,6 +2,7 @@ import { base64ToBytes } from '../core/bodies';
 import { isValidStatus, statusTextFor } from '../core/statusText';
 import type { LogEntry } from '../core/types';
 import { Copyable, headersText } from './Copyable';
+import { ResizableBody } from './Splitter';
 
 export interface LogDetailProps {
   entry: LogEntry | null;
@@ -267,11 +268,13 @@ export function LogDetail({
 
             <section className="detail-section detail-section-fill">
               <h4 className="section-title">Response Body</h4>
-              <Copyable text={formattedBody} label="Copy response body">
-                <pre data-testid="response-body" className="detail-body-pre monospace">
-                  {formattedBody}
-                </pre>
-              </Copyable>
+              <ResizableBody key={entry.id}>
+                <Copyable text={formattedBody} label="Copy response body">
+                  <pre data-testid="response-body" className="detail-body-pre monospace">
+                    {formattedBody}
+                  </pre>
+                </Copyable>
+              </ResizableBody>
             </section>
           </>
         )}

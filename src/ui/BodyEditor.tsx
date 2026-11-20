@@ -2,6 +2,7 @@ import React, { Suspense, useEffect, useState } from 'react';
 import { base64ToBytes, bodyLanguage, bytesToBase64, formatJson, isJsonContainer } from '../core/bodies';
 import type { BodyEncoding } from '../core/types';
 import { Copyable } from './Copyable';
+import { ResizableBody } from './Splitter';
 
 const CodeEditor = React.lazy(() => import('./CodeEditor'));
 
@@ -185,19 +186,21 @@ export function BodyEditor({
           </div>
         </div>
       ) : (
-        <Copyable text={body} label="Copy response body">
-          <div className="text-editor-view">
-            <Suspense fallback={<div className="editor-loading">Loading editor...</div>}>
-              <CodeEditor
-                value={body}
-                dark={isDark}
-                language={bodyLanguage(body)}
-                fill
-                onChange={(val) => onChangeBody(val, 'text')}
-              />
-            </Suspense>
-          </div>
-        </Copyable>
+        <ResizableBody>
+          <Copyable text={body} label="Copy response body">
+            <div className="text-editor-view">
+              <Suspense fallback={<div className="editor-loading">Loading editor...</div>}>
+                <CodeEditor
+                  value={body}
+                  dark={isDark}
+                  language={bodyLanguage(body)}
+                  fill
+                  onChange={(val) => onChangeBody(val, 'text')}
+                />
+              </Suspense>
+            </div>
+          </Copyable>
+        </ResizableBody>
       )}
     </div>
   );

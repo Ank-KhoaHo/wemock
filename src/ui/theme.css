@@ -2783,22 +2783,34 @@ body.dark .mock-unreachable,
 .wm .log-detail { flex: 1 0 auto; }
 .wm .log-detail > .detail-content { flex: 1; }
 .wm .detail-section-fill { flex: 1 1 0; }
-.wm .detail-section-fill > .copyable { display: flex; flex: 1 1 0; flex-direction: column; min-height: 200px; }
+.wm .detail-section-fill > .resizable-body { display: flex; flex: 1 1 0; flex-direction: column; min-height: 200px; }
 .wm .detail-section-fill .detail-body-pre { flex: 1 1 0; min-height: 0; max-height: none; }
 /* Likewise the mock's response body takes the room left in the editor, above the templates option. */
 .wm .mock-editor-body > .body-editor-container { flex: 1 1 0; }
-.wm .body-editor-container > .copyable { display: flex; flex: 1 1 0; flex-direction: column; }
+.wm .body-editor-container > .resizable-body { display: flex; flex: 1 1 0; flex-direction: column; }
+.wm .resizable-body > .copyable { display: flex; flex: 1 1 0; flex-direction: column; }
 .wm .body-editor-container .text-editor-view { display: flex; flex: 1 1 0; flex-direction: column; min-height: 200px; }
 .wm .text-editor-view > .cm-fill { flex: 1 1 0; min-height: 0; }
 .wm .copyable { position: relative; }
+/* Room below the body for its resize grip, so the grip never covers the body's own scrollbars. */
+.wm .resizable-body { position: relative; margin-bottom: 16px; }
 .wm .copyable > .detail-body-pre, .wm .copyable > .headers-grid { padding-right: 40px; }
-.wm .copy-btn { position: absolute; top: 4px; right: 14px; z-index: 1; display: grid; place-items: center; width: 24px; height: 24px;
-  padding: 0; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-primary); color: var(--muted);
-  opacity: .6; cursor: pointer; }
-.wm .copyable:hover .copy-btn, .wm .copy-btn:focus-visible { opacity: 1; color: var(--brand); }
-.wm .split-handle { display: flex; flex: 0 0 8px; align-items: center; justify-content: center; padding: 0; border: 0;
-  background: none; color: var(--muted); cursor: col-resize; touch-action: none; }
-.wm .split-handle:hover, .wm .split-handle:focus-visible, .wm .split-handle.dragging { color: var(--brand); background: var(--brand-soft); outline: none; }
+.wm .resizable-body .detail-body-pre { padding-right: 72px; }
+.wm .copy-btn, .wm .maximize-btn { position: absolute; top: 4px; right: 14px; z-index: 1; display: grid; place-items: center;
+  width: 24px; height: 24px; padding: 0; border: 1px solid var(--border-color); border-radius: 4px;
+  background: var(--bg-primary); color: var(--muted); opacity: .6; cursor: pointer; }
+.wm .maximize-btn { right: 44px; }
+.wm .copyable:hover .copy-btn, .wm .resizable-body:hover .maximize-btn, .wm .copy-btn:focus-visible,
+.wm .maximize-btn:focus-visible { opacity: 1; color: var(--brand); }
+.wm .resizable-body.maximized { position: fixed; inset: 12px; z-index: 50; display: flex; flex-direction: column; min-height: 0;
+  overflow: hidden; border-radius: 8px; background: var(--bg-primary); box-shadow: 0 8px 32px rgb(0 0 0 / 30%); }
+.wm .resizable-body.maximized .detail-body-pre { flex: 1 1 0; min-height: 0; max-height: none; }
+.wm .resizable-body.maximized .text-editor-view { display: flex; flex: 1 1 0; flex-direction: column; min-height: 0; }
+.wm .resize-handle { display: flex; align-items: center; justify-content: center; padding: 0; border: 0; background: none;
+  color: var(--muted); touch-action: none; }
+.wm .resize-handle-x { flex: 0 0 8px; cursor: col-resize; }
+.wm .resize-handle-y { position: absolute; right: 0; bottom: -18px; width: 18px; height: 18px; border-radius: 4px; cursor: ns-resize; }
+.wm .resize-handle:hover, .wm .resize-handle:focus-visible, .wm .resize-handle.dragging { color: var(--brand); background: var(--brand-soft); outline: none; }
 .wm .mock-editor-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .wm .mock-editor-title h3 { margin: 0; font-size: 15px; white-space: nowrap; }
 .wm .editor-dirty { margin-left: 6px; color: var(--brand); }
@@ -2827,7 +2839,7 @@ body.dark .mock-unreachable,
   .wm .panel-split-view.has-detail .panel-split-left { display: none; }
   .wm .panel-split-view.has-detail .panel-split-right { display: flex; flex: 1; min-height: 0; }
   .wm .editor-back { display: inline-grid; }
-  .wm .split-handle { display: none; }
+  .wm .resize-handle-x { display: none; }
   /* No hover on a touch screen: the delete icon always shows. */
   .wm .row-del { opacity: 1; }
   .wm .log-th-duration, .wm .log-col-duration { display: none; }

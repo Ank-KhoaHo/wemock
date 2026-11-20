@@ -1464,6 +1464,7 @@ export function MockEditor({
         ) : (
           <>
             <BodyEditor
+              key={draft.id}
               body={draft.response.body}
               bodyEncoding={draft.response.bodyEncoding}
               contentType={getContentType()}
