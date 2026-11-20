@@ -73,6 +73,9 @@ test('Ctrl+F in the read-only Log body opens a find box that floats over it and 
     await expect(panel.locator('.cm-search input[name=search]')).toBeFocused();
     await expect(panel.locator('.cm-search input[name=replace]')).toHaveCount(0);
     expect((await box(body.locator('.cm-scroller'))).y).toBe((await box(body.locator('.cm-editor'))).y);
+    await panel.keyboard.type('server');
+    await expect(panel.locator('.cm-search-count')).toHaveText('? of 1');
+    await expect(body.locator('.cm-match-mark')).toHaveCount(1);
 
     await growAndScroll(panel);
     await expectFindBelowHeader(panel, panel.locator('.detail-header'));
@@ -95,6 +98,46 @@ test('the find box of the mock body stays below the editor header when the body 
 
     await growAndScroll(panel);
     await expectFindBelowHeader(panel, panel.locator('.mock-editor-header'));
+  } finally {
+    await panel.close();
+    await page.close();
+  }
+});
+
+test('the find box counts the matches and marks them at the right edge of the body', async () => {
+  const { page, panel } = await openPanel();
+  try {
+    await panel.getByTestId('tab-mocks').click();
+    await panel.getByTestId('add-menu-open').click();
+    await panel.getByTestId('mock-new').click();
+    const content = panel.locator('.body-editor-container .cm-content');
+    await content.fill('["ab", "ab", "ab"]');
+    await content.click();
+    await panel.keyboard.press('Control+f');
+    const input = panel.locator('.cm-search input[name=search]');
+    const count = panel.locator('.cm-search-count');
+    const marks = panel.locator('.cm-match-mark');
+
+    await input.pressSequentially('ab');
+    await expect(count).toHaveText('? of 3');
+    await expect(marks).toHaveCount(3);
+    await input.press('Enter');
+    await expect(count).toHaveText('1 of 3');
+    await input.press('Enter');
+    await expect(count).toHaveText('2 of 3');
+    await expect(panel.locator('.cm-match-mark-active')).toHaveCount(1);
+
+    await input.selectText();
+    await input.pressSequentially('zz');
+    await expect(count).toHaveText('No results');
+    await expect(marks).toHaveCount(0);
+
+    await input.selectText();
+    await input.pressSequentially('ab');
+    await expect(marks).toHaveCount(3);
+    await input.press('Escape');
+    await expect(count).toHaveCount(0);
+    await expect(marks).toHaveCount(0);
   } finally {
     await panel.close();
     await page.close();

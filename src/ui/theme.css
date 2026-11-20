@@ -2799,6 +2799,11 @@ body.dark .mock-unreachable,
 .wm .cm-search .cm-textfield, .wm .cm-search .cm-button { border: 1px solid var(--border-color); border-radius: 4px;
   background: var(--bg-primary); color: inherit; }
 .wm .cm-search .cm-button:hover, .wm .cm-search .cm-textfield:focus { border-color: var(--brand); outline: none; }
+.wm .cm-search-count { margin-right: .6em; color: var(--muted); font-size: 80%; white-space: nowrap; }
+.wm .cm-search-count-none { color: var(--danger); }
+.wm .cm-match-strip { position: absolute; top: 0; right: 0; bottom: 0; z-index: 1; width: 6px; pointer-events: none; }
+.wm .cm-match-mark { position: absolute; right: 0; left: 0; height: 2px; background: rgb(234 179 8 / 75%); }
+.wm .cm-match-mark-active { height: 3px; background: #f97316; }
 .wm .copyable { position: relative; }
 .wm .copyable > .detail-body-pre, .wm .copyable > .headers-grid { padding-right: 40px; }
 .wm .copy-btn, .wm .maximize-btn { position: absolute; top: 4px; right: 14px; z-index: 1; display: grid; place-items: center;
