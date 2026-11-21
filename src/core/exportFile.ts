@@ -243,6 +243,9 @@ function validateMock(mock: unknown): { ok: true; mock: Mock } | { ok: false; er
   if (m.code !== undefined && typeof m.code !== 'string') {
     return { ok: false, error: 'Mock code must be a string if defined' };
   }
+  if (m.templates !== undefined && typeof m.templates !== 'boolean') {
+    return { ok: false, error: 'Mock templates must be a boolean if defined' };
+  }
   if (m.source !== 'recorded' && m.source !== 'manual') {
     return { ok: false, error: `Invalid mock source: ${m.source}` };
   }
@@ -296,6 +299,7 @@ function validateMock(mock: unknown): { ok: true; mock: Mock } | { ok: false; er
       ...(sequence !== undefined ? { sequence } : {}),
       ...(patch !== undefined ? { patch } : {}),
       ...(stream !== undefined ? { stream } : {}),
+      ...(m.templates === true ? { templates: true } : {}),
       source: m.source,
       createdAt: m.createdAt,
     },
