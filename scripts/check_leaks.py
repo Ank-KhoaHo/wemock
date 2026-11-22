@@ -256,7 +256,7 @@ def load_ticket_ids(specs_dir: Path) -> list[str]:
         # Design specs start with a 4-digit year and are not tickets.
         if re.match(r"^\d{4}-", path.name):
             continue
-        # The ticket ID is the token before the first hyphen, e.g. A934 from A934-a-ticket.md.
+        # The ticket ID is the token before the first hyphen: the first part of `<ID>-a-ticket.md`.
         ticket_id = path.name.split("-")[0]
         if ticket_id and ticket_id not in ticket_ids:
             ticket_ids.append(ticket_id)

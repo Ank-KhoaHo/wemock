@@ -265,6 +265,18 @@ def test_the_first_paragraph_is_the_first_prose_under_the_title():
     assert _first_paragraph(ruled_off) == "It does one thing.", "a line drawn across the page is not prose"
 
 
+def test_a_line_drawn_across_the_page_is_not_prose():
+    """`---`, `***` and `___` rule off one part of a page from the next. One project ruled
+    off its badges from its text, and the rule was read as the README's first paragraph."""
+    for rule in ("---", "***", "___", "- - -", "* * *", "  ----------  "):
+        text = "\n".join(["Before the line", rule, "after the line.", ""])
+        assert _sentences(text) == ["Before the line", "after the line."], f"{rule!r} did not end the paragraph"
+    # Two marks are not a rule, and neither is a line that holds anything else.
+    assert _sentences("One thing --\nand another.\n") == ["One thing -- and another."]
+    assert _sentences("One thing\n--\nand another.\n") == ["One thing -- and another."]
+    assert _sentences("First\n--- a note ---\nlast.\n") == ["First --- a note --- last."]
+
+
 # ---------------------------------------------------------------- the README itself
 
 

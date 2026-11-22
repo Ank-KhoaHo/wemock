@@ -14,7 +14,7 @@ ticket ID in BACKLOG.html must still find it. Grouping uses native
 
 The ID is read from each spec's own `# <ID>` heading, never from
 `name.split("-")[0]`. Filename splitting happens to work while every ID is a
-bare letter+number and stops working the first time a compound ID like `A3-a`
+bare letter+number and stops working the first time a compound ID (a suffix after the number)
 is filed -- silently, merging distinct tickets onto one row.
 """
 
@@ -44,7 +44,9 @@ _SECTION_RE = re.compile(r"^\*\*Section:\*\*\s*(.+?)\s*$", re.M)
 _SECTION_FMT_RE = re.compile(r"^([ABCD]) — \S")
 _SUMMARY_RE = re.compile(r"^## Detail\s*\n+\*\*(.+?)\*\*\s*$", re.M)
 
-# Ticket IDs are section letter + number, optionally a sub-item suffix (`A3-a`).
+# Ticket IDs are section letter + number, optionally a sub-item suffix (`-a`).
+# The examples in this file use numbers from 900 up: this script reaches every project, and
+# a project's leak check refuses code that names one of its own tickets.
 # Validated rather than trusted: `tests/test_docs_integrity.py` asserts no ticket
 # ID appears inside the page's <script>, so an ID like `q` or `try` -- the search
 # input's DOM id, and a keyword -- would break that guard against the script's own
@@ -74,7 +76,7 @@ def _collect_tickets() -> list[tuple[str, str, str, str, str]]:
         tid = heading.group(1)
 
         if not _TICKET_ID_RE.match(tid):
-            raise SystemExit(f"{path.name}: {tid!r} is not a ticket ID (expected e.g. A12)")
+            raise SystemExit(f"{path.name}: {tid!r} is not a ticket ID (expected a section letter and a number, as its neighbours have)")
 
         status = _STATUS_RE.search(text)
         section = _SECTION_RE.search(text)

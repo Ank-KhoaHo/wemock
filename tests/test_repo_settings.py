@@ -329,3 +329,17 @@ def test_reporting_that_stayed_off_is_reported_not_announced(monkeypatch, capsys
             repo_settings.main(_arguments())
         assert "private vulnerability reporting is still off" in str(caught.value), caught.value
         assert "read back" not in capsys.readouterr().out
+
+
+def test_the_help_holds_no_word_that_reads_as_a_ticket(capsys):
+    """An example of a topic was a letter and a digit. A project's leak check lets it pass by
+    its lower case alone, and one project changed it to a plain word."""
+    import re
+
+    with pytest.raises(SystemExit) as stop:
+        repo_settings.main(["--help"])
+    assert stop.value.code == 0
+    shown = capsys.readouterr().out
+    assert "--topics" in shown, "the help was not printed"
+    like_a_ticket = re.findall(r"(?<![A-Za-z0-9])[A-Da-d][0-9]{1,3}(?![A-Za-z0-9])", shown)
+    assert like_a_ticket == [], f"the help shows {like_a_ticket}, which reads as a ticket"

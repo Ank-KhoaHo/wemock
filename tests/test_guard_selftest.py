@@ -8,7 +8,8 @@ guard must keep doing, and fails when that thing stops:
 * `scripts/set_floors.py` counts exactly what the guard counts, and rewrites only the numbers
 * `.editorconfig` and `.gitattributes` agree on which files need CRLF
 * the pull request template holds no relative link, because a PR body is rendered from another base
-* an open question names its default, and no question number is used twice
+* an open question names its default, no question number is used twice, and a question the
+  check cannot read (another heading, a list item) is reported
 * the changelog's newest released block and the `VERSION` file agree
 * no heading of the README is empty, `CLAUDE.md` stays under its cap, and a very long source
   file is warned about
@@ -719,36 +720,36 @@ def test_only_a_done_ticket_without_lessons_is_reported(monkeypatch, tmp_path):
     """Most lessons were found buried in the review notes of a ticket, where nobody looks.
     A finished ticket says what it taught, in one place, under one heading."""
     _scratch_specs(monkeypatch, tmp_path, {
-        "Z1-with-a-lesson.md": _ticket("Z1", "DONE", "", "## Lessons", "", "Measure before choosing."),
-        "Z2-none-is-an-answer.md": _ticket("Z2", "DONE", "", "## Lessons", "", "None."),
-        "Z3-no-heading.md": _ticket("Z3", "DONE"),
-        "Z4-empty-heading.md": _ticket("Z4", "DONE", "", "## Lessons", ""),
-        "Z5-heading-then-another.md": _ticket("Z5", "DONE", "", "## Lessons", "", "## Review", "", "Notes."),
-        "Z6-only-in-an-example.md": _ticket("Z6", "DONE", "", "```", "## Lessons", "", "Shown, not written.", "```"),
-        "Z7-not-finished.md": _ticket("Z7", "BUILT"),
-        "Z8-not-started.md": _ticket("Z8", "ACCEPTED"),
-        "Z9-declined.md": _ticket("Z9", "DROPPED"),
-        "Z10-said-twice.md": _ticket("Z10", "DONE", "", "## Lessons", "", "## Lessons", "", "Measure first."),
+        "A9001-with-a-lesson.md": _ticket("A9001", "DONE", "", "## Lessons", "", "Measure before choosing."),
+        "A9002-none-is-an-answer.md": _ticket("A9002", "DONE", "", "## Lessons", "", "None."),
+        "A9003-no-heading.md": _ticket("A9003", "DONE"),
+        "A9004-empty-heading.md": _ticket("A9004", "DONE", "", "## Lessons", ""),
+        "A9005-heading-then-another.md": _ticket("A9005", "DONE", "", "## Lessons", "", "## Review", "", "Notes."),
+        "A9006-only-in-an-example.md": _ticket("A9006", "DONE", "", "```", "## Lessons", "", "Shown, not written.", "```"),
+        "A9007-not-finished.md": _ticket("A9007", "BUILT"),
+        "A9008-not-started.md": _ticket("A9008", "ACCEPTED"),
+        "A9009-declined.md": _ticket("A9009", "DROPPED"),
+        "A9010-said-twice.md": _ticket("A9010", "DONE", "", "## Lessons", "", "## Lessons", "", "Measure first."),
         # One shape only, so that one search finds every lesson in the backlog.
-        "Z99-wrong-level.md": _ticket("Z99", "DONE", "", "## Review", "", "### Lessons", "", "Too deep to find."),
+        "A9099-wrong-level.md": _ticket("A9099", "DONE", "", "## Review", "", "### Lessons", "", "Too deep to find."),
         # Its heading reads like an ID on purpose: only the dated file name says it is no ticket.
         "2026-01-01-a-design.md": _doc("# Design", "", "**Status:** DONE"),
     })
-    assert guard._done_tickets_without_lessons() == ["Z3", "Z4", "Z5", "Z6", "Z99"]
+    assert guard._done_tickets_without_lessons() == ["A9003", "A9004", "A9005", "A9006", "A9099"]
 
 
 def test_a_ticket_closed_before_the_rule_can_be_exempt(monkeypatch, tmp_path):
-    _scratch_specs(monkeypatch, tmp_path, {"Z3-old.md": _ticket("Z3", "DONE"), "Z4-new.md": _ticket("Z4", "DONE")})
-    monkeypatch.setattr(guard, "LESSONS_EXEMPT", frozenset({"Z3"}))
-    assert guard._done_tickets_without_lessons() == ["Z4"]
+    _scratch_specs(monkeypatch, tmp_path, {"A9003-old.md": _ticket("A9003", "DONE"), "A9004-new.md": _ticket("A9004", "DONE")})
+    monkeypatch.setattr(guard, "LESSONS_EXEMPT", frozenset({"A9003"}))
+    assert guard._done_tickets_without_lessons() == ["A9004"]
 
 
 def test_a_finished_ticket_without_lessons_fails_the_guard(monkeypatch, tmp_path):
-    _scratch_specs(monkeypatch, tmp_path, {"Z3-no-heading.md": _ticket("Z3", "DONE")})
-    with pytest.raises(AssertionError, match="Z3"):
+    _scratch_specs(monkeypatch, tmp_path, {"A9003-no-heading.md": _ticket("A9003", "DONE")})
+    with pytest.raises(AssertionError, match="A9003"):
         guard.test_every_done_ticket_says_what_it_taught()
-    (tmp_path / "docs" / "superpowers" / "specs" / "Z3-no-heading.md").write_text(
-        _ticket("Z3", "DONE", "", "## Lessons", "", "None."), encoding="utf-8", newline="\n")
+    (tmp_path / "docs" / "superpowers" / "specs" / "A9003-no-heading.md").write_text(
+        _ticket("A9003", "DONE", "", "## Lessons", "", "None."), encoding="utf-8", newline="\n")
     guard.test_every_done_ticket_says_what_it_taught()
 
 
@@ -758,3 +759,103 @@ def test_a_tree_without_specs_says_it_did_not_look(monkeypatch, tmp_path, capsys
     assert guard._done_tickets_without_lessons() == []
     guard.test_every_done_ticket_says_what_it_taught()
     assert "[CI]" in capsys.readouterr().out, "nothing was checked, and nothing said so"
+
+
+# ---------------------------------------------------------------- a dated design document
+
+
+def test_a_dated_design_document_among_the_specs_is_not_a_ticket(monkeypatch, tmp_path):
+    """The builder and the leak check leave such a document out. The check that holds the page
+    to the specs read it for a ticket's ID and status, found neither, and stopped with an error
+    of Python's own, which names no file."""
+    _scratch_specs(monkeypatch, tmp_path, {
+        "A9003-a-ticket.md": _ticket("A9003", "OPEN"),
+        "2026-01-31-a-design.md": "# A design\n\nIt has no status line.\n",
+    })
+    (tmp_path / "BACKLOG.html").write_text(
+        '<table><tr data-id="A9003"><td><span class="chip chip-open">OPEN</span></td></tr></table>\n',
+        encoding="utf-8", newline="\n")
+    guard.test_the_index_still_agrees_with_its_source()
+
+    (tmp_path / "docs" / "superpowers" / "specs" / "A9004-another.md").write_text(
+        _ticket("A9004", "OPEN"), encoding="utf-8", newline="\n")
+    with pytest.raises(AssertionError, match="A9004"):
+        guard.test_the_index_still_agrees_with_its_source()
+
+
+# ---------------------------------------------------------------- two lines of the checklist
+
+
+def test_the_checklist_keeps_the_two_lines_that_each_cost_a_bad_commit(capsys):
+    """A commit made after a failed gate, and a stale compiled file that failed a sound one.
+    The checklist says how to avoid both. It is working material: a clone has none, and this
+    says that it did not look."""
+    here = [path for path in (ROOT / "DEVELOPMENT-CHECKLIST.md", ROOT / "template" / "seed" / "DEVELOPMENT-CHECKLIST.md")
+            if path.is_file()]
+    if not here:
+        print("[CI] no DEVELOPMENT-CHECKLIST.md in this tree: its two lines were not looked at")
+        return
+    for path in here:
+        checklist = path.read_text(encoding="utf-8")
+        assert "python scripts/check.py && git commit" in checklist, (
+            f"{path.name} no longer chains the commit to the gate with `&&`")
+        assert "PYTHONDONTWRITEBYTECODE=1" in checklist, (
+            f"{path.name} no longer says how to plant a bug in a Python file without a stale compiled copy")
+
+
+# ---------------------------------------------------------------- a code span is not a link
+
+
+def test_link_shaped_text_inside_a_code_span_is_not_a_link():
+    """A type in square brackets and a number in round ones, written as code, was read as a
+    link to a file named `3`."""
+    assert _targets("call `Step[str](3)` and then [the guide](guide.md)\n") == ["guide.md"]
+    assert _targets("`[a](one.md)` and `[b](two.md)` and [c](three.md)\n") == ["three.md"]
+    assert _targets("``a span with a ` inside: [x](gone.md)`` then [real](real.md)\n") == ["real.md"]
+
+
+def test_a_link_whose_text_is_a_code_span_is_still_a_link():
+    text = "see [`tools/check.py`](tools/check.py) and [`a` and `b`](both.md)\n"
+    assert _targets(text) == ["tools/check.py", "both.md"]
+
+
+def test_a_backtick_with_no_partner_hides_nothing():
+    assert _targets("a lone ` and then [x](still-checked.md)\n") == ["still-checked.md"]
+    assert _targets("[x](first.md) and a lone ` at the end\n") == ["first.md"]
+
+
+def test_a_code_span_inside_a_scanned_fence_is_left_out_too():
+    text = "```\n`table[key](3)` and [b](inside.md)\n```\n"
+    assert _targets(text) == ["inside.md"]
+    assert list(guard._iter_markdown_links("intro\n\n`x[y](3)` [c](after.md)\n")) == [(3, "after.md")]
+
+
+def test_a_code_span_does_not_fail_the_guard():
+    probe = ROOT / "zz-selftest-code-span.md"
+    try:
+        probe.write_text("# probe\n\nA step is written `Step[str](3)` here.\n", encoding="utf-8", newline="\n")
+        guard.test_every_markdown_link_resolves()
+    finally:
+        probe.unlink(missing_ok=True)
+
+
+# ---------------------------------------------------------------- a release heading in brackets
+
+
+_KEEP_A_CHANGELOG = ("# Changelog\n\n## [Unreleased]\n\n### Added\n\n- something new\n\n"
+                     "## [0.2.0] - 2026-11-01\n\n### Added\n\n- a thing\n\n"
+                     "## [0.1.0] - 2026-10-01\n\n- the first build\n")
+
+
+def test_a_release_heading_in_brackets_is_a_release():
+    """Keep a Changelog writes `## [0.2.0] - date`. With that changelog the version check
+    compared nothing, and nothing said so."""
+    assert guard._released_versions(_KEEP_A_CHANGELOG) == ["0.2.0", "0.1.0"]
+    assert guard._version_problems(_KEEP_A_CHANGELOG, "0.2.0\n") == []
+    problems = guard._version_problems(_KEEP_A_CHANGELOG, "0.3.0\n")
+    assert len(problems) == 1 and "0.2.0" in problems[0] and "0.3.0" in problems[0], problems
+
+
+def test_a_bracket_that_holds_no_version_is_not_a_release():
+    changelog = "## [Unreleased]\n\n## [v0.3.0]\n\n## [next] 0.4.0\n\n## 0.1.0 (2026-10-01)\n"
+    assert guard._released_versions(changelog) == ["0.1.0"]

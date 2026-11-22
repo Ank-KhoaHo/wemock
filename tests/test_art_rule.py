@@ -9,22 +9,39 @@ own pictures: a project is free to have none yet, and a test that leaned on the 
 would then fail for a reason that has nothing to do with what it checks.
 """
 
+import re
+import shutil
 import struct
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 import test_art as art
 
+# What a new project starts with, at the top of tests/test_art.py.
+_SETTINGS = {
+    "ICON": "art/icon.svg",
+    "BANNER": "art/banner.png",
+    "COVER": "art/cover.png",
+    "COVER_SIZES": frozenset({(1280, 640), (630, 500), (440, 280), (1024, 500), (1200, 630)}),
+    "NOT_AN_APP": "",
+    "DUE_NOW": False,
+    "BANNER_MIN_WIDTH": 960,
+    "BANNER_MIN_RATIO": 2.5,
+    "BANNER_MAX_RATIO": 3.5,
+}
+
 
 @pytest.fixture(autouse=True)
-def _the_examples_use_the_usual_paths(monkeypatch):
-    """A project sets its own three paths at the top of tests/test_art.py. The examples here
-    build the usual ones, so each starts from those, whatever the project set: this one keeps
-    its icon and banner under .github/."""
-    monkeypatch.setattr(art, "ICON", "art/icon.svg")
-    monkeypatch.setattr(art, "BANNER", "art/banner.png")
-    monkeypatch.setattr(art, "COVER", "art/cover.png")
+def _the_settings_these_examples_were_written_for(monkeypatch):
+    """A project is told to change those settings: a picture that exists stays where it is.
+    Every example below is written for the values above, so each test sets them itself. Read
+    from the module instead, most of the tests here failed in a project that had moved one
+    picture."""
+    for name, value in _SETTINGS.items():
+        monkeypatch.setattr(art, name, value)
 
 
 def _png(path: Path, width: int, height: int) -> None:
@@ -46,19 +63,19 @@ def _svg(path: Path, width: float = 256, height: float = 256) -> None:
 _README = ("![A widget on the forge, glowing, with the install line beside it](art/banner.png)", "", "# Widget Forge", "",
            "[![build](https://example.com/badge.svg)](https://example.com/ci)", "", "*One widget at a time.*", "",
            "## What it is", "", "A tool.")
-_CLAUDE = ("# guidance", "", "## Layout", "", "```", "art/icon.svg       the app's mark",
+_GUIDANCE = ("# guidance", "", "## Layout", "", "```", "art/icon.svg       the app's mark",
            "art/banner.png     the README's first picture", "art/cover.png      what a store page shows", "```")
 
 
-def _app(folder: Path, readme: tuple[str, ...] = _README, claude: tuple[str, ...] | None = _CLAUDE) -> Path:
+def _app(folder: Path, readme: tuple[str, ...] = _README, guidance: tuple[str, ...] | None = _GUIDANCE) -> Path:
     """A project with a sound icon, banner and cover, a README that opens with the banner, and
     a CLAUDE.md that names the three."""
     _svg(folder / "art" / "icon.svg")
     _png(folder / "art" / "banner.png", 960, 320)
     _png(folder / "art" / "cover.png", 1280, 640)
     _text(folder / "README.md", *readme)
-    if claude is not None:
-        _text(folder / "CLAUDE.md", *claude)
+    if guidance is not None:
+        _text(folder / "CLAUDE.md", *guidance)
     return folder
 
 
@@ -68,12 +85,12 @@ def _app(folder: Path, readme: tuple[str, ...] = _README, claude: tuple[str, ...
 def test_a_project_with_no_release_owes_no_picture(tmp_path):
     """A repository with no code yet has nothing real to show, and a picture of an app is a
     real render. The three are due when the first version leaves the machine."""
-    _text(tmp_path / "CLAUDE.md", *_CLAUDE)
+    _text(tmp_path / "CLAUDE.md", *_GUIDANCE)
     assert art.art_problems(tmp_path, due=False) == []
 
 
 def test_once_a_version_has_left_the_machine_all_three_are_due(tmp_path):
-    _text(tmp_path / "CLAUDE.md", *_CLAUDE)
+    _text(tmp_path / "CLAUDE.md", *_GUIDANCE)
     assert art.art_problems(tmp_path, due=True) == [
         "art/icon.svg is missing", "art/banner.png is missing", "art/cover.png is missing"]
 
@@ -96,9 +113,32 @@ def test_the_pictures_are_due_from_the_first_released_block_of_the_changelog(tmp
     assert art.pictures_are_due(tmp_path) is True
 
 
+def test_a_release_heading_in_brackets_makes_the_pictures_due(tmp_path):
+    """Keep a Changelog writes `## [0.1.0] - date`. Read as no release, the rule never fell due."""
+    _text(tmp_path / "CHANGELOG.md", "# Changelog", "", "## [Unreleased]", "", "- Project created.")
+    assert art.pictures_are_due(tmp_path) is False
+    _text(tmp_path / "CHANGELOG.md", "# Changelog", "", "## [Unreleased]", "", "## [0.1.0] - 2026-01-31", "", "- First build.")
+    assert art.pictures_are_due(tmp_path) is True
+
+
+def test_a_project_can_owe_its_pictures_before_its_first_release(tmp_path, monkeypatch):
+    """A project may publish all three pictures before any release, and nothing held them:
+    a cover could vanish unseen until the day of the first version. DUE_NOW holds them now."""
+    _text(tmp_path / "CHANGELOG.md", "# Changelog", "", "## Unreleased", "", "- Project created.")
+    assert art.pictures_are_due(tmp_path) is False
+    monkeypatch.setattr(art, "DUE_NOW", True)
+    assert art.pictures_are_due(tmp_path) is True
+
+    monkeypatch.setattr(art, "ROOT", _app(tmp_path))
+    art.test_the_app_has_its_three_pictures()
+    (tmp_path / "art" / "cover.png").unlink()
+    with pytest.raises(AssertionError, match="art/cover.png is missing"):
+        art.test_the_app_has_its_three_pictures()
+
+
 def test_a_picture_made_early_is_still_held_to_its_shape(tmp_path):
     """Not due is not unchecked: an icon drawn before the first release must still be square."""
-    _text(tmp_path / "CLAUDE.md", *_CLAUDE)
+    _text(tmp_path / "CLAUDE.md", *_GUIDANCE)
     _svg(tmp_path / "art" / "icon.svg", 256, 128)
     problems = art.art_problems(tmp_path, due=False)
     assert len(problems) == 1 and "art/icon.svg" in problems[0] and "square" in problems[0], problems
@@ -128,7 +168,7 @@ def test_an_svg_icon_is_measured_by_its_view_box(tmp_path):
 def test_an_icon_may_be_a_png(tmp_path, monkeypatch):
     """A piece that already exists stays where it is: a published page may link to it. A
     project names its own paths at the top of tests/test_art.py."""
-    _app(tmp_path, claude=None)
+    _app(tmp_path, guidance=None)
     monkeypatch.setattr(art, "ICON", "assets/icon/icon.png")
     _png(tmp_path / "assets" / "icon" / "icon.png", 512, 512)
     assert art.art_problems(tmp_path, due=True) == []
@@ -140,20 +180,67 @@ def test_an_icon_may_be_a_png(tmp_path, monkeypatch):
     assert len(problems) == 1 and "assets/icon/icon.ico" in problems[0] and ".svg" in problems[0], problems
 
 
+def test_an_icon_whose_written_width_and_height_differ_is_reported(tmp_path):
+    """A square view box drawn into a frame that is not square is not a square icon."""
+    icon = _app(tmp_path) / "art" / "icon.svg"
+    _text(icon, '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="32">', "</svg>")
+    problems = art.art_problems(tmp_path, due=True)
+    assert len(problems) == 1 and "art/icon.svg" in problems[0] and "square" in problems[0], problems
+    assert "64" in problems[0] and "32" in problems[0], f"the sentence does not say what it found: {problems[0]}"
+
+    _text(icon, '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64mm" height="64px">', "</svg>")
+    problems = art.art_problems(tmp_path, due=True)
+    assert len(problems) == 1 and "64mm" in problems[0] and "64px" in problems[0], (
+        f"the same number in two units was read as the same length: {problems}")
+
+
+@pytest.mark.parametrize("lines", [
+    ('<svg viewBox="0 0 64 64" width="64" height="64">',),
+    ('<svg viewBox="0 0 64 64" width="64px" height="64px">',),
+    ('<svg viewBox="0 0 64 64" width="64" height="64px">',),            # no unit is a pixel, as SVG reads it
+    ("<svg viewBox='0 0 64 64' height='64.0' width='64'>",),            # the same number, written two ways
+    ('<svg viewBox="0 0 64 64" width="64">',),                          # one of the two: nothing to compare
+    ('<svg viewBox="0 0 64 64" stroke-width="3" width="64" height="64">',),
+    ('<svg viewBox="0 0 64 64">', '<rect width="40" height="10"/>'),    # a shape inside is not the icon's frame
+])
+def test_icons_with_these_frames_pass(tmp_path, lines):
+    _text(_app(tmp_path) / "art" / "icon.svg", *lines, "</svg>")
+    assert art.art_problems(tmp_path, due=True) == []
+
+
 # ---------------------------------------------------------------- the banner and the cover
 
 
-@pytest.mark.parametrize("width, height, word", [
-    (900, 300, "960"),                  # too narrow for a README, which shows it at up to 960
-    (960, 640, "three times"),          # too high
-    (2400, 400, "three times"),         # too flat
-    (960, 0, "three times"),            # a header that says no height at all must not stop the rule
+@pytest.mark.parametrize("width, height, words", [
+    (900, 300, ("960",)),               # too narrow for a README, which shows it at up to 960
+    (960, 640, ("2.5", "3.5")),         # too high
+    (2400, 400, ("2.5", "3.5")),        # too flat
+    (960, 0, ("2.5", "3.5")),           # a header that says no height at all must not stop the rule
 ])
-def test_a_banner_is_wide_and_about_three_times_as_wide_as_high(tmp_path, width, height, word):
+def test_a_banner_is_wide_and_about_three_times_as_wide_as_high(tmp_path, width, height, words):
     _png(_app(tmp_path) / "art" / "banner.png", width, height)
     problems = art.art_problems(tmp_path, due=True)
-    assert len(problems) == 1 and "art/banner.png" in problems[0] and word in problems[0], problems
+    assert len(problems) == 1 and "art/banner.png" in problems[0], problems
+    assert all(word in problems[0] for word in words), f"the sentence does not name the bound: {problems[0]}"
     assert f"{width}x{height}" in problems[0], "the sentence does not say what size it found"
+
+
+def test_a_project_sets_its_own_bounds_for_its_banner(tmp_path, monkeypatch):
+    """A banner may be 4 to 1, and its project then had to edit numbers in the middle of the
+    rule. The three bounds have names at the top of the file now."""
+    _png(_app(tmp_path) / "art" / "banner.png", 1600, 400)
+    assert len(art.art_problems(tmp_path, due=True)) == 1
+    monkeypatch.setattr(art, "BANNER_MAX_RATIO", 4.2)
+    assert art.art_problems(tmp_path, due=True) == []
+
+    monkeypatch.setattr(art, "BANNER_MIN_RATIO", 4.1)
+    problems = art.art_problems(tmp_path, due=True)
+    assert len(problems) == 1 and "4.1" in problems[0] and "4.2" in problems[0], problems
+
+    monkeypatch.setattr(art, "BANNER_MIN_RATIO", 2.5)
+    monkeypatch.setattr(art, "BANNER_MIN_WIDTH", 2000)
+    problems = art.art_problems(tmp_path, due=True)
+    assert len(problems) == 1 and "2000" in problems[0], problems
 
 
 @pytest.mark.parametrize("width, height", [(960, 300), (960, 384), (1200, 343), (2880, 960)])
@@ -162,8 +249,9 @@ def test_banners_of_these_sizes_pass(tmp_path, width, height):
     assert art.art_problems(tmp_path, due=True) == []
 
 
-def test_a_cover_has_the_size_its_store_asks_for(tmp_path):
-    assert art.COVER_SIZES == {(1280, 640), (630, 500), (440, 280), (1024, 500)}
+def test_a_cover_has_the_size_its_store_asks_for(tmp_path, monkeypatch):
+    """A website has no store: its cover is the card a shared link shows, 1200 by 630."""
+    assert (1200, 630) in art.COVER_SIZES and len(art.COVER_SIZES) == 5
     _app(tmp_path)
     for size in sorted(art.COVER_SIZES):
         _png(tmp_path / "art" / "cover.png", *size)
@@ -171,6 +259,12 @@ def test_a_cover_has_the_size_its_store_asks_for(tmp_path):
     _png(tmp_path / "art" / "cover.png", 800, 600)
     problems = art.art_problems(tmp_path, due=True)
     assert len(problems) == 1 and "art/cover.png is 800x600" in problems[0] and "1280x640" in problems[0], problems
+    assert "1200x630" in problems[0], problems
+
+    _png(tmp_path / "art" / "cover.png", 1280, 640)
+    monkeypatch.setattr(art, "COVER_SIZES", frozenset({(600, 600)}))
+    problems = art.art_problems(tmp_path, due=True)
+    assert len(problems) == 1 and "600x600" in problems[0], "the sizes are not read from COVER_SIZES"
 
 
 def test_a_file_that_is_not_a_png_is_said_in_words(tmp_path):
@@ -223,23 +317,48 @@ def test_with_no_banner_yet_the_readme_is_not_asked_for_one(tmp_path):
     assert art.art_problems(tmp_path, due=False) == []
 
 
-def test_claude_md_names_the_three_paths(tmp_path):
+def test_the_guidance_file_names_the_three_paths(tmp_path):
     """The layout in CLAUDE.md is where a session looks for a file. A picture nobody can find
     is drawn again, in another folder."""
-    _app(tmp_path, claude=("# guidance", "", "art/icon.svg", "art/cover.png"))
+    _app(tmp_path, guidance=("# guidance", "", "art/icon.svg", "art/cover.png"))
     assert art.art_problems(tmp_path, due=True) == ["CLAUDE.md does not name art/banner.png"]
-    _app(tmp_path / "early", claude=("# guidance",))
+    _app(tmp_path / "early", guidance=("# guidance",))
     for name in ("icon.svg", "banner.png", "cover.png"):
         (tmp_path / "early" / "art" / name).unlink()
     assert art.art_problems(tmp_path / "early", due=False) == [
         "CLAUDE.md does not name art/icon.svg", "CLAUDE.md does not name art/banner.png",
         "CLAUDE.md does not name art/cover.png"], "the paths are named from the first day, before a picture exists"
-    _app(tmp_path / "none", claude=None)
+    _app(tmp_path / "none", guidance=None)
     assert art.art_problems(tmp_path / "none", due=True) == [], "a project may have no CLAUDE.md"
 
 
+@pytest.mark.parametrize("line", [
+    "art/cover.pngx           a typing mistake",
+    "art/cover.png.bak        an old copy",
+    "old/art/cover.png        a picture in another folder",
+    "smart/cover.png          another folder again",
+])
+def test_a_path_is_named_whole(tmp_path, line):
+    """`art/cover.pngx` holds the letters of `art/cover.png`. Read as naming it, a planted
+    fault passed."""
+    _app(tmp_path, guidance=("# guidance", "", "art/icon.svg", "art/banner.png", line))
+    assert art.art_problems(tmp_path, due=True) == ["CLAUDE.md does not name art/cover.png"]
+
+
+@pytest.mark.parametrize("line", [
+    "art/cover.png            what a store page shows",
+    "The cover is `art/cover.png`.",
+    "The three: art/icon.svg, art/banner.png, art/cover.png.",
+    "See (art/cover.png) and [the cover](art/cover.png).",
+    "art/icon.svg · art/banner.png · art/cover.png   the three pictures",
+])
+def test_a_path_is_named_in_any_ordinary_sentence(tmp_path, line):
+    _app(tmp_path, guidance=("# guidance", "", "art/icon.svg", "art/banner.png", line))
+    assert art.art_problems(tmp_path, due=True) == []
+
+
 def test_every_problem_is_reported_in_one_run(tmp_path):
-    _app(tmp_path, readme=("# Name", "", "![The forge](art/banner.png)"), claude=("# guidance", "art/icon.svg", "art/banner.png"))
+    _app(tmp_path, readme=("# Name", "", "![The forge](art/banner.png)"), guidance=("# guidance", "art/icon.svg", "art/banner.png"))
     _svg(tmp_path / "art" / "icon.svg", 100, 50)
     _png(tmp_path / "art" / "banner.png", 800, 300)
     (tmp_path / "art" / "cover.png").unlink()
@@ -267,13 +386,13 @@ def test_the_real_test_reads_this_repository(tmp_path, monkeypatch):
 def test_a_clone_is_told_that_its_guidance_file_was_not_read(tmp_path, monkeypatch, capsys):
     """CLAUDE.md is working material: it is on the maintainer's disk, and in no clone. A check
     that did not look must say so, or it reads as a check that found nothing wrong."""
-    monkeypatch.setattr(art, "ROOT", _app(tmp_path, claude=None))
+    monkeypatch.setattr(art, "ROOT", _app(tmp_path, guidance=None))
     _text(tmp_path / "CHANGELOG.md", "# Changelog", "", "## 0.1.0 — 2026-01-31", "", "- First build.")
     art.test_the_app_has_its_three_pictures()
     said = capsys.readouterr().out
     assert "[CI]" in said and "CLAUDE.md" in said, f"nothing said that CLAUDE.md was not read: {said!r}"
 
-    _text(tmp_path / "CLAUDE.md", *_CLAUDE)
+    _text(tmp_path / "CLAUDE.md", *_GUIDANCE)
     art.test_the_app_has_its_three_pictures()
     assert "[CI]" not in capsys.readouterr().out, "it said CLAUDE.md was not read, on a disk that has it"
 
@@ -294,5 +413,43 @@ def test_a_new_project_starts_as_an_app_with_the_three_usual_paths():
     """Read from the file, not from the module: a project changes these, and a test above
     changes them for its own run."""
     source = Path(art.__file__).read_text(encoding="utf-8")
-    for line in ('ICON = "', 'BANNER = "', 'COVER = "', 'NOT_AN_APP = "'):
+    for line in ('ICON = "', 'BANNER = "', 'COVER = "', 'NOT_AN_APP = "', "DUE_NOW = ", "COVER_SIZES = ",
+                 "BANNER_MIN_WIDTH = ", "BANNER_MIN_RATIO = ", "BANNER_MAX_RATIO = "):
         assert sum(1 for found in source.splitlines() if found.startswith(line)) == 1, f"expected one line starting {line!r}"
+
+
+def test_the_rule_says_where_a_projects_own_check_goes():
+    """Projects added checks of their own, each in a place of its own choosing."""
+    assert "at the end of this file" in art.__doc__, (
+        "tests/test_art.py does not say that a project's stricter check goes at the end of this file")
+
+
+def test_these_examples_pass_in_a_project_that_changed_its_settings(tmp_path):
+    """Run for real, not argued: a copy of the rule with every setting changed (three other
+    paths, one other cover size, other bounds for the banner, a sentence in NOT_AN_APP and
+    DUE_NOW on), with this file beside it. Every example must still pass."""
+    here = Path(__file__).parent
+    for name in ("test_art.py", "test_art_rule.py", "test_docs_integrity.py"):
+        shutil.copyfile(here / name, tmp_path / name)
+    rule = tmp_path / "test_art.py"
+    text = rule.read_text(encoding="utf-8")
+    assert set(_SETTINGS) == {"ICON", "BANNER", "COVER", "COVER_SIZES", "NOT_AN_APP", "DUE_NOW",
+                              "BANNER_MIN_WIDTH", "BANNER_MIN_RATIO", "BANNER_MAX_RATIO"}, (
+        "a setting was added to the fixture, or left it: change it in the copy below too")
+    for setting, value in (("ICON", '"assets/mark.png"'), ("BANNER", '"docs/img/top.png"'),
+                           ("COVER", '"store/card.png"'), ("DUE_NOW", "True"),
+                           ("COVER_SIZES", "frozenset({(999, 333)})"), ("BANNER_MIN_WIDTH", "100"),
+                           ("BANNER_MIN_RATIO", "1.0"), ("BANNER_MAX_RATIO", "9.0"),
+                           ("NOT_AN_APP", '"Research notes: there is no app here."')):
+        text, count = re.subn(rf"(?m)^{setting} = .*$", f"{setting} = {value}", text)
+        assert count == 1, f"tests/test_art.py has {count} lines that set {setting}"
+    rule.write_text(text, encoding="utf-8", newline="\n")
+
+    # Without this test itself: it would copy the copy, and that copy would copy itself.
+    run = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "test_art_rule.py",
+         "-k", "not changed_its_settings"],
+        cwd=tmp_path, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300)
+    last = (run.stdout.strip().splitlines() or ["(no output)"])[-1]
+    assert run.returncode == 0 and " passed" in last and "failed" not in last and "error" not in last, (
+        f"in a project that changed its settings: {last}\n{run.stdout[-3000:]}")

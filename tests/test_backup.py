@@ -8,6 +8,7 @@ folder outside the repository.
 import subprocess
 import sys
 import zipfile
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -28,7 +29,7 @@ _WORKING = {
     "QUESTIONS.md": "open questions\n",
     "BACKLOG.html": "<html></html>\n",
     "docs/adr/0001.md": "a decision\n",
-    "docs/superpowers/specs/D900-x.md": "# D900\n",
+    "docs/superpowers/specs/D9001-x.md": "# D9001\n",
     ".leak-patterns.local": "bluebird\n",
     ".superpowers/sdd/prompt.md": "a prompt\n",
 }
@@ -82,12 +83,20 @@ def test_the_archive_holds_exactly_those_files_byte_for_byte(tmp_path):
             assert held.read(name) == text.encode("utf-8"), f"{name} changed on its way into the archive"
 
 
-def test_a_second_backup_does_not_replace_the_first(tmp_path):
+def test_a_second_backup_does_not_replace_the_first(tmp_path, monkeypatch):
+    """On a clock that stands still. Two backups that fall in two different seconds get two
+    names from the clock alone, so this test used to pass on a script that had lost its counter."""
+    class StoppedClock:
+        @staticmethod
+        def now():
+            return datetime(2026, 1, 31, 12, 0, 0)
+
+    monkeypatch.setattr(backup, "datetime", StoppedClock)
     root = _repo(tmp_path)
     destination = tmp_path / "backups"
-    first = backup.backup(root, destination)
-    second = backup.backup(root, destination)
-    assert first != second and first.exists() and second.exists()
+    made = [backup.backup(root, destination) for _ in range(3)]
+    assert len(set(made)) == 3 and all(archive.exists() for archive in made), made
+    assert [archive.name.split("-120000")[1] for archive in made] == [".zip", "-2.zip", "-3.zip"], made
 
 
 def test_a_destination_inside_the_repository_is_refused(tmp_path):

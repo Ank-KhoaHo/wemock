@@ -6,9 +6,14 @@ shared link shows: the same file is uploaded as the repository's social preview,
 hand, because no command can. The three are due from the first released block
 in CHANGELOG.md, because a picture of an app is a real render and a new project has
 nothing to show. A project that keeps no CHANGELOG.md owes them now. A picture that
-exists earlier is still held to its shape. A project whose pictures live elsewhere
-changes the three paths below. A repository that is not an app writes one sentence in
-NOT_AN_APP.
+exists earlier is still held to its shape. Set DUE_NOW to True when the pictures
+exist before the first release, and they are held from that day. A project whose
+pictures live elsewhere changes the three paths below. A repository that is not an
+app writes one sentence in NOT_AN_APP.
+
+A check of this project's own (a stricter size, a second cover) goes
+at the end of this file, below the last test, never in a second file,
+so the rule stays in one place.
 """
 
 from pathlib import Path
@@ -25,17 +30,25 @@ ICON = ".github/brand/icon.svg"
 BANNER = ".github/banner.png"
 COVER = "art/cover.png"
 
-# This project's banner, picked on 2026-11-14 and shown by the README and the store page, is
-# 1280x320: four times as wide as it is high. The rule allows up to 4 here, not 3.5.
-BANNER_MAX_RATIO = 4.0
+# The sizes a cover may have: a store's own (itch.io, the Chrome Web Store, Google Play),
+# GitHub's social preview when there is no store, or a website's link card (1200 by 630),
+# because a website has no store and its cover is the card a shared link shows.
+COVER_SIZES = frozenset({(1280, 640), (630, 500), (440, 280), (1024, 500), (1200, 630)})
 
-# The sizes a cover may have: a store's own (itch.io, the Chrome Web Store, Google Play), or
-# GitHub's social preview when there is no store.
-COVER_SIZES = frozenset({(1280, 640), (630, 500), (440, 280), (1024, 500)})
+# A banner is at least this wide, and between these two numbers of times as wide as it is high;
+# a project whose banner has another shape changes them here.
+BANNER_MIN_WIDTH = 960
+BANNER_MIN_RATIO = 2.5
+# This project's banner, picked on 2026-11-14 and shown by the README and the store page, is
+# 1280x320: four times as wide as it is high.
+BANNER_MAX_RATIO = 4.0
 
 # One sentence that says why this repository has no pictures: it is notes, or a sandbox.
 # Empty for an app. With a sentence here the rule asks nothing.
 NOT_AN_APP = ""
+
+# Set it to True when the pictures exist before the first release, and they are held from that day.
+DUE_NOW = False
 
 
 def png_size(path: Path) -> tuple[int, int]:
@@ -53,10 +66,77 @@ def pictures_are_due(root: Path) -> bool:
     nothing, and the apps that had shipped for months were exactly the ones that kept no
     changelog: read that way, the rule would never have been due for any of them.
     """
+    if DUE_NOW:
+        return True
     changelog = root / "CHANGELOG.md"
     if not changelog.is_file():
         return True
     return bool(guard._released_versions(changelog.read_text(encoding="utf-8")))
+
+
+def _names_whole(text: str, path: str) -> bool:
+    """Check whether path stands in text as a whole path, not a substring.
+
+    A plain `in` matches 'smart/cover.png' or
+    'art/cover.png.bak', allowing planted faults to pass. We verify that path
+    boundaries are not alphanumeric or path-separating characters and not
+    followed by an extension.
+    """
+    start = 0
+    while True:
+        idx = text.find(path, start)
+        if idx == -1:
+            return False
+        start = idx + 1
+
+        if idx > 0:
+            before = text[idx - 1]
+            if before.isalnum() or before in "_./\\-":
+                continue
+
+        end = idx + len(path)
+        if end < len(text):
+            after = text[end]
+            if after.isalnum() or after in "_/\\-":
+                continue
+            if after == "." and end + 1 < len(text):
+                after_dot = text[end + 1]
+                if after_dot.isalnum() or after_dot == "_":
+                    continue
+
+        return True
+
+
+def _parse_dimension(val: str) -> tuple[float, str] | None:
+    """Extract a numeric magnitude and optional unit from an SVG dimension string.
+
+    SVG dimensions can be written in various equivalent notations such as '64'
+    and '64.0', or with unit suffixes like '64px' or '100%'. Parsing them into
+    a float and unit string allows comparing numeric values mathematically.
+    """
+    m = re.fullmatch(r"([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([a-zA-Z%]*)", val.strip())
+    if not m:
+        return None
+    try:
+        return float(m.group(1)), m.group(2)
+    except ValueError:
+        return None
+
+
+def _dimensions_equal(w: str, h: str) -> bool:
+    """Compare two SVG dimension attribute values for equality.
+
+    An icon frame must be square, but width and height may be written in
+    different formats. When both values are a number and optional unit, we
+    compare the numbers as numbers and the units as text; otherwise we
+    compare them as text.
+    """
+    pw = _parse_dimension(w)
+    ph = _parse_dimension(h)
+    if pw is not None and ph is not None:
+        # A number with no unit is a number of pixels, as SVG reads it.
+        return pw[0] == ph[0] and (pw[1] or "px") == (ph[1] or "px")
+    return w.strip() == h.strip()
 
 
 def art_problems(root: Path, due: bool) -> list[str]:
@@ -93,6 +173,18 @@ def art_problems(root: Path, due: bool) -> list[str]:
                                 problems.append(
                                     f"{ICON} is {tokens[2]} by {tokens[3]}: an icon is square"
                                 )
+                svg_tag_match = re.search(r"<svg\b[\s\S]*?>", svg_text, re.IGNORECASE)
+                if svg_tag_match:
+                    tag_text = svg_tag_match.group(0)
+                    m_w = re.search(r"""(?<![a-zA-Z0-9_-])width\s*=\s*(["'])(.*?)\1""", tag_text)
+                    m_h = re.search(r"""(?<![a-zA-Z0-9_-])height\s*=\s*(["'])(.*?)\1""", tag_text)
+                    if m_w and m_h:
+                        w_val = m_w.group(2)
+                        h_val = m_h.group(2)
+                        if not _dimensions_equal(w_val, h_val):
+                            problems.append(
+                                f"{ICON} has width {w_val} and height {h_val}: an icon is square"
+                            )
             except Exception:
                 problems.append(f"{ICON} has no viewBox, so its shape cannot be read")
         elif suffix == ".png":
@@ -110,11 +202,11 @@ def art_problems(root: Path, due: bool) -> list[str]:
     if banner_file.is_file():
         try:
             bw, bh = png_size(banner_file)
-            if bw < 960:
-                problems.append(f"{BANNER} is {bw}x{bh}: a banner is at least 960 wide")
-            elif bh == 0 or (bw / bh < 2.5) or (bw / bh > BANNER_MAX_RATIO):
+            if bw < BANNER_MIN_WIDTH:
+                problems.append(f"{BANNER} is {bw}x{bh}: a banner is at least {BANNER_MIN_WIDTH} wide")
+            elif bh == 0 or (bw / bh < BANNER_MIN_RATIO) or (bw / bh > BANNER_MAX_RATIO):
                 problems.append(
-                    f"{BANNER} is {bw}x{bh}: a banner is about three times as wide as it is high"
+                    f"{BANNER} is {bw}x{bh}: a banner is {BANNER_MIN_RATIO} to {BANNER_MAX_RATIO} times as wide as it is high"
                 )
         except ValueError:
             problems.append(f"{BANNER} is not a PNG")
@@ -155,11 +247,11 @@ def art_problems(root: Path, due: bool) -> list[str]:
             problems.append(f"README.md does not open with {BANNER}")
 
     # 6. CLAUDE.md, when root / "CLAUDE.md" is a file.
-    claude_file = root / "CLAUDE.md"
-    if claude_file.is_file():
-        claude_text = claude_file.read_text(encoding="utf-8")
+    guidance_file = root / "CLAUDE.md"
+    if guidance_file.is_file():
+        guidance_text = guidance_file.read_text(encoding="utf-8")
         for p in (ICON, BANNER, COVER):
-            if p not in claude_text:
+            if not _names_whole(guidance_text, p):
                 problems.append(f"CLAUDE.md does not name {p}")
 
     return problems
@@ -184,11 +276,6 @@ def test_the_app_has_its_three_pictures() -> None:
 # ---------------------------------------------------------------- this project's own checks
 
 
-def test_the_cover_is_the_chrome_web_stores_small_tile() -> None:
-    """The store takes one size for its small promotional tile; the rule allows four sizes."""
-    assert png_size(ROOT / COVER) == (440, 280), f"{COVER} is not 440x280, the store's small tile"
-
-
 def test_a_banner_four_times_as_wide_as_high_passes_and_no_wider(tmp_path) -> None:
     """The bound this project raised: its banner is 1280x320. A flatter one is still refused."""
     (tmp_path / ".github").mkdir()
@@ -197,3 +284,8 @@ def test_a_banner_four_times_as_wide_as_high_passes_and_no_wider(tmp_path) -> No
         (tmp_path / BANNER).write_bytes(header + struct.pack(">II", *size) + b"\x08\x06\x00\x00\x00")
         problems = art_problems(tmp_path, due=False)
         assert (problems == []) is ok, (size, problems)
+
+
+def test_the_cover_is_the_chrome_web_stores_small_tile() -> None:
+    """The store takes one size for its small promotional tile; the rule allows five sizes."""
+    assert png_size(ROOT / COVER) == (440, 280), f"{COVER} is not 440x280, the store's small tile"

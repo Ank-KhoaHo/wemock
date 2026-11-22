@@ -150,3 +150,30 @@ def test_the_conventions_explain_every_status():
         assert unexplained == [], (
             f"{path.relative_to(ROOT).as_posix()}: the status table has no row for {unexplained}"
         )
+
+
+_CAPITALS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+def _letters_with_a_section() -> list[str]:
+    """The letters the builder accepts in a ticket's `**Section:**` line."""
+    return [letter for letter in _CAPITALS if builder._SECTION_FMT_RE.match(f"{letter} — Name")]
+
+
+def _a_letter_with_no_section() -> str:
+    """Read from the builder's sections, never written here. This file used to hold `E1` as
+    its example of an ID outside the convention, and failed in a project that added a
+    section `E`."""
+    spare = [letter for letter in _CAPITALS if letter not in _letters_with_a_section()]
+    assert spare, "every capital is a section, so no example of an ID outside them is left"
+    return spare[0]
+
+
+def test_a_ticket_id_starts_with_a_letter_that_has_a_section_and_no_other():
+    """The builder names its letters in two places: the ID and the section line. A project that
+    adds a section changes both, or tickets of the new section are refused by one of them."""
+    sections = _letters_with_a_section()
+    assert sections, "the builder accepts no section letter at all"
+    in_an_id = [letter for letter in _CAPITALS if builder._TICKET_ID_RE.match(f"{letter}1")]
+    assert in_an_id == sections, (
+        f"a ticket ID may start with {in_an_id}, and a section line with {sections}: the two must agree")

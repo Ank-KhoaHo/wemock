@@ -98,12 +98,55 @@ _FENCE_START_RE = re.compile(r"^\s*(```+|~~~+)(.*)$")
 _FENCE_END_RE = re.compile(r"^\s*(```+|~~~+)\s*$")
 
 
+def _without_code_spans(line: str) -> str:
+    """Return the line with every inline code span replaced by a single space.
+
+    Stripping code spans prevents link-shaped code like `Step[str](3)` from being
+    falsely treated as markdown links during docs integrity checks.
+    """
+    result: list[str] = []
+    i = 0
+    n = len(line)
+    while i < n:
+        if line[i] != "`":
+            result.append(line[i])
+            i += 1
+            continue
+
+        start = i
+        while i < n and line[i] == "`":
+            i += 1
+        delim_len = i - start
+
+        closing_start = -1
+        j = i
+        while j < n:
+            if line[j] == "`":
+                c_start = j
+                while j < n and line[j] == "`":
+                    j += 1
+                if j - c_start == delim_len:
+                    closing_start = c_start
+                    break
+            else:
+                j += 1
+
+        if closing_start != -1:
+            result.append(" ")
+            i = closing_start + delim_len
+        else:
+            result.append(line[start:start + delim_len])
+
+    return "".join(result)
+
+
 def _iter_markdown_links(text: str):
     """Yield (line_number, target) for markdown links in text.
 
     Links outside fences, inside untagged fences, and inside fences tagged `md`
     or `markdown` (case-insensitive) are yielded. Fences tagged with any other
     word (e.g. `python`, `bash`, `text`) are considered code and are not scanned.
+    Code spans are left out, so link-shaped code is not treated as a link.
 
     If the line directly above the opening fence is `<!-- illustrative -->`,
     that fence is skipped: a design document that shows a file's shape in a
@@ -140,7 +183,7 @@ def _iter_markdown_links(text: str):
                     scan_fence = (tag == "" or tag in ("md", "markdown"))
                 prev_line = line
                 continue
-            for target in _LINK_RE.findall(line):
+            for target in _LINK_RE.findall(_without_code_spans(line)):
                 yield lineno, target
         else:
             m_end = _FENCE_END_RE.match(line)
@@ -150,7 +193,7 @@ def _iter_markdown_links(text: str):
                 prev_line = line
                 continue
             if scan_fence:
-                for target in _LINK_RE.findall(line):
+                for target in _LINK_RE.findall(_without_code_spans(line)):
                     yield lineno, target
 
         prev_line = line
@@ -488,6 +531,8 @@ def test_the_index_still_agrees_with_its_source():
     rows = dict(re.findall(r'<tr data-id="([^"]+)".*?<span class="chip chip-\w+">(\w+)</span>', page))
     specs = {}
     for path in sorted((_repo_root() / SPECS_DIR).glob("*.md")):
+        if re.match(r"^20[0-9]{2}-", path.name):
+            continue    # a dated design document is not a ticket: the builder leaves it out too
         text = path.read_text(encoding="utf-8")
         tid = re.match(r"^#\s+(\S+)", text).group(1)
         specs[tid] = re.search(r"^\*\*Status:\*\*\s*(\S+)", text, re.M).group(1)
@@ -505,7 +550,7 @@ def test_the_index_still_agrees_with_its_source():
 
 
 PLACEHOLDERS = ("<PRODUCT_NAME>", "<PROJECT_NAME>", "<PROJECT_ONE_LINE>", "<PROJECT_AUDIENCE>",
-                "<PROJECT_PRICE>", "<GITHUB_OWNER>", "<CONTACT_EMAIL>", "<YYYY-MM-DD>",
+                "<PROJECT_PRICE>", "<GITHUB_OWNER>", "<YYYY-MM-DD>",
                 # The same two answers, written so that they are safe inside an HTML
                 # attribute and inside a JSON string. A quote typed in an answer would
                 # otherwise end the attribute, or make the JSON unreadable.
@@ -662,7 +707,8 @@ def test_every_open_question_names_its_default():
 
 # ---------------------------------------------------------------- the changelog and the version
 
-_RELEASE_RE = re.compile(r"^##\s+(\d+\.\d+\.\d+)\b")
+# Reads release headings in either form: `## 0.2.0` or Keep a Changelog's `## [0.2.0]`.
+_RELEASE_RE = re.compile(r"^##\s+\[?(\d+\.\d+\.\d+)\b")
 _VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
 
 
