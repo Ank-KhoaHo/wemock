@@ -12,10 +12,15 @@ What the gate must do, and each test below holds it to one of these:
 * show a step's output as it arrives, in full, never the last few lines only
 """
 
+import os
 import re
+import signal
+import subprocess
 import sys
 import time
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -209,3 +214,244 @@ def test_the_contributor_guide_names_the_gate():
     assert "python scripts/check.py" in guide, (
         "CONTRIBUTING.md does not say how to run every check: it is the first place a contributor looks"
     )
+
+
+# ---------------------------------------------------------------- an argument it does not know
+
+
+def test_an_argument_the_gate_does_not_know_stops_it(monkeypatch, tmp_path, capsys):
+    """A mistyped argument ran the whole gate without a word: main() looked only for the one
+    argument it knows. A typing mistake must not choose which checks run."""
+    marker = _marker_step(monkeypatch, tmp_path)
+    monkeypatch.delenv(check.RUNNING, raising=False)
+    for argv, unknown in ((["--lsit"], "--lsit"), (["--list", "-x"], "-x"), (["tests"], "tests"),
+                          (["--quick"], "--quick")):
+        assert check.main(argv) == 2, f"{argv} was accepted"
+        captured = capsys.readouterr()
+        said = captured.out + captured.err
+        assert unknown in said, f"the gate does not name the argument it refused: {said!r}"
+        assert "--list" in said.replace(unknown, ""), f"it does not say which argument it takes: {said!r}"
+        assert not marker.exists(), f"{argv} ran a step"
+        assert "leaves a marker" not in said, f"{argv} listed the steps"
+
+
+# ---------------------------------------------------------------- how long each step took
+
+
+_SECONDS = re.compile(r"^-- (.+): (\d+\.\d) s$")
+
+
+def test_each_step_ends_with_the_seconds_it_took(capsys):
+    """A project timed its steps by hand, to find the slow one."""
+    steps = [_step("first", "print('one')"), _step("naps", "import time; time.sleep(1.2); print('two')")]
+    assert check.run(steps) == 0
+    lines = capsys.readouterr().out.splitlines()
+    took = {match.group(1): float(match.group(2)) for match in map(_SECONDS.match, lines) if match}
+    assert set(took) == {"first", "naps"}, f"no line of seconds for each step, in the form `-- name: 1.2 s`: {lines}"
+    assert took["naps"] >= 1.2, f"a step that slept 1.2 s is said to have taken {took['naps']} s"
+
+    def at(start: str) -> int:
+        return next(index for index, line in enumerate(lines) if line.startswith(start))
+
+    order = [at("one"), at("-- first: "), at("== 2/2"), at("two"), at("-- naps: "), at("All local checks passed.")]
+    assert order == sorted(order), f"a step's seconds do not follow its own output: {lines}"
+
+
+def test_a_failing_step_says_how_long_it_ran_and_still_ends_on_the_failure(capsys):
+    assert check.run([_step("breaks", "import sys; sys.exit(1)")]) == 1
+    lines = [line for line in capsys.readouterr().out.splitlines() if line.strip()]
+    assert lines[-1].startswith("FAILED at step 1, breaks"), lines[-1]
+    assert _SECONDS.match(lines[-2]) and lines[-2].startswith("-- breaks: "), lines[-2]
+
+
+def test_a_steps_result_carries_its_seconds():
+    result = check.run_step(_step("naps", "import time; time.sleep(0.6)"))
+    assert result.ok and 0.6 <= result.seconds < 30, f"0.6 s of sleep was measured as {result.seconds}"
+
+
+# ---------------------------------------------------------------- every shape of a skip
+
+
+def _printed(text: str) -> str:
+    return f"print({text!r})"
+
+
+# What each tool really prints at its end. The gate used to know pytest's line alone.
+_REAL_SKIPS = {
+    "node --test, as a person sees it": "ℹ tests 14\nℹ pass 13\nℹ fail 0\nℹ cancelled 0\nℹ skipped 1\nℹ todo 0",
+    "node --test, as CI sees it": "# tests 14\n# pass 13\n# fail 0\n# cancelled 0\n# skipped 1\n# todo 0",
+    ".NET, a summary on several lines":
+        "Test run summary: Passed!\n  total: 309\n  failed: 0\n  succeeded: 307\n  skipped: 2\n  duration: 3s 471ms",
+    ".NET, a summary on one line":
+        "Test summary: total: 309, failed: 0, succeeded: 307, skipped: 2, duration: 21.4s",
+    ".NET, the older summary":
+        "Passed!  - Failed:     0, Passed:   307, Skipped:     2, Total:   309, Duration: 5 s - Tests.dll (net8.0)",
+    "unittest": "Ran 12 tests in 0.004s\n\nOK (skipped=3)",
+    "two suites in one step, the first with none": "3 passed, 0 skipped\n7 passed, 2 skipped in 0.31s",
+}
+
+_NO_SKIPS = {
+    ".NET, a clean summary on several lines":
+        "Test run summary: Passed!\n  total: 307\n  failed: 0\n  succeeded: 307\n  skipped: 0\n  duration: 3s 471ms",
+    ".NET, a clean summary on one line":
+        "Test summary: total: 307, failed: 0, succeeded: 307, skipped: 0, duration: 21.4s",
+    ".NET, the older summary, clean":
+        "Passed!  - Failed:     0, Passed:   307, Skipped:     0, Total:   307, Duration: 5 s - Tests.dll (net8.0)",
+    "node --test, clean": "ℹ tests 14\nℹ pass 14\nℹ skipped 0\nℹ todo 0",
+    "node --test in CI, clean": "# tests 14\n# pass 14\n# skipped 0\n# todo 0",
+    "unittest, clean": "Ran 12 tests in 0.004s\n\nOK (skipped=0)",
+    "a count that ends one line, and the word that starts the next":
+        "written: 12\nskipped the cache, as asked\n5 passed in 0.1s",
+    "the word and a number in ordinary output": "copy: skipped 3 that were already there\n5 passed in 0.1s",
+}
+
+
+def test_every_shape_of_a_skip_fails_the_step():
+    """Measured on real output: four shapes were not seen at all, and a first count of none
+    hid a real count after it, because one match was read."""
+    for tool, output in _REAL_SKIPS.items():
+        result = check.run_step(_step(tool, _printed(output)))
+        assert not result.ok, f"{tool}: a run with a skipped test was accepted"
+        assert result.reason.startswith("a test was skipped ("), f"{tool}: the reason does not say what happened: {result.reason}"
+        assert "\n" not in result.reason, f"{tool}: the reason runs over a line break: {result.reason!r}"
+
+
+def test_a_count_of_none_in_any_shape_is_not_a_skip():
+    """A count is read on its own line. A clean .NET summary ends one line with a number and
+    starts the next with the word, and that read as "307 skipped"."""
+    for tool, output in _NO_SKIPS.items():
+        result = check.run_step(_step(tool, _printed(output)))
+        assert result.ok, f"{tool}: a clean run was refused: {result.reason}"
+
+
+def test_a_number_before_the_label_is_not_its_count():
+    """A build log puts its own time before each line: Docker writes "#13 34.28   skipped: 0"
+    for a clean .NET run. Read count first, that is "28 skipped", and a gate that fails every
+    clean run gets switched off. One project found it. The count is the number after the colon."""
+    clean = check.run_step(_step("a build log, clean", _printed("#13 34.28   skipped: 0\n#13 34.29   duration: 3s")))
+    assert clean.ok, f"a clean run inside a build log was refused: {clean.reason}"
+    skipped = check.run_step(_step("a build log, one skip", _printed("#13 34.28   skipped: 2")))
+    assert not skipped.ok, "a skipped test inside a build log was accepted"
+    assert "skipped: 2" in skipped.reason and "28" not in skipped.reason, (
+        f"the reason names the log's own time, not the count: {skipped.reason}")
+
+
+# ---------------------------------------------------------------- a step is stopped with all it started
+
+
+# The step: it starts a child, then hangs. The child writes one character ten times a second,
+# so a test can see whether it is still alive without asking the system about a process ID.
+# Both end by themselves, so a failing test cannot leave them on the machine for long.
+_CHILD = """
+import os, sys, time
+beat = sys.argv[1]
+with open(beat + '.pid', 'w') as out:
+    out.write(str(os.getpid()))
+end = time.monotonic() + 40
+while time.monotonic() < end:
+    with open(beat, 'a') as out:
+        out.write('.')
+    time.sleep(0.1)
+"""
+
+_PARENT = """
+import os, subprocess, sys, time
+with open(sys.argv[2] + '.parent', 'w') as out:
+    out.write(str(os.getpid()))
+subprocess.Popen([sys.executable, '-c', sys.argv[1], sys.argv[2]])
+print('started a child', flush=True)
+time.sleep(40)
+"""
+
+
+def _hangs_with_a_child(beat: Path) -> list[str]:
+    return [PY, "-c", _PARENT, _CHILD, str(beat)]
+
+
+def _wait_for(path: Path, seconds: float = 20.0) -> bool:
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        if path.exists() and path.read_text():
+            return True
+        time.sleep(0.05)
+    return False
+
+
+def _still_beating(beat: Path) -> bool:
+    time.sleep(0.5)
+    before = beat.stat().st_size
+    time.sleep(1.0)
+    return beat.stat().st_size != before
+
+
+def _stop_leftovers(beat: Path) -> None:
+    """Whatever the gate left running is stopped here, by its own process ID and no other."""
+    for suffix in (".pid", ".parent"):
+        try:
+            os.kill(int(Path(str(beat) + suffix).read_text()), signal.SIGTERM)
+        except (OSError, ValueError):
+            pass
+
+
+def test_a_step_past_its_limit_is_stopped_with_everything_it_started(tmp_path):
+    """The gate stopped the step's own process and nothing below it. A browser test that hangs
+    leaves its browser running, long after the gate has said that it failed."""
+    beat = tmp_path / "beat.txt"
+    started = time.monotonic()
+    try:
+        result = check.run_step(check.Step(name="hangs with a child", command=_hangs_with_a_child(beat), timeout=6))
+        elapsed = time.monotonic() - started
+        assert not result.ok and "timed out" in result.reason.lower()
+        assert "started a child" in result.output
+        assert _wait_for(Path(str(beat) + ".pid"), seconds=1), "the step's child never started: the test proved nothing"
+        assert elapsed < 20, f"the gate waited {elapsed:.0f} s for a step limited to 6 s"
+        assert not _still_beating(beat), "the step was stopped at its limit, and the process it had started is still running"
+    finally:
+        _stop_leftovers(beat)
+
+
+def test_a_gate_stopped_by_hand_takes_the_steps_processes_with_it(tmp_path, monkeypatch):
+    """Ctrl+C. A step in a session of its own does not get the signal itself, so the gate stops
+    everything the step started, and then passes the interruption on."""
+    beat = tmp_path / "beat.txt"
+    command = _hangs_with_a_child(beat)
+    interrupted = []
+
+    class Interrupted(subprocess.Popen):
+        """A Popen whose first wait, on the step alone, is cut short as by Ctrl+C."""
+
+        def wait(self, timeout=None):
+            if self.args == command and not interrupted:
+                interrupted.append(True)
+                assert _wait_for(Path(str(beat) + ".pid")), "the step's child never started"
+                raise KeyboardInterrupt
+            return super().wait(timeout)
+
+    monkeypatch.setattr(check.subprocess, "Popen", Interrupted)
+    try:
+        with pytest.raises(KeyboardInterrupt):
+            check.run_step(check.Step(name="interrupted", command=command, timeout=30))
+        monkeypatch.undo()
+        assert interrupted, "the gate never waited on the step"
+        assert not _still_beating(beat), "the gate was interrupted, and the process its step had started is still running"
+    finally:
+        monkeypatch.undo()
+        _stop_leftovers(beat)
+
+
+def test_a_tree_stop_that_cannot_run_still_stops_the_step(monkeypatch):
+    """The tree stop asks another program on Windows, and the system elsewhere. Neither may be
+    there, or the process may be gone already. The step's own process is stopped all the same."""
+    def cannot(*args, **kwargs):
+        raise OSError("no such program")
+
+    def gone(*args, **kwargs):
+        raise ProcessLookupError("no such process group")
+
+    monkeypatch.setattr(check.subprocess, "run", cannot)
+    if hasattr(os, "killpg"):
+        monkeypatch.setattr(check.os, "killpg", gone)
+    started = time.monotonic()
+    result = check.run_step(_step("hangs", "import time; print('started', flush=True); time.sleep(60)", timeout=2))
+    assert not result.ok and "timed out" in result.reason.lower()
+    assert time.monotonic() - started < 15

@@ -3,6 +3,8 @@
     python scripts/check.py           run every step; exit 0 only when all of them pass
     python scripts/check.py --list    print the steps and run nothing
 
+An unknown argument stops the gate with exit code 2.
+
 A contributor runs this before a commit. .github/workflows/ci.yml runs this same script and no
 check of its own, so "it passes here" and "it passes in CI" mean the same steps. Passing here
 is still not passing there: CI runs on another operating system.
@@ -22,9 +24,11 @@ from __future__ import annotations
 
 import os
 import re
+import signal
 import subprocess
 import sys
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -58,6 +62,7 @@ class StepResult:
     ok: bool
     reason: str
     output: str
+    seconds: float = 0.0
 
 
 # `sys.executable`, never the bare word `python`: the gate must test with the interpreter
@@ -84,15 +89,49 @@ STEPS: list[Step] = [
 
 # A SKIPPED TEST FAILS THE GATE, even when the command exits 0. A skip is an assertion that
 # did not run, reported in the same colour as one that did, and a suite can skip its way to
-# green. The pattern is a count followed by the word, the way pytest's last line writes it
-# ("4 passed, 1 skipped"); the word alone, in ordinary output, is not a skip.
-_SKIP_PATTERN = re.compile(r"\b(\d+)\s+skipped\b")
+# green.
+#
+# It looks for skips in five shapes across tools:
+#   1. A count then the word: pytest and most others ("7 passed, 2 skipped in 0.31s")
+#   2. A whole line starting with ℹ: node --test on screen ("ℹ skipped 1")
+#   3. A whole line starting with #: node --test in CI ("# skipped 1")
+#   4. The word, a colon, then count: .NET ("skipped: 2", "Skipped:     2")
+#   5. The word, an equals sign, then count: unittest ("OK (skipped=3)")
+#
+# A count and its word are always read on one line (between them only spaces and tabs, never a
+# line break), so a count ending one line and the word starting the next (such as a clean .NET
+# summary ending with "succeeded: 307" and starting the next with "skipped: 0") does not read
+# as a skip.
+#
+# A number before the word is its count only when no colon follows the word. A build log puts
+# its own time before each line: Docker writes "#13 34.28   skipped: 0" for a clean .NET run,
+# and read count first that is "28 skipped". With a colon the count is the number after it.
+_SKIP_LINE_SHAPES = re.compile(r"^[ \t]*([ℹ#][ \t]+skipped[ \t]+(\d+))[ \t]*$")
+_SKIP_COUNT_FIRST = re.compile(r"\b(\d+)[ \t]+skipped\b(?![ \t]*:)")
+_SKIP_COLON = re.compile(r"\bskipped[ \t]*:[ \t]*(\d+)\b", re.IGNORECASE)
+_SKIP_EQUALS = re.compile(r"\bskipped[ \t]*=[ \t]*(\d+)\b", re.IGNORECASE)
 
 
 def _skipped(output: str) -> str:
     """The text that shows a test was skipped, or "" when none was."""
-    match = _SKIP_PATTERN.search(output)
-    return match.group(0) if match and int(match.group(1)) > 0 else ""
+    for line in output.splitlines():
+        line_match = _SKIP_LINE_SHAPES.match(line)
+        if line_match:
+            if int(line_match.group(2)) > 0:
+                return line_match.group(1)
+            continue
+        matches: list[tuple[int, str, int]] = []
+        for m in _SKIP_COUNT_FIRST.finditer(line):
+            matches.append((m.start(), m.group(0), int(m.group(1))))
+        for m in _SKIP_COLON.finditer(line):
+            matches.append((m.start(), m.group(0), int(m.group(1))))
+        for m in _SKIP_EQUALS.finditer(line):
+            matches.append((m.start(), m.group(0), int(m.group(1))))
+        matches.sort(key=lambda item: item[0])
+        for _, text, count in matches:
+            if count > 0:
+                return text
+    return ""
 
 
 def _show(line: str) -> None:
@@ -111,6 +150,38 @@ def _show(line: str) -> None:
     sys.stdout.flush()
 
 
+def _stop_tree(proc: subprocess.Popen) -> None:
+    """Stop a step and every process it started, so none is left running on the machine.
+
+    Stopping the step's own process is not enough: a browser test that hangs leaves its
+    browser behind, and a browser left running has locked a Windows account before. On
+    Windows `taskkill /T` follows the links from parent to child; elsewhere the step runs in
+    a session of its own (see run_step), and the whole group is stopped.
+
+    ITS LIMIT: on Windows a process whose parent has already gone is outside the tree, and
+    is not found. It never raises: the step's own process is stopped whatever else failed.
+    """
+    if sys.platform == "win32":
+        try:
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                capture_output=True,
+                timeout=30,     # a stop that hangs must not hang the gate in its turn
+            )
+        except (OSError, subprocess.SubprocessError):
+            pass
+    else:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except OSError:
+            pass
+
+    try:
+        proc.kill()
+    except OSError:
+        pass
+
+
 def run_step(step: Step) -> StepResult:
     """Run one step from the repository root. Show its output as it arrives, and keep all of it.
 
@@ -121,6 +192,9 @@ def run_step(step: Step) -> StepResult:
     # Python children write UTF-8 to the pipe, whatever the console's own code page is; the
     # gate decodes UTF-8. Left to the locale, a child's "—" arrives as a byte this cannot read.
     env = {**os.environ, "PYTHONIOENCODING": "utf-8", RUNNING: "1"}
+    popen_kwargs = {"start_new_session": True} if sys.platform != "win32" else {}
+
+    start_time = time.monotonic()
     try:
         proc = subprocess.Popen(
             step.command,
@@ -132,6 +206,7 @@ def run_step(step: Step) -> StepResult:
             encoding="utf-8",
             errors="replace",
             bufsize=1,
+            **popen_kwargs,
         )
     except OSError as exc:
         return StepResult(ok=False, reason=f"could not start: {exc}", output="")
@@ -153,22 +228,31 @@ def run_step(step: Step) -> StepResult:
         proc.wait(timeout=step.timeout)
     except subprocess.TimeoutExpired:
         timed_out = True
-        # This stops the step's own process. A step that starts other processes must stop
-        # them itself; one left running keeps the pipe open, which is why the join below
-        # has a limit of its own.
-        proc.kill()
+        # Everything the step started, not the step's own process alone: see _stop_tree().
+        _stop_tree(proc)
         proc.wait()
+    except KeyboardInterrupt:
+        # Ctrl+C. Off Windows the step is in a session of its own and never gets the signal
+        # itself, so the gate stops what the step started before it passes the signal on.
+        _stop_tree(proc)
+        raise
+
+    # A process whose parent had already gone is outside the tree, and may still hold the pipe
+    # open, which is why the join below has a limit of its own.
     reader.join(timeout=5.0)
+    elapsed = time.monotonic() - start_time
     output = "".join(lines)
 
     if timed_out:
-        return StepResult(False, f"timed out after {step.timeout} s", output)
+        return StepResult(False, f"timed out after {step.timeout} s", output, seconds=elapsed)
     if proc.returncode != 0:
-        return StepResult(False, f"exit code {proc.returncode}", output)
+        return StepResult(False, f"exit code {proc.returncode}", output, seconds=elapsed)
     skipped = _skipped(output)
     if skipped:
-        return StepResult(False, f"a test was skipped ({skipped}); the lines marked SKIPPED say which", output)
-    return StepResult(True, "", output)
+        # "The output above", not "the lines marked SKIPPED": that is pytest's word, and the
+        # skip may be node's, .NET's or unittest's.
+        return StepResult(False, f"a test was skipped ({skipped}); the output above names it", output, seconds=elapsed)
+    return StepResult(True, "", output, seconds=elapsed)
 
 
 def run(steps: list[Step]) -> int:
@@ -183,6 +267,7 @@ def run(steps: list[Step]) -> int:
     for position, step in enumerate(steps, start=1):
         print(f"\n== {position}/{len(steps)}  {step.name}", flush=True)
         result = run_step(step)
+        print(f"-- {step.name}: {result.seconds:.1f} s", flush=True)
         if not result.ok:
             print(f"\nFAILED at step {position}, {step.name}: {result.reason}", flush=True)
             return 1
@@ -193,6 +278,10 @@ def run(steps: list[Step]) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
+    for arg in argv:
+        if arg != "--list":
+            print(f"check: unknown argument {arg}. It takes --list.", flush=True)
+            return 2
     if "--list" in argv:
         for position, step in enumerate(STEPS, start=1):
             print(f"{position}. {step.name}  ({step.timeout} s)  {' '.join(step.command)}")
