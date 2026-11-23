@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useState } from 'react';
-import { base64ToBytes, bodyLanguage, bytesToBase64, formatJson, isJsonContainer } from '../core/bodies';
+import { base64ToBytes, bodyLanguage, bytesToBase64, formatJson, isJson, isJsonContainer } from '../core/bodies';
 import type { BodyEncoding } from '../core/types';
 
 const CodeEditor = React.lazy(() => import('./CodeEditor'));
@@ -13,6 +13,7 @@ export interface BodyEditorProps {
   onLoadFile?: (body: string, encoding: BodyEncoding, contentType: string) => void;
   mockName?: string;
   isDark?: boolean;
+  templates?: boolean;
 }
 
 export function BodyEditor({
@@ -24,29 +25,25 @@ export function BodyEditor({
   onLoadFile,
   mockName,
   isDark = false,
+  templates = false,
 }: BodyEditorProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [unformattableBody, setUnformattableBody] = useState<string | null>(null);
   const isText = bodyEncoding === 'text';
 
+  const jsonOptions = { templates };
+
   const handleFormat = () => {
-    if (isJsonContainer(body)) {
-      onChangeBody(formatJson(body), 'text');
+    if (isJsonContainer(body, jsonOptions)) {
+      onChangeBody(formatJson(body, jsonOptions), 'text');
     } else {
       setUnformattableBody(body);
     }
   };
 
   // Validate JSON if content-type contains json and bodyEncoding is text
-  let isJsonWarning = false;
   const isJsonType = contentType.toLowerCase().includes('json');
-  if (isJsonType && isText && body.trim()) {
-    try {
-      JSON.parse(body);
-    } catch {
-      isJsonWarning = true;
-    }
-  }
+  const isJsonWarning = isJsonType && isText && body.trim() !== '' && !isJson(body, jsonOptions);
 
   // Manage preview URL for base64 image bodies
   useEffect(() => {

@@ -1,3 +1,4 @@
+import { TEMPLATE_TAG } from './template';
 import { type BodyEncoding, BODY_CAP_BYTES, type Mock, type MockResponse } from './types';
 
 export function isTextual(contentType: string | null | undefined): boolean {
@@ -65,33 +66,50 @@ export function bodyLanguage(body: string): 'json' | 'text' {
 }
 
 const JSON_INDENT = '  ';
-const JSON_TOKEN = /"(?:[^"\\]|\\.)*"|[{}[\],:]|[^\s{}[\],:"]+/g;
+// A template tag is one token, kept as typed.
+const JSON_TOKEN = new RegExp(String.raw`"(?:[^"\\]|\\.)*"|${TEMPLATE_TAG.source}|[{}[\],:]|[^\s{}[\],:"]+`, 'g');
 const JSON_OPENERS = new Set(['{', '[']);
 const JSON_CLOSERS = new Set(['}', ']']);
 
-export function isJsonContainer(text: string): boolean {
+export interface JsonBodyOptions {
+  /** Fill {{templates}} is on: a tag counts as a JSON value. */
+  templates?: boolean;
+}
+
+/** The parsed body, or undefined when it is not JSON. */
+function parseJson(text: string, { templates = false }: JsonBodyOptions): unknown {
+  const filled = templates ? text.replace(TEMPLATE_TAG, (tag, escaped) => (escaped ? tag : '0')) : text;
   try {
-    const value: unknown = JSON.parse(text);
-    return typeof value === 'object' && value !== null;
+    return JSON.parse(filled);
   } catch {
-    return false;
+    return undefined;
   }
 }
 
-function jsonContainerTokens(text: string): string[] | null {
-  return isJsonContainer(text) ? (text.match(JSON_TOKEN) ?? []) : null;
+export function isJson(text: string, options: JsonBodyOptions = {}): boolean {
+  return parseJson(text, options) !== undefined;
 }
 
-export function compactJson(text: string): string {
-  return jsonContainerTokens(text)?.join('') ?? text;
+export function isJsonContainer(text: string, options: JsonBodyOptions = {}): boolean {
+  const value = parseJson(text, options);
+  return typeof value === 'object' && value !== null;
 }
 
-export function withBody(mock: Mock, transform: (body: string) => string): Mock {
-  return { ...mock, response: { ...mock.response, body: transform(mock.response.body) } };
+function jsonContainerTokens(text: string, options: JsonBodyOptions): string[] | null {
+  return isJsonContainer(text, options) ? (text.match(JSON_TOKEN) ?? []) : null;
 }
 
-export function formatJson(text: string): string {
-  const tokens = jsonContainerTokens(text);
+export function compactJson(text: string, options: JsonBodyOptions = {}): string {
+  return jsonContainerTokens(text, options)?.join('') ?? text;
+}
+
+export function withBody(mock: Mock, transform: (body: string, options: JsonBodyOptions) => string): Mock {
+  const body = transform(mock.response.body, { templates: mock.templates });
+  return { ...mock, response: { ...mock.response, body } };
+}
+
+export function formatJson(text: string, options: JsonBodyOptions = {}): string {
+  const tokens = jsonContainerTokens(text, options);
   if (!tokens) return text;
 
   const parts: string[] = [];
