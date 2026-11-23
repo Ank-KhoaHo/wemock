@@ -37,6 +37,9 @@ WORKING_MATERIAL = (
     ".leak-patterns.local",
 )
 
+# The highest number an archive's name may end with, when its second is already taken.
+LAST_NUMBER = 999
+
 
 def _tracked(root: Path) -> set[str]:
     """Every path git tracks. A git failure stops the backup: read as "nothing is tracked", it
@@ -84,11 +87,15 @@ def backup(root: Path, destination: Path) -> Path:
 
     destination.mkdir(parents=True, exist_ok=True)
     stem = f"{root.resolve().name}-working-half-{datetime.now():%Y-%m-%d-%H%M%S}"
-    archive = destination / f"{stem}.zip"
-    counter = 2
-    while archive.exists():             # two backups in one second must both survive
-        archive = destination / f"{stem}-{counter}.zip"
-        counter += 1
+    # Two backups in one second must both survive, so a name that is taken gets a number.
+    # THE SEARCH HAS AN END. It used to count up for as long as a name was taken, and a counter
+    # that did not move would have run for ever, with nothing to say why.
+    names = [f"{stem}.zip"] + [f"{stem}-{number}.zip" for number in range(2, LAST_NUMBER + 1)]
+    free = [name for name in names if not (destination / name).exists()]
+    if not free:
+        raise SystemExit(f"backup: {destination} already holds {LAST_NUMBER} archives named {stem}. "
+                         "Nothing was written: move some of them away, or choose another folder.")
+    archive = destination / free[0]
 
     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as held:
         for relative in files:

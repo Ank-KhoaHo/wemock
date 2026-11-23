@@ -49,7 +49,7 @@ def test_a_ticket_number_may_have_up_to_three_digits():
 def test_an_id_outside_the_convention_is_still_refused():
     # `q` and `try` are the search box's DOM id and a keyword in the page's script: an ID
     # like that would break the guard that keeps ticket data out of <script>.
-    invalid = ["A1000", "A", "E1", "a1", "q", "try", _t("A", 1, "-"), "1A", "A01x"]
+    invalid = ["A1000", "A", f"{_a_letter_with_no_section()}1", "a1", "q", "try", _t("A", 1, "-"), "1A", "A01x"]
     accepted = [tid for tid in invalid if builder._TICKET_ID_RE.match(tid)]
     assert accepted == [], f"the builder accepts IDs outside the convention: {accepted}"
 

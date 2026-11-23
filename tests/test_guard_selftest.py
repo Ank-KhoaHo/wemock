@@ -803,6 +803,23 @@ def test_the_checklist_keeps_the_two_lines_that_each_cost_a_bad_commit(capsys):
             f"{path.name} no longer says how to plant a bug in a Python file without a stale compiled copy")
 
 
+def test_the_checklist_says_what_a_planted_bug_proves_and_how_to_write_one(capsys):
+    """Plants that changed nothing a person could see were counted as missed faults. And a
+    shell's heredoc took one backslash of each pair, so a plant found no target: a plant that
+    changes nothing looks like a rule that holds."""
+    here = [path for path in (ROOT / "DEVELOPMENT-CHECKLIST.md", ROOT / "template" / "seed" / "DEVELOPMENT-CHECKLIST.md")
+            if path.is_file()]
+    if not here:
+        print("[CI] no DEVELOPMENT-CHECKLIST.md in this tree: its words on planted bugs were not looked at")
+        return
+    for path in here:
+        checklist = " ".join(path.read_text(encoding="utf-8").split())
+        assert "changes nothing a person can see" in checklist, (
+            f"{path.name} no longer says that a plant which changes nothing a person can see is not a missed fault")
+        assert "heredoc" in checklist, (
+            f"{path.name} no longer says to write a plant with a file tool, never through a shell's heredoc")
+
+
 # ---------------------------------------------------------------- a code span is not a link
 
 

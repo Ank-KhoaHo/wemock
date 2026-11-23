@@ -45,7 +45,7 @@ _SECTION_FMT_RE = re.compile(r"^([ABCD]) — \S")
 _SUMMARY_RE = re.compile(r"^## Detail\s*\n+\*\*(.+?)\*\*\s*$", re.M)
 
 # Ticket IDs are section letter + number, optionally a sub-item suffix (`-a`).
-# The examples in this file use numbers from 900 up: this script reaches every project, and
+# The examples in this file use numbers from 9001 up: this script reaches every project, and
 # a project's leak check refuses code that names one of its own tickets.
 # Validated rather than trusted: `tests/test_docs_integrity.py` asserts no ticket
 # ID appears inside the page's <script>, so an ID like `q` or `try` -- the search

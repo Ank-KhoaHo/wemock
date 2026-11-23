@@ -20,6 +20,9 @@ import pytest
 
 import test_art as art
 
+# The list this project keeps, read before the fixture below sets the one the examples use.
+_OWN_COVER_SIZES = art.COVER_SIZES
+
 # What a new project starts with, at the top of tests/test_art.py.
 _SETTINGS = {
     "ICON": "art/icon.svg",
@@ -267,6 +270,38 @@ def test_a_cover_has_the_size_its_store_asks_for(tmp_path, monkeypatch):
     assert len(problems) == 1 and "600x600" in problems[0], "the sizes are not read from COVER_SIZES"
 
 
+def test_this_projects_own_cover_sizes_are_sizes_the_rule_can_read(tmp_path, monkeypatch):
+    """The list is the project's own: a store asks for its size, and a project takes out the
+    sizes of stores it is not in. So no test here says what the list holds, and a planted
+    fault that takes one size out is not a missed fault, though it was counted as one.
+    What is held, whatever the list holds: a cover of each size in it passes, and a cover of
+    no size in it fails and is told every size it may have."""
+    own = _OWN_COVER_SIZES
+    assert own, "COVER_SIZES is empty: no cover could pass"
+    assert all(isinstance(size, tuple) and len(size) == 2 and all(isinstance(side, int) and side > 0 for side in size)
+               for size in own), f"COVER_SIZES holds pairs of whole numbers, width then height; it holds {own!r}"
+    monkeypatch.setattr(art, "COVER_SIZES", own)
+    _app(tmp_path)
+    for width, height in sorted(own):
+        _png(tmp_path / "art" / "cover.png", width, height)
+        assert art.art_problems(tmp_path, due=True) == [], f"a cover of {width}x{height} is in the list and was refused"
+    other = (max(width for width, _ in own) + 1, max(height for _, height in own) + 1)
+    _png(tmp_path / "art" / "cover.png", *other)
+    problems = art.art_problems(tmp_path, due=True)
+    assert len(problems) == 1 and f"{other[0]}x{other[1]}" in problems[0], problems
+    for width, height in own:
+        assert f"{width}x{height}" in problems[0], f"the message does not offer {width}x{height}"
+
+
+def test_the_rule_says_whose_list_the_cover_sizes_are():
+    source = Path(art.__file__).read_text(encoding="utf-8")
+    comment = source[source.index("# The sizes a cover may have"):source.index("\nCOVER_SIZES = ")]
+    words = " ".join(comment.replace("#", " ").split()).lower()
+    assert "this project's own" in words and "no test" in words, (
+        "the comment above COVER_SIZES does not say that the list is this project's own, and that no test "
+        "holds what it lists")
+
+
 def test_a_file_that_is_not_a_png_is_said_in_words(tmp_path):
     _app(tmp_path)
     _text(tmp_path / "art" / "banner.png", "not a picture")
@@ -422,6 +457,10 @@ def test_the_rule_says_where_a_projects_own_check_goes():
     """Projects added checks of their own, each in a place of its own choosing."""
     assert "at the end of this file" in art.__doc__, (
         "tests/test_art.py does not say that a project's stricter check goes at the end of this file")
+    # This file's last test runs a copy of the rule in a folder with nothing of the project
+    # beside it. An import of a project module at the top of the rule failed that copy.
+    assert "inside the test" in " ".join(art.__doc__.split()), (
+        "tests/test_art.py does not say that a project's own check imports a project module inside the test")
 
 
 def test_these_examples_pass_in_a_project_that_changed_its_settings(tmp_path):

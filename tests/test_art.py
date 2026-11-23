@@ -13,7 +13,10 @@ app writes one sentence in NOT_AN_APP.
 
 A check of this project's own (a stricter size, a second cover) goes
 at the end of this file, below the last test, never in a second file,
-so the rule stays in one place.
+so the rule stays in one place. If it needs a module of this project, it
+imports that module inside the test, never at the top of this file: the
+tests of this rule run a copy of this file in a folder that has nothing
+of the project beside it, and an import at the top fails that copy.
 """
 
 from pathlib import Path
@@ -33,6 +36,9 @@ COVER = "art/cover.png"
 # The sizes a cover may have: a store's own (itch.io, the Chrome Web Store, Google Play),
 # GitHub's social preview when there is no store, or a website's link card (1200 by 630),
 # because a website has no store and its cover is the card a shared link shows.
+# The list is this project's own: take out the size of a store this project is not in, or
+# add the size of one it is. No test holds what the list holds, so a size taken out fails
+# nothing. A test does hold that a cover of each size here passes, and that another fails.
 COVER_SIZES = frozenset({(1280, 640), (630, 500), (440, 280), (1024, 500), (1200, 630)})
 
 # A banner is at least this wide, and between these two numbers of times as wide as it is high;

@@ -99,6 +99,34 @@ def test_a_second_backup_does_not_replace_the_first(tmp_path, monkeypatch):
     assert [archive.name.split("-120000")[1] for archive in made] == [".zip", "-2.zip", "-3.zip"], made
 
 
+def test_the_search_for_a_free_name_has_an_end(tmp_path, monkeypatch):
+    """The search counted up for as long as a name was taken. A counter that never moved made
+    it run for ever: a fault planted there hung this file where it should have failed it. It
+    stops after the name that ends -999, with a message, and writes over nothing."""
+    class StoppedClock:
+        @staticmethod
+        def now():
+            return datetime(2026, 1, 31, 12, 0, 0)
+
+    monkeypatch.setattr(backup, "datetime", StoppedClock)
+    root = _repo(tmp_path)
+    destination = tmp_path / "backups"
+    first = backup.backup(root, destination)
+    stem = first.name[:-len(".zip")]
+    for number in range(2, 999):
+        (destination / f"{stem}-{number}.zip").write_bytes(b"taken")
+
+    last = backup.backup(root, destination)
+    assert last.name == f"{stem}-999.zip", f"the last free name is the one that ends -999; it wrote {last.name}"
+
+    before = sorted(path.name for path in destination.iterdir())
+    with pytest.raises(SystemExit) as stop:
+        backup.backup(root, destination)
+    assert "999" in str(stop.value) and str(destination) in str(stop.value), str(stop.value)
+    assert sorted(path.name for path in destination.iterdir()) == before, "it wrote a file after it had given up"
+    assert (destination / f"{stem}-2.zip").read_bytes() == b"taken", "an archive that was there was written over"
+
+
 def test_a_destination_inside_the_repository_is_refused(tmp_path):
     """A backup inside the repository is removed by the same `git clean` it is meant to
     survive, and is one `git add -f` away from being published."""

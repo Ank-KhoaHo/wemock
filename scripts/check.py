@@ -37,6 +37,13 @@ ROOT = Path(__file__).resolve().parents[1]
 # Set in the environment of every step. See main() for what it prevents.
 RUNNING = "LOCAL_GATE_RUNNING"
 
+# A step that takes more than this share of its time limit is said to be near its limit, on
+# its own line and again at the end, so a person notices before a busy day stops the step.
+NEAR_LIMIT = 0.8
+
+# The seconds a step's cleanup command may take before it is stopped.
+CLEANUP_LIMIT = 60
+
 
 @dataclass
 class Step:
@@ -48,11 +55,16 @@ class Step:
     Every step has a time limit. A process that hangs -- a test waiting on input, a tool that
     never quits after an error -- would otherwise hang the gate, and in CI that reads as a
     job still running rather than a failure.
+
+    cleanup is a command that removes what the step starts outside its own processes: a
+    container, by its name. A container is not a child process, so stopping the step never
+    reaches it. See run_step for when the command runs.
     """
 
     name: str
     command: list[str]
     timeout: int = 600
+    cleanup: list[str] | None = None
 
 
 @dataclass
@@ -87,16 +99,36 @@ STEPS: list[Step] = [
 ]
 
 
+def steps_for(form: str) -> list[Step]:
+    """The steps of one form of the gate. This gate has one form, "whole". main() asks here, once.
+
+    THE ONE PLACE main() GETS ITS STEPS. A project that builds its steps elsewhere, or adds
+    a form of its own, changes this function and nothing in main(). The gate's tests replace
+    it, so no test can start a real step: where a test replaced the list alone and the steps
+    came from somewhere else, the real gate ran from inside the tests.
+    """
+    if form == "whole":
+        return STEPS
+    raise ValueError(f"check: no such form of the gate: {form}")
+
+
 # A SKIPPED TEST FAILS THE GATE, even when the command exits 0. A skip is an assertion that
 # did not run, reported in the same colour as one that did, and a suite can skip its way to
 # green.
 #
-# It looks for skips in five shapes across tools:
-#   1. A count then the word: pytest and most others ("7 passed, 2 skipped in 0.31s")
+# It looks for skips in seven shapes across tools:
+#   1. A count then the word: pytest and most others ("7 passed, 2 skipped in 0.31s").
+#      Vitest and Playwright print `N skipped` too, and this shape reads them.
 #   2. A whole line starting with ℹ: node --test on screen ("ℹ skipped 1")
 #   3. A whole line starting with #: node --test in CI ("# skipped 1")
 #   4. The word, a colon, then count: .NET ("skipped: 2", "Skipped:     2")
 #   5. The word, an equals sign, then count: unittest ("OK (skipped=3)")
+#   6. A count then `todo`: Vitest, for a test that is named and not written
+#      ("Tests  1 passed | 1 todo (2)")
+#   7. pytest's own line for a skipped test, when no summary follows it
+#      ("SKIPPED [1] test_x.py:6: not today")
+#
+# Each of the last two ended with exit code 0 in a real run: a test that did not run.
 #
 # A count and its word are always read on one line (between them only spaces and tabs, never a
 # line break), so a count ending one line and the word starting the next (such as a clean .NET
@@ -110,6 +142,8 @@ _SKIP_LINE_SHAPES = re.compile(r"^[ \t]*([ℹ#][ \t]+skipped[ \t]+(\d+))[ \t]*$"
 _SKIP_COUNT_FIRST = re.compile(r"\b(\d+)[ \t]+skipped\b(?![ \t]*:)")
 _SKIP_COLON = re.compile(r"\bskipped[ \t]*:[ \t]*(\d+)\b", re.IGNORECASE)
 _SKIP_EQUALS = re.compile(r"\bskipped[ \t]*=[ \t]*(\d+)\b", re.IGNORECASE)
+_SKIP_TODO = re.compile(r"\b(\d+)[ \t]+todo\b(?![ \t]*:)")
+_SKIP_PYTEST_LINE = re.compile(r"\bSKIPPED \[(\d+)\]")
 
 
 def _skipped(output: str) -> str:
@@ -126,6 +160,10 @@ def _skipped(output: str) -> str:
         for m in _SKIP_COLON.finditer(line):
             matches.append((m.start(), m.group(0), int(m.group(1))))
         for m in _SKIP_EQUALS.finditer(line):
+            matches.append((m.start(), m.group(0), int(m.group(1))))
+        for m in _SKIP_TODO.finditer(line):
+            matches.append((m.start(), m.group(0), int(m.group(1))))
+        for m in _SKIP_PYTEST_LINE.finditer(line):
             matches.append((m.start(), m.group(0), int(m.group(1))))
         matches.sort(key=lambda item: item[0])
         for _, text, count in matches:
@@ -182,17 +220,73 @@ def _stop_tree(proc: subprocess.Popen) -> None:
         pass
 
 
+def _run_cleanup(step: Step, env: dict[str, str], own_session: dict) -> None:
+    """Run a step's cleanup command, from the repository root and with the step's environment.
+
+    WHY IT EXISTS. `docker run` asks a service for a container, so the container is no child
+    of the step: _stop_tree() ends the docker client, and the container runs on. A step that
+    starts one gives the command that removes it by name.
+
+    IT NEVER RAISES, AND IT NEVER CHANGES THE STEP'S RESULT. Removing what is not there may
+    end with an error, and that is the usual case; the step's own exit code is the one that
+    counts. A cleanup that failed, could not start, or ran past CLEANUP_LIMIT is one line on
+    the screen. What it printed is shown only when it failed, and is never added to the
+    step's own output, where a number in it could be read as a skipped test.
+    """
+    assert step.cleanup
+    limit = CLEANUP_LIMIT       # read here, not when the module loads: a project may set it
+    try:
+        proc = subprocess.Popen(
+            step.cleanup,
+            cwd=ROOT,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            **own_session,
+        )
+    except OSError as exc:
+        print(f"-- {step.name}: its cleanup could not start: {exc}", flush=True)
+        return
+
+    try:
+        output, _ = proc.communicate(timeout=limit)
+    except subprocess.TimeoutExpired:
+        # A cleanup that waits on a service which is down would hang the gate, as a step would.
+        _stop_tree(proc)
+        print(f"-- {step.name}: its cleanup passed its limit of {limit} s, and was stopped", flush=True)
+        try:
+            proc.communicate(timeout=5.0)   # a process left outside the tree may hold the pipe
+        except (subprocess.TimeoutExpired, OSError, ValueError):
+            pass
+        return
+
+    if proc.returncode != 0:
+        print(f"-- {step.name}: its cleanup ended with exit code {proc.returncode}", flush=True)
+        for line in output.splitlines():
+            _show(line + "\n")
+
+
 def run_step(step: Step) -> StepResult:
     """Run one step from the repository root. Show its output as it arrives, and keep all of it.
 
     NEVER THE LAST LINES ONLY. The line that explains a failure is often not the last one: a
     parse error is printed first and a summary last. So nothing here pipes, cuts or tails; the
     whole output is shown while the step runs, and returned in full.
+
+    A STEP'S CLEANUP RUNS BEFORE THE STEP, for what an earlier run left behind, and again
+    when the step is stopped at its limit or by hand. It does not run after a step that
+    ended by itself: such a step has removed what it started, or its command says to.
     """
     # Python children write UTF-8 to the pipe, whatever the console's own code page is; the
     # gate decodes UTF-8. Left to the locale, a child's "—" arrives as a byte this cannot read.
     env = {**os.environ, "PYTHONIOENCODING": "utf-8", RUNNING: "1"}
     popen_kwargs = {"start_new_session": True} if sys.platform != "win32" else {}
+
+    if step.cleanup:
+        _run_cleanup(step, env, popen_kwargs)
 
     start_time = time.monotonic()
     try:
@@ -231,10 +325,14 @@ def run_step(step: Step) -> StepResult:
         # Everything the step started, not the step's own process alone: see _stop_tree().
         _stop_tree(proc)
         proc.wait()
+        if step.cleanup:
+            _run_cleanup(step, env, popen_kwargs)
     except KeyboardInterrupt:
         # Ctrl+C. Off Windows the step is in a session of its own and never gets the signal
         # itself, so the gate stops what the step started before it passes the signal on.
         _stop_tree(proc)
+        if step.cleanup:
+            _run_cleanup(step, env, popen_kwargs)
         raise
 
     # A process whose parent had already gone is outside the tree, and may still hold the pipe
@@ -259,20 +357,33 @@ def run(steps: list[Step]) -> int:
     """Run the steps in order and stop at the first that fails. 0 only when every step passed.
 
     A gate with no steps returns 1: it checked nothing, and must not say that it passed.
+
+    A step that used more than NEAR_LIMIT of its time limit is said to, on its own line of
+    seconds and again after the last step, where a person looks: a step once ran at 83 % of
+    its limit on a busy day, and nothing said that the next such day would stop it.
     """
     if not steps:
         print("check: no steps to run, so nothing was checked.", flush=True)
         return 1
 
+    near_limit: list[str] = []
     for position, step in enumerate(steps, start=1):
         print(f"\n== {position}/{len(steps)}  {step.name}", flush=True)
         result = run_step(step)
-        print(f"-- {step.name}: {result.seconds:.1f} s", flush=True)
+        if result.seconds > NEAR_LIMIT * step.timeout:
+            # The whole percent, rounded down, from the seconds as measured.
+            percent = int(result.seconds * 100 / step.timeout)
+            print(f"-- {step.name}: {result.seconds:.1f} s, {percent} % of its limit of {step.timeout} s", flush=True)
+            near_limit.append(f"{step.name} ({percent} % of {step.timeout} s)")
+        else:
+            print(f"-- {step.name}: {result.seconds:.1f} s", flush=True)
         if not result.ok:
             print(f"\nFAILED at step {position}, {step.name}: {result.reason}", flush=True)
             return 1
 
     print("\nAll local checks passed.", flush=True)
+    if near_limit:
+        print(f"Near its limit: {', '.join(near_limit)}.", flush=True)
     return 0
 
 
@@ -282,9 +393,12 @@ def main(argv: list[str] | None = None) -> int:
         if arg != "--list":
             print(f"check: unknown argument {arg}. It takes --list.", flush=True)
             return 2
+    # Asked once, here, and nowhere else: see steps_for().
+    steps = steps_for("whole")
     if "--list" in argv:
-        for position, step in enumerate(STEPS, start=1):
-            print(f"{position}. {step.name}  ({step.timeout} s)  {' '.join(step.command)}")
+        for position, step in enumerate(steps, start=1):
+            cleanup = f"  [cleanup: {' '.join(step.cleanup)}]" if step.cleanup else ""
+            print(f"{position}. {step.name}  ({step.timeout} s)  {' '.join(step.command)}{cleanup}")
         return 0
     # THE GATE NEVER RUNS INSIDE ITSELF. Its first step runs the tests; a test (or a step) that
     # started the gate would start the tests again, which start the gate again, without end.
@@ -294,7 +408,7 @@ def main(argv: list[str] | None = None) -> int:
         print("check: the gate is already running in a parent process, and will not start "
               "inside itself. A test or a step must never run scripts/check.py.", flush=True)
         return 1
-    return run(STEPS)
+    return run(steps)
 
 
 if __name__ == "__main__":
