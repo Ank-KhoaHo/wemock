@@ -106,6 +106,11 @@ def steps_for(form: str) -> list[Step]:
     a form of its own, changes this function and nothing in main(). The gate's tests replace
     it, so no test can start a real step: where a test replaced the list alone and the steps
     came from somewhere else, the real gate ran from inside the tests.
+
+    A PROJECT WITH STEPS OF ITS OWN. A flag of the project's own changes the steps this
+    function gave, and never builds its own: steps built past this function are steps no
+    test replaces. A list is built once, when the module loads, never on each call: a
+    builder that asks a tool something would start a process each time main() asks.
     """
     if form == "whole":
         return STEPS
@@ -119,8 +124,9 @@ def steps_for(form: str) -> list[Step]:
 # It looks for skips in seven shapes across tools:
 #   1. A count then the word: pytest and most others ("7 passed, 2 skipped in 0.31s").
 #      Vitest and Playwright print `N skipped` too, and this shape reads them.
-#   2. A whole line starting with ℹ: node --test on screen ("ℹ skipped 1")
-#   3. A whole line starting with #: node --test in CI ("# skipped 1")
+#   2. A whole line starting with ℹ: node --test on screen ("ℹ skipped 1", and "ℹ todo 1"
+#      for a test that is still to do)
+#   3. A whole line starting with #: node --test in CI ("# skipped 1", and "# todo 1")
 #   4. The word, a colon, then count: .NET ("skipped: 2", "Skipped:     2")
 #   5. The word, an equals sign, then count: unittest ("OK (skipped=3)")
 #   6. A count then `todo`: Vitest, for a test that is named and not written
@@ -128,7 +134,8 @@ def steps_for(form: str) -> list[Step]:
 #   7. pytest's own line for a skipped test, when no summary follows it
 #      ("SKIPPED [1] test_x.py:6: not today")
 #
-# Each of the last two ended with exit code 0 in a real run: a test that did not run.
+# Node's `todo` lines and each of the last two ended with exit code 0 in a real run: a
+# test that did not run.
 #
 # A count and its word are always read on one line (between them only spaces and tabs, never a
 # line break), so a count ending one line and the word starting the next (such as a clean .NET
@@ -138,7 +145,7 @@ def steps_for(form: str) -> list[Step]:
 # A number before the word is its count only when no colon follows the word. A build log puts
 # its own time before each line: Docker writes "#13 34.28   skipped: 0" for a clean .NET run,
 # and read count first that is "28 skipped". With a colon the count is the number after it.
-_SKIP_LINE_SHAPES = re.compile(r"^[ \t]*([ℹ#][ \t]+skipped[ \t]+(\d+))[ \t]*$")
+_SKIP_LINE_SHAPES = re.compile(r"^[ \t]*([ℹ#][ \t]+(?:skipped|todo)[ \t]+(\d+))[ \t]*$")
 _SKIP_COUNT_FIRST = re.compile(r"\b(\d+)[ \t]+skipped\b(?![ \t]*:)")
 _SKIP_COLON = re.compile(r"\bskipped[ \t]*:[ \t]*(\d+)\b", re.IGNORECASE)
 _SKIP_EQUALS = re.compile(r"\bskipped[ \t]*=[ \t]*(\d+)\b", re.IGNORECASE)
@@ -227,11 +234,12 @@ def _run_cleanup(step: Step, env: dict[str, str], own_session: dict) -> None:
     of the step: _stop_tree() ends the docker client, and the container runs on. A step that
     starts one gives the command that removes it by name.
 
-    IT NEVER RAISES, AND IT NEVER CHANGES THE STEP'S RESULT. Removing what is not there may
-    end with an error, and that is the usual case; the step's own exit code is the one that
-    counts. A cleanup that failed, could not start, or ran past CLEANUP_LIMIT is one line on
-    the screen. What it printed is shown only when it failed, and is never added to the
-    step's own output, where a number in it could be read as a skipped test.
+    IT NEVER RAISES, AND IT NEVER CHANGES THE STEP'S RESULT. `docker rm -f` of a name that
+    is not there exits 0 and says nothing; a tool that ends with an error there changes
+    nothing, because the step's own exit code is the one that counts. A cleanup that failed,
+    could not start, or ran past CLEANUP_LIMIT is one line on the screen. What it printed is
+    shown only when it failed, and is never added to the step's own output, where a number in
+    it could be read as a skipped test.
     """
     assert step.cleanup
     limit = CLEANUP_LIMIT       # read here, not when the module loads: a project may set it

@@ -291,15 +291,28 @@ def test_this_projects_own_cover_sizes_are_sizes_the_rule_can_read(tmp_path, mon
     assert len(problems) == 1 and f"{other[0]}x{other[1]}" in problems[0], problems
     for width, height in own:
         assert f"{width}x{height}" in problems[0], f"the message does not offer {width}x{height}"
+    # A size that shares one side with the list is in no size of it. One wrong size was tried
+    # here once, larger both ways, and a rule that let any cover of a listed width through
+    # passed every test.
+    for width, height in sorted(own):
+        for near in ((width, height + 1), (width + 1, height)):
+            if near in own:
+                continue
+            _png(tmp_path / "art" / "cover.png", *near)
+            problems = art.art_problems(tmp_path, due=True)
+            assert len(problems) == 1 and f"{near[0]}x{near[1]}" in problems[0], (
+                f"a cover of {near[0]}x{near[1]} is no size in the list and was accepted: {problems}")
 
 
 def test_the_rule_says_whose_list_the_cover_sizes_are():
     source = Path(art.__file__).read_text(encoding="utf-8")
     comment = source[source.index("# The sizes a cover may have"):source.index("\nCOVER_SIZES = ")]
     words = " ".join(comment.replace("#", " ").split()).lower()
-    assert "this project's own" in words and "no test" in words, (
+    # "No test of the template's": a project may hold its own list with a test of its own, and
+    # the comment said "no test" there while one did.
+    assert "this project's own" in words and "no test of the template's" in words, (
         "the comment above COVER_SIZES does not say that the list is this project's own, and that no test "
-        "holds what it lists")
+        "of the template's holds what it lists")
 
 
 def test_a_file_that_is_not_a_png_is_said_in_words(tmp_path):

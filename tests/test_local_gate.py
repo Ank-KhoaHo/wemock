@@ -10,6 +10,10 @@ What the gate must do, and each test below holds it to one of these:
 * treat a skipped test as a failure: a skip is an assertion that did not run
 * give every step a time limit, so a hung process cannot hang the gate
 * show a step's output as it arrives, in full, never the last few lines only
+
+A test of a project's own reads the steps from `check.steps_for("whole")`, never from
+`check.STEPS`: main() runs what the function gives, and a list it no longer reads can hold
+anything.
 """
 
 import os
@@ -150,6 +154,27 @@ def test_the_one_function_says_which_forms_it_knows():
     with pytest.raises(ValueError):
         steps_for("quik")
     assert _REAL_STEPS and all(isinstance(step, check.Step) for step in _REAL_STEPS), "the gate gives no step"
+
+
+def test_the_one_function_says_what_a_project_with_steps_of_its_own_needs():
+    """A flag of a project's own once called its builder, past the function the tests replace:
+    a test that gave main() its steps could still reach a real step. And a list built on each
+    call starts whatever its builder asks a tool, each time main() asks. The function says
+    both, where a project changes it."""
+    words = " ".join((check.steps_for.__doc__ or "").split())
+    assert "never builds its own" in words, (
+        "steps_for() does not say that a flag of the project's own changes the steps it was given, "
+        "and never builds its own")
+    assert "built once" in words, (
+        "steps_for() does not say that a list is built once, when the module loads, and never on each call")
+
+
+def test_this_file_says_where_a_projects_own_test_reads_the_steps():
+    """The fixture refuses a real step in run_step() only. One project's own test read STEPS
+    and passed, though main() no longer has to run that list."""
+    words = " ".join((__doc__ or "").split())
+    assert 'steps_for("whole")' in words and "never from `check.STEPS`" in words, (
+        "the first lines of this file do not say that a test reads its steps from steps_for(), never from STEPS")
 
 
 # ---------------------------------------------------------------- one step
@@ -407,7 +432,7 @@ def _named(name: str, limit: int) -> "check.Step":
     return check.Step(name=name, command=[PY, "-c", "pass"], timeout=limit)
 
 
-def test_a_step_that_used_most_of_its_limit_is_said_to(monkeypatch, capsys):
+def test_a_step_near_its_limit_is_said_to_be(monkeypatch, capsys):
     """The seconds showed a step at 83 % of its limit, on a day the machine was busy. Nothing
     said that the next busy day would stop it. More than 80 % of the limit is said on the
     step's own line, and again at the end, where a person looks."""
@@ -419,7 +444,7 @@ def test_a_step_that_used_most_of_its_limit_is_said_to(monkeypatch, capsys):
     assert lines[-2:] == ["All local checks passed.", "Near its limit: the long suite (83 % of 3700 s)."], lines[-2:]
 
 
-def test_the_line_is_drawn_above_80_percent_and_not_at_it(monkeypatch, capsys):
+def test_near_its_limit_means_above_80_percent_and_not_at_it(monkeypatch, capsys):
     _each_took(monkeypatch, {"at the line": 80.0, "just over": 80.5, "at the limit": 99.96})
     assert check.run([_named("at the line", 100), _named("just over", 100), _named("at the limit", 100)]) == 0
     lines = [line for line in capsys.readouterr().out.splitlines() if line.strip()]
@@ -470,6 +495,12 @@ _REAL_SKIPS = {
     "Vitest, a test that is still to do":
         " Test Files  1 passed (1)\n      Tests  1 passed | 1 todo (2)\n   Start at  09:03:57",
     "pytest, its line for a skipped test with no summary after it": "SKIPPED [1] test_x.py:6: not today",
+    # Copied from a run made on 2026-11-23 with Node 24.21.0: one test that passes and one
+    # `test.todo`. It ended with exit code 0 under both reporters.
+    "node --test, a test that is still to do, as a person sees it":
+        "ℹ tests 2\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 1\nℹ duration_ms 94.1272",
+    "node --test, a test that is still to do, as CI sees it":
+        "# tests 2\n# suites 0\n# pass 1\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 1\n# duration_ms 103.0647",
 }
 
 _NO_SKIPS = {
@@ -490,6 +521,7 @@ _NO_SKIPS = {
     "the word todo in ordinary output": "todo: convert the last 3 of them\n5 passed in 0.1s",
     "a number before a label that ends with the word": "left over, 12 todo: see the list\n5 passed in 0.1s",
     "pytest's word with no count in brackets": "SKIPPED tests are listed below\nSKIPPED [0] none\n5 passed in 0.1s",
+    "node's word with no count after it": "# todo\nℹ todo\n# todo: 2 pages\n5 passed in 0.1s",
 }
 
 
@@ -514,12 +546,14 @@ def test_a_count_of_none_in_any_shape_is_not_a_skip():
 def test_the_reason_names_the_line_that_showed_the_skip():
     """A person reads the reason first. It must point at the line to look for."""
     for output, shown in (("      Tests  1 passed | 1 todo (2)", "1 todo"),
-                          ("SKIPPED [1] test_x.py:6: not today", "SKIPPED [1]")):
+                          ("SKIPPED [1] test_x.py:6: not today", "SKIPPED [1]"),
+                          ("ℹ skipped 0\nℹ todo 1", "ℹ todo 1"),
+                          ("# skipped 0\n# todo 1", "# todo 1")):
         result = check.run_step(_step("a test that did not run", _printed(output)))
         assert result.reason == f"a test was skipped ({shown}); the output above names it", result.reason
 
 
-def test_the_gate_says_which_tools_it_reads():
+def test_the_gate_says_which_tools_it_reads_a_skip_from():
     """Projects asked whether Vitest's and Playwright's `N skipped` is read. It is, as pytest's
     shape, and the comment above the shapes is where a person looks for the answer."""
     source = (ROOT / "scripts" / "check.py").read_text(encoding="utf-8")
@@ -528,9 +562,11 @@ def test_the_gate_says_which_tools_it_reads():
     comment = "\n".join(line for line in block.splitlines() if line.startswith("#"))
     for tool in ("pytest", "node --test", ".NET", "unittest", "Vitest", "Playwright"):
         assert tool in comment, f"the comment above the skip shapes does not name {tool}"
+    for line in ('"ℹ todo 1"', '"# todo 1"'):
+        assert line in comment, f"the comment above the skip shapes does not show node's line {line}"
 
 
-def test_a_number_before_the_label_is_not_its_count():
+def test_a_number_before_the_label_is_not_the_count_of_a_skip():
     """A build log puts its own time before each line: Docker writes "#13 34.28   skipped: 0"
     for a clean .NET run. Read count first, that is "28 skipped", and a gate that fails every
     clean run gets switched off. One project found it. The count is the number after the colon."""
@@ -687,7 +723,7 @@ def test_a_steps_cleanup_runs_before_the_step_starts(tmp_path):
         f"a step with a cleanup ran {_words(log)}: the cleanup runs once before it, and not after a step that ended")
 
 
-def test_a_step_that_fails_by_itself_is_not_cleaned_up_after(tmp_path):
+def test_a_step_that_fails_by_itself_gets_no_cleanup_after(tmp_path):
     log = tmp_path / "order.txt"
     step = check.Step(name="breaks", command=_notes(log, "step", then="raise SystemExit(1)"),
                       cleanup=_notes(log, "cleanup"), timeout=30)
@@ -703,7 +739,7 @@ def test_a_step_with_no_cleanup_runs_as_it_always_did(tmp_path):
     assert _words(log) == ["step"]
 
 
-def test_a_step_past_its_limit_is_cleaned_up_again(tmp_path):
+def test_a_step_past_its_limit_gets_its_cleanup_again(tmp_path):
     log = tmp_path / "order.txt"
     step = check.Step(name="hangs in a container", command=_notes(log, "step", then="import time; time.sleep(60)"),
                       cleanup=_notes(log, "cleanup"), timeout=2)
@@ -715,7 +751,7 @@ def test_a_step_past_its_limit_is_cleaned_up_again(tmp_path):
         f"a step stopped at its limit ran {_words(log)}: what it started outside its own processes is still there")
 
 
-def test_a_gate_stopped_by_hand_cleans_up_before_it_passes_the_stop_on(tmp_path, monkeypatch):
+def test_a_gate_stopped_by_hand_runs_the_cleanup_before_it_passes_the_stop_on(tmp_path, monkeypatch):
     log = tmp_path / "order.txt"
     command = _notes(log, "step", then="import time; time.sleep(20)")
     interrupted = []
@@ -790,6 +826,17 @@ def test_a_cleanup_that_hangs_is_stopped_at_its_own_limit(tmp_path, monkeypatch,
         _stop_leftovers(beat)
 
 
+def test_the_cleanup_says_what_removing_nothing_does():
+    """Its docstring said that removing what is not there "may end with an error, and that is
+    the usual case". Measured with Docker 29.9.3: `docker rm -f` of a name that is not there
+    ends with exit code 0 and prints nothing. A person who reads a silent cleanup must not
+    take it for one that never ran."""
+    words = " ".join((check._run_cleanup.__doc__ or "").split())
+    assert "exits 0 and says nothing" in words, (
+        "_run_cleanup() does not say that `docker rm -f` of a name that is not there exits 0 and says nothing")
+    assert "the usual case" not in words, "_run_cleanup() still says that an error is the usual case"
+
+
 def test_a_cleanup_is_told_the_gate_is_running(tmp_path):
     seen = tmp_path / "seen.txt"
     code = f"import os; open({str(seen)!r}, 'w').write(os.getcwd() + '|' + os.environ.get({check.RUNNING!r}, ''))"
@@ -811,3 +858,83 @@ def test_the_list_names_a_steps_cleanup(monkeypatch, tmp_path, capsys):
     assert len(lines) == 2 and not list(tmp_path.iterdir()), "--list ran a step or a cleanup"
     assert "cleanup" not in lines[0], lines[0]
     assert lines[1].endswith("[cleanup: docker rm -f suite-tests]"), lines[1]
+
+
+# ---------------------------------------------------------------- a workflow GitHub can read
+
+
+def _workflow_key_problems(name: str, text: str) -> list[str]:
+    """What GitHub would refuse a workflow for: `on:` and `jobs:` each start a line, once."""
+    problems = []
+    for key in ("on", "jobs"):
+        found = [line for line in text.splitlines() if re.match(rf"""(?:{key}|"{key}"|'{key}')[ \t]*:""", line)]
+        if len(found) != 1:
+            problems.append(f"{name} has {len(found)} lines that start with `{key}:`, not one: GitHub would refuse it")
+    return problems
+
+
+def test_each_workflow_has_the_two_keys_github_reads_it_by():
+    """A comment was once taken into a workflow by cutting the file at the letters `on:`, which
+    also end `reason:`. The file lost its `on:` line, every test passed, and GitHub refused it
+    as no workflow at all. No package is needed to see that: each key starts a line, once."""
+    folders = [ROOT / ".github" / "workflows", *sorted((ROOT / "template" / "packs").glob("*/files/.github/workflows"))]
+    for folder in folders:
+        for path in sorted(folder.glob("*.y*ml")) if folder.is_dir() else []:
+            assert _workflow_key_problems(path.name, path.read_text(encoding="utf-8")) == []
+
+    sound = ("name: sample\non:\n  push:\n    branches: [main]\n  workflow_dispatch:\n"
+             "jobs:\n  gate:\n    runs-on: ubuntu-latest\n")
+    assert _workflow_key_problems("sample.yml", sound) == []
+    for written in ("on: push\n", "on: [push, pull_request]\n", '"on":\n  push:\n', "'on':\n  push:\n"):
+        assert _workflow_key_problems("sample.yml", f"name: sample\n{written}jobs:\n  gate: {{}}\n") == [], written
+    no_on = sound.replace("\non:\n", "\n")
+    assert _workflow_key_problems("sample.yml", no_on) == [
+        "sample.yml has 0 lines that start with `on:`, not one: GitHub would refuse it"]
+    # What cost that file its line: a comment that ends with the same letters is not the key.
+    only_in_a_comment = no_on.replace("name: sample\n", "name: sample\n# left out, for one reason:\n")
+    assert len(_workflow_key_problems("sample.yml", only_in_a_comment)) == 1
+    inside_another_key = no_on.replace("name: sample\n", "name: sample\nenv:\n  on: yes\n")
+    assert len(_workflow_key_problems("sample.yml", inside_another_key)) == 1
+    assert _workflow_key_problems("sample.yml", sound.replace("jobs:\n", "")) == [
+        "sample.yml has 0 lines that start with `jobs:`, not one: GitHub would refuse it"]
+    assert _workflow_key_problems("sample.yml", sound + "on:\n  workflow_dispatch:\n") == [
+        "sample.yml has 2 lines that start with `on:`, not one: GitHub would refuse it"]
+
+
+# ---------------------------------------------------------------- the tests of one rule share a word
+
+# A plant is run against the tests of its rule. Projects called a caught fault missed: the
+# word they gave `-k` selected none of the test that held the rule. In each section named
+# here, every test has the one word in its name, so `-k <word>` selects all of them.
+_ONE_WORD = {
+    "a step near its limit": "near_its_limit",
+    "every shape of a skip": "skip",
+    "what the tree stop cannot reach": "cleanup",
+}
+
+
+def _tests_by_section(source: str) -> dict[str, list[str]]:
+    """Each section of a test file, by the words of its comment line, with its tests' names."""
+    sections: dict[str, list[str]] = {}
+    title = ""
+    for line in source.splitlines():
+        heading = re.match(r"# -{10,} (.+)$", line)
+        if heading:
+            title = heading.group(1).strip()
+        name = re.match(r"def (test_\w+)\(", line)
+        if name:
+            sections.setdefault(title, []).append(name.group(1))
+    return sections
+
+
+def test_the_tests_of_one_rule_share_one_word_in_their_names():
+    sample = ("# ---------------------------------------------------------------- a rule\n\n\n"
+              "def test_a_cleanup_runs():\n    pass\n\n\ndef helper():\n    pass\n\n\ndef test_it_is_cleaned_up(tmp_path):\n    pass\n")
+    assert _tests_by_section(sample) == {"a rule": ["test_a_cleanup_runs", "test_it_is_cleaned_up"]}
+
+    sections = _tests_by_section(Path(__file__).read_text(encoding="utf-8"))
+    for title, word in _ONE_WORD.items():
+        names = sections.get(title)
+        assert names, f"this file has no section `{title}`"
+        without = [name for name in names if word not in name]
+        assert without == [], f"`-k {word}` would not select {without}, in the section `{title}`"

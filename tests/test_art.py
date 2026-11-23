@@ -37,8 +37,9 @@ COVER = "art/cover.png"
 # GitHub's social preview when there is no store, or a website's link card (1200 by 630),
 # because a website has no store and its cover is the card a shared link shows.
 # The list is this project's own: take out the size of a store this project is not in, or
-# add the size of one it is. No test holds what the list holds, so a size taken out fails
-# nothing. A test does hold that a cover of each size here passes, and that another fails.
+# add the size of one it is. No test of the template's holds what the list holds, so a size
+# taken out fails nothing there. A test does hold that a cover of each size here passes, and
+# that a cover of any other size fails.
 COVER_SIZES = frozenset({(1280, 640), (630, 500), (440, 280), (1024, 500), (1200, 630)})
 
 # A banner is at least this wide, and between these two numbers of times as wide as it is high;

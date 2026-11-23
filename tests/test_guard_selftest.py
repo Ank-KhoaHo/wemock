@@ -812,12 +812,34 @@ def test_the_checklist_says_what_a_planted_bug_proves_and_how_to_write_one(capsy
     if not here:
         print("[CI] no DEVELOPMENT-CHECKLIST.md in this tree: its words on planted bugs were not looked at")
         return
+    # Each sentence is held by its own words. This test once looked for the word `heredoc`,
+    # which the next sentence says too: every project found that the rule itself could go.
     for path in here:
         checklist = " ".join(path.read_text(encoding="utf-8").split())
-        assert "changes nothing a person can see" in checklist, (
-            f"{path.name} no longer says that a plant which changes nothing a person can see is not a missed fault")
-        assert "heredoc" in checklist, (
-            f"{path.name} no longer says to write a plant with a file tool, never through a shell's heredoc")
+        for words, what in (
+                ("changes nothing a person can see", "that a plant which changes nothing a person can see is not a missed fault"),
+                ("with a file tool", "to write a plant with a file tool"),
+                ("never through a shell's heredoc", "that a plant is never written through a shell's heredoc")):
+            assert words in checklist, f"{path.name} no longer says {what}"
+
+
+def test_the_checklist_says_how_to_run_a_plant_and_what_a_cleanup_by_name_costs(capsys):
+    """A caught fault was called missed: the word given to `-k` selected none of the test that
+    held the rule. A plant changed nothing: its target stood in two places and the tool
+    stopped. And a cleanup removes a container by a fixed name, so two gates of one project
+    on one machine would remove each other's."""
+    here = [path for path in (ROOT / "DEVELOPMENT-CHECKLIST.md", ROOT / "template" / "seed" / "DEVELOPMENT-CHECKLIST.md")
+            if path.is_file()]
+    if not here:
+        print("[CI] no DEVELOPMENT-CHECKLIST.md in this tree: its words on running a plant were not looked at")
+        return
+    for path in here:
+        checklist = " ".join(path.read_text(encoding="utf-8").split())
+        for words, what in (
+                ("a test named in full", "to run a plant against the whole test file, or a test named in full"),
+                ("Count the places", "to count the places a plant's target stands in"),
+                ("one gate of a project at a time", "to run one gate of a project at a time on one machine")):
+            assert words in checklist, f"{path.name} no longer says {what}"
 
 
 # ---------------------------------------------------------------- a code span is not a link
