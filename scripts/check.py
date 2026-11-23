@@ -83,6 +83,10 @@ class StepResult:
 # `-rfEs` makes pytest end with one line for each test that failed, errored or was skipped.
 # `-rs` alone would REPLACE that list with the skipped tests only: a run would say
 # "1 failed" and never name the test.
+#
+# A step's limit is the project's own number. In the template, the `tests` step has 900 s,
+# because the template's own suite makes whole projects in scratch folders. A project's suite
+# is its own, and a project keeps its own number when it takes this file from the template.
 STEPS: list[Step] = [
     Step(
         name="tests",

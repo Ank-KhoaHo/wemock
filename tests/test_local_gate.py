@@ -160,12 +160,15 @@ def test_the_one_function_says_what_a_project_with_steps_of_its_own_needs():
     """A flag of a project's own once called its builder, past the function the tests replace:
     a test that gave main() its steps could still reach a real step. And a list built on each
     call starts whatever its builder asks a tool, each time main() asks. The function says
-    both, where a project changes it."""
+    both, where a project changes it.
+
+    The second is held by its whole phrase. A project's own sentence in the same docstring may
+    say `built once` too, and there the paragraph could go with this test passing."""
     words = " ".join((check.steps_for.__doc__ or "").split())
     assert "never builds its own" in words, (
         "steps_for() does not say that a flag of the project's own changes the steps it was given, "
         "and never builds its own")
-    assert "built once" in words, (
+    assert "built once, when the module loads" in words, (
         "steps_for() does not say that a list is built once, when the module loads, and never on each call")
 
 
@@ -268,6 +271,23 @@ def test_an_empty_list_of_steps_is_a_failure(capsys):
 
 
 # ---------------------------------------------------------------- the steps this repo ships
+
+
+def _the_gates_comments() -> str:
+    """Every comment line of scripts/check.py, as one line of words: a sentence is found
+    however a project wraps it, and wherever a project keeps its own steps."""
+    source = (ROOT / "scripts" / "check.py").read_text(encoding="utf-8")
+    lines = [line.strip()[1:] for line in source.splitlines() if line.strip().startswith("#")]
+    return " ".join(" ".join(lines).split())
+
+
+def test_the_gate_says_whose_number_a_steps_limit_is():
+    """This template's own suite makes whole projects in scratch folders, and its `tests`
+    step has the limit that takes. A project keeps a smaller one. It took this file whole and
+    put its number back by hand, and nothing in the file said the line was its own."""
+    assert "a project keeps its own number" in _the_gates_comments(), (
+        "the comments of scripts/check.py do not say that a step's limit is the project's own: a project keeps "
+        "its own number when it takes this file")
 
 
 def test_the_first_step_runs_this_repos_tests_with_pytest():
@@ -899,6 +919,14 @@ def test_each_workflow_has_the_two_keys_github_reads_it_by():
         "sample.yml has 0 lines that start with `jobs:`, not one: GitHub would refuse it"]
     assert _workflow_key_problems("sample.yml", sound + "on:\n  workflow_dispatch:\n") == [
         "sample.yml has 2 lines that start with `on:`, not one: GitHub would refuse it"]
+    # A longer word that begins with a key is not the key: the colon ends it. With the colon
+    # left out of the pattern, every case above passed. One case for each word, each with its
+    # exact answer: in one sample with both, a missing key and an extra one give the same count.
+    a_longer_word_for_on = no_on.replace("name: sample\n", "name: sample\nonly: x\n")
+    assert _workflow_key_problems("sample.yml", a_longer_word_for_on) == [
+        "sample.yml has 0 lines that start with `on:`, not one: GitHub would refuse it"]
+    a_longer_word_for_jobs = sound.replace("name: sample\n", "name: sample\njobsite: y\n")
+    assert _workflow_key_problems("sample.yml", a_longer_word_for_jobs) == []
 
 
 # ---------------------------------------------------------------- the tests of one rule share a word
