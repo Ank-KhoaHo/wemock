@@ -8,6 +8,7 @@ import {
   capBody,
   formatJson,
   compactJson,
+  isJson,
   isJsonContainer,
   bodyLanguage,
   JSON_EDITOR_MAX_CHARS,
@@ -222,6 +223,31 @@ describe('bodies', () => {
       'returns %j unchanged',
       (text) => {
         expect(compactJson(text)).toBe(text);
+      },
+    );
+  });
+
+  describe('a body with Fill {{templates}} on', () => {
+    const template = '{"id": {{params.id}}, "name": "Product {{ params.id }}", "at": {{now}}}';
+
+    it('counts as JSON, a tag standing for a value', () => {
+      expect(isJsonContainer(template, { templates: true })).toBe(true);
+      expect(isJsonContainer(template)).toBe(false);
+      expect(isJson('{{timestamp}}', { templates: true })).toBe(true);
+      expect(isJson('{{timestamp}}')).toBe(false);
+    });
+
+    it('spreads over lines and back with every tag kept as written', () => {
+      const formatted = '{\n  "id": {{params.id}},\n  "name": "Product {{ params.id }}",\n  "at": {{now}}\n}';
+      expect(formatJson(template, { templates: true })).toBe(formatted);
+      expect(compactJson(formatted, { templates: true })).toBe('{"id":{{params.id}},"name":"Product {{ params.id }}","at":{{now}}}');
+    });
+
+    it.each([String.raw`{"id": \{{params.id}}}`,'{"id": {{params.id}} {{params.id}}}', '{"a":', '{{params.id}}'])(
+      'still rejects %j, which stays invalid once filled',
+      (text) => {
+        expect(isJsonContainer(text, { templates: true })).toBe(false);
+        expect(formatJson(text, { templates: true })).toBe(text);
       },
     );
   });

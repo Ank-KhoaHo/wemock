@@ -227,7 +227,7 @@ export function MockEditor({
     );
   }
 
-  const plainBody = () => compactJson(draft.response.body);
+  const plainBody = () => compactJson(draft.response.body, { templates: draft.templates });
   const save = (mock: Mock) => onSave(withBody(mock, compactJson));
 
   const patternResult = compilePattern(draft.urlPattern);
@@ -1454,6 +1454,7 @@ export function MockEditor({
               contentType={getContentType()}
               mockName={draft.name}
               isDark={isDark}
+              templates={draft.templates}
               onChangeBody={handleBodyChange}
               onChangeContentType={handleContentTypeChange}
               onLoadFile={handleLoadFile}

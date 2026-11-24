@@ -74,6 +74,16 @@ describe('exportFile', () => {
       expect(mock.response.body).toContain('\n');
     });
 
+    it('writes a Fill {{templates}} body without spacing too, its tags as typed (A13)', () => {
+      const p = createSampleProject();
+      const mock = p.scenarios[0]!.mocks[0]!;
+      mock.templates = true;
+      mock.response.body = '{\n  "id": {{params.id}},\n  "name": "Product {{params.id}}"\n}';
+
+      const file = JSON.parse(exportProject(p));
+      expect(file.scenarios[0].mocks[0].response.body).toBe('{"id":{{params.id}},"name":"Product {{params.id}}"}');
+    });
+
     it('rejects a bad reply or code type (A2)', () => {
       for (const bad of [{ reply: 'js' }, { code: 7 }]) {
         const p = createSampleProject();

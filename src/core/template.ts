@@ -1,5 +1,7 @@
 import type { HandlerInput } from './handler';
 
+export const TEMPLATE_TAG = /(\\)?\{\{([^{}]*?)\}\}/g;
+
 function defaultUuid(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -63,9 +65,7 @@ export function fillTemplate(
 
     const getUuid = () => (deps?.uuid ? deps.uuid() : defaultUuid());
 
-    const tagRe = /(\\)?\{\{([^{}]*?)\}\}/g;
-
-    return text.replace(tagRe, (match, escaped, rawInside: string) => {
+    return text.replace(TEMPLATE_TAG,(match, escaped, rawInside: string) => {
       if (escaped) {
         return `{{${rawInside}}}`;
       }
