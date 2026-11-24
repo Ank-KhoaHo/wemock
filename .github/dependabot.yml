@@ -23,3 +23,14 @@ updates:
       # own: it may change how the extension builds or behaves.
       npm-minor:
         update-types: ["minor", "patch"]
+    # Three major updates stay out, each for a reason of this extension's own. TypeScript 7 fails the
+    # build here and has no tsserver for the editor. @types/node follows the Node that CI runs (24).
+    # path-to-regexp 9 changes what a saved URL pattern matches, so users' mocks could answer
+    # differently without a word.
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "path-to-regexp"
+        update-types: ["version-update:semver-major"]

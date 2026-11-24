@@ -8,6 +8,17 @@ by the version).
 
 ## Unreleased
 
+- **Unsaved edits are kept:** leaving a mock with edits not yet saved asks Save, Discard or
+  Cancel, and the editor's title shows a dot until you save (#9, thanks to ThanggDuongg).
+- **Room for long bodies:** response bodies fill their pane, can be dragged taller or shown over the
+  whole panel, and have Copy buttons, as headers do. A divider between the list and the detail can
+  be dragged, and wemock remembers where (#9).
+- **Search in a body:** Ctrl+F in a response body, in the Log or the editor, shows how many matches
+  there are and marks each one beside the scroll bar. DevTools' own find bar no longer opens too (#9).
+- Editor and Log headers stay in view while a long form scrolls, and a mock opened from the Log is
+  shown in its list (#9).
+- **Fill {{templates}}:** the switch now survives Export and Import (#12), and a body such as
+  `{"id": {{params.id}}}` no longer shows a "not valid JSON" warning; Format works on it (#13).
 - **Hundreds of mocks stay quick:** with 900 mocks, a key in Filter mocks took 838 ms and a key in
   the Log's filter 751 ms; both now take about a tenth of that (#10).
 - A header rule typed quickly no longer saves an older value.
