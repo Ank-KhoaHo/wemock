@@ -6,7 +6,9 @@ A released block's heading is the version, then the date: `## 0.1.0 — 2026-01-
 released version is also what the `VERSION` file holds, and the name of a git tag (`v` followed
 by the version).
 
-## Unreleased
+## 1.10.0 — 2026-11-24
+
+Room to work with long mocks, much of it from an outside contributor.
 
 - **Unsaved edits are kept:** leaving a mock with edits not yet saved asks Save, Discard or
   Cancel, and the editor's title shows a dot until you save (#9, thanks to ThanggDuongg).

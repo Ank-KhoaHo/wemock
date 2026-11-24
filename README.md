@@ -115,7 +115,7 @@ socket**.
 
 ## Status
 
-Version 1.9.0, on the [Chrome Web Store](https://chromewebstore.google.com/detail/wemock/meoiipgffocfcgafaakjkodmfmmfoggk) since 2026-11-16.
+Version 1.10.0, on the [Chrome Web Store](https://chromewebstore.google.com/detail/wemock/meoiipgffocfcgafaakjkodmfmmfoggk) since 2026-11-16.
 
 ## Limits
 
