@@ -173,9 +173,12 @@ test.describe('A21: Log filters', () => {
       await panel.getByTestId('log-chip-type-real').click();
       await panel.getByTestId('log-chip-method-GET').click();
       expect(await paths(panel)).toEqual(['/api/goals', '/api/missing']);
+      // The URL filter is deferred (it stays quick with hundreds of rows), so the list follows a
+      // key a moment later: wait for it, here and before Save, which saves what the list shows.
       await panel.getByTestId('log-filter').fill('goals');
-      expect(await paths(panel)).toEqual(['/api/goals']);
+      await expect.poll(() => paths(panel)).toEqual(['/api/goals']);
       await panel.getByTestId('log-filter').fill('');
+      await expect.poll(() => paths(panel)).toEqual(['/api/goals', '/api/missing']);
 
       await panel.getByTestId('save-scenario').click();
       await panel.getByTestId('save-scenario-name').fill('Real GETs');
