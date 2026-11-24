@@ -284,8 +284,15 @@ def _the_gates_comments() -> str:
 def test_the_gate_says_whose_number_a_steps_limit_is():
     """This template's own suite makes whole projects in scratch folders, and its `tests`
     step has the limit that takes. A project keeps a smaller one. It took this file whole and
-    put its number back by hand, and nothing in the file said the line was its own."""
-    assert "a project keeps its own number" in _the_gates_comments(), (
+    put its number back by hand, and nothing in the file said the line was its own.
+
+    The paragraph's first sentence is held by its own words too. Reworded to say the
+    opposite, it left the one phrase this test looked for standing."""
+    words = _the_gates_comments()
+    assert "A step's limit is the project's own number." in words, (
+        "the comments of scripts/check.py do not open the paragraph on a step's limit with whose number it is: "
+        "`A step's limit is the project's own number.`")
+    assert "a project keeps its own number" in words, (
         "the comments of scripts/check.py do not say that a step's limit is the project's own: a project keeps "
         "its own number when it takes this file")
 
