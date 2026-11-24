@@ -83,6 +83,34 @@ describe('exportFile', () => {
       }
     });
 
+    it("keeps the templates switch through export and parse, in a project and in a scenario (A13", () => {
+      const p = createSampleProject();
+      p.scenarios[0]!.mocks[0] = {
+        ...p.scenarios[0]!.mocks[0]!,
+        templates: true,
+        response: {
+          ...p.scenarios[0]!.mocks[0]!.response,
+          body: '{"id":{{params.id}}}',
+        },
+      };
+
+      const fromProject = parseProjectFile(exportProject(p));
+      const fromScenario = parseScenarioFile(exportScenario(p.scenarios[0]!));
+      if (!fromProject.ok || !fromScenario.ok)
+        throw new Error("parse failed");
+
+      expect(fromProject.project.scenarios[0]!.mocks[0]!.templates).toBe(
+        true,
+      );
+      expect(fromScenario.scenario.mocks[0]!.templates).toBe(true);
+    });
+
+    it("rejects a templates switch that is not a boolean (A13)", () => {
+      const file = JSON.parse(exportProject(createSampleProject()));
+      file.scenarios[0].mocks[0].templates = "yes";
+      expect(parseProjectFile(JSON.stringify(file)).ok).toBe(false);
+    });
+
     it('keeps socket mocks through export and parse (A5)', () => {
       const p = createSampleProject();
       p.scenarios[0]!.sockets = [
