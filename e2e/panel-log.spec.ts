@@ -51,6 +51,30 @@ test('real calls appear as log rows with method, path, status, badge', async () 
   }
 });
 
+test('the detail header with Mock this stays in view while the detail scrolls', async () => {
+  const page = await session.context.newPage();
+  const panelPage = await session.context.newPage();
+  try {
+    await page.goto(`${fixture.url}/index.html`);
+    const tabId = await session.tabIdOf(page);
+    await panelPage.setViewportSize({ width: 900, height: 360 });
+    await panelPage.goto(`chrome-extension://${session.extensionId}/panel.html?tabId=${tabId}`);
+
+    await page.click('#btn-fetch');
+    await panelPage.getByTestId('log-row').click();
+    const pane = panelPage.locator('.panel-split-right', { has: panelPage.locator('.log-detail') });
+    expect(await pane.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+
+    await pane.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+
+    await expect(panelPage.getByText('Request URL:')).not.toBeInViewport();
+    await expect(panelPage.getByTestId('mock-this')).toBeInViewport();
+  } finally {
+    await panelPage.close();
+    await page.close();
+  }
+});
+
 test('the filter narrows rows by URL text', async () => {
   const page = await session.context.newPage();
   const panelPage = await session.context.newPage();

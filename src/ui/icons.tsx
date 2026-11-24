@@ -4,7 +4,7 @@ export interface IconProps extends SVGProps<SVGSVGElement> {
   size?: number;
 }
 
-export function LogIcon({ size = 16, className = '', ...props }: IconProps) {
+export function LogIcon({ size = 16, className = '', ...props }: Readonly<IconProps>) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -27,7 +27,7 @@ export function LogIcon({ size = 16, className = '', ...props }: IconProps) {
   );
 }
 
-export function MocksIcon({ size = 16, className = '', ...props }: IconProps) {
+export function MocksIcon({ size = 16, className = '', ...props }: Readonly<IconProps>) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -49,7 +49,7 @@ export function MocksIcon({ size = 16, className = '', ...props }: IconProps) {
   );
 }
 
-export function ImportIcon({ size = 16, className = '', ...props }: IconProps) {
+export function ImportIcon({ size = 16, className = '', ...props }: Readonly<IconProps>) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -71,7 +71,7 @@ export function ImportIcon({ size = 16, className = '', ...props }: IconProps) {
   );
 }
 
-export function ExportIcon({ size = 16, className = '', ...props }: IconProps) {
+export function ExportIcon({ size = 16, className = '', ...props }: Readonly<IconProps>) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -93,7 +93,7 @@ export function ExportIcon({ size = 16, className = '', ...props }: IconProps) {
   );
 }
 
-export function SampleIcon({ size = 16, className = '', ...props }: IconProps) {
+export function SampleIcon({ size = 16, className = '', ...props }: Readonly<IconProps>) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -114,7 +114,7 @@ export function SampleIcon({ size = 16, className = '', ...props }: IconProps) {
   );
 }
 
-export function TrashIcon({ size = 16, className = '', ...props }: IconProps) {
+export function TrashIcon({ size = 16, className = '', ...props }: Readonly<IconProps>) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -137,7 +137,7 @@ export function TrashIcon({ size = 16, className = '', ...props }: IconProps) {
   );
 }
 
-export function PlusIcon({ size = 16, className = '', ...props }: IconProps) {
+export function PlusIcon({ size = 16, className = '', ...props }: Readonly<IconProps>) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -157,7 +157,7 @@ export function PlusIcon({ size = 16, className = '', ...props }: IconProps) {
   );
 }
 
-export function ChevronDownIcon({ size = 16, className = '', ...props }: IconProps) {
+export function ChevronDownIcon({ size = 16, className = '', ...props }: Readonly<IconProps>) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -177,7 +177,51 @@ export function ChevronDownIcon({ size = 16, className = '', ...props }: IconPro
   );
 }
 
-export function XIcon({ size = 16, className = '', ...props }: IconProps) {
+function StrokeSvg({ size = 16, className = '', children, ...props }: Readonly<IconProps>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={className}
+      {...props}
+    >
+      {children}
+    </svg>
+  );
+}
+
+export function MaximizeIcon(props: Readonly<IconProps>) {
+  return (
+    <StrokeSvg {...props}>
+      <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+    </StrokeSvg>
+  );
+}
+
+export function MinimizeIcon(props: Readonly<IconProps>) {
+  return (
+    <StrokeSvg {...props}>
+      <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
+    </StrokeSvg>
+  );
+}
+
+export function ResizeCornerIcon(props: Readonly<IconProps>) {
+  return (
+    <StrokeSvg {...props}>
+      <path d="M21 9 9 21M21 15l-6 6" />
+    </StrokeSvg>
+  );
+}
+
+export function XIcon({ size = 16, className = '', ...props }: Readonly<IconProps>) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -197,7 +241,7 @@ export function XIcon({ size = 16, className = '', ...props }: IconProps) {
   );
 }
 
-export function FileIcon({ size = 16, className = '', ...props }: IconProps) {
+export function FileIcon({ size = 16, className = '', ...props }: Readonly<IconProps>) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -218,7 +262,7 @@ export function FileIcon({ size = 16, className = '', ...props }: IconProps) {
   );
 }
 
-export function CheckIcon({ size = 16, className = '', ...props }: IconProps) {
+export function CheckIcon({ size = 16, className = '', ...props }: Readonly<IconProps>) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -238,7 +282,7 @@ export function CheckIcon({ size = 16, className = '', ...props }: IconProps) {
   );
 }
 
-export function PowerIcon({ size = 16, className = '', ...props }: IconProps) {
+export function PowerIcon({ size = 16, className = '', ...props }: Readonly<IconProps>) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -259,7 +303,7 @@ export function PowerIcon({ size = 16, className = '', ...props }: IconProps) {
   );
 }
 
-export function TerminalIcon({ size = 16, className = '', ...props }: IconProps) {
+export function TerminalIcon({ size = 16, className = '', ...props }: Readonly<IconProps>) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -280,7 +324,7 @@ export function TerminalIcon({ size = 16, className = '', ...props }: IconProps)
   );
 }
 
-export function ScenarioIcon({ size = 16, className = '', ...props }: IconProps) {
+export function ScenarioIcon({ size = 16, className = '', ...props }: Readonly<IconProps>) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -301,7 +345,7 @@ export function ScenarioIcon({ size = 16, className = '', ...props }: IconProps)
   );
 }
 
-export function SearchIcon({ size = 16, className = '', ...props }: IconProps) {
+export function SearchIcon({ size = 16, className = '', ...props }: Readonly<IconProps>) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -322,7 +366,7 @@ export function SearchIcon({ size = 16, className = '', ...props }: IconProps) {
   );
 }
 
-export function PencilIcon({ size = 16, className = '', ...props }: IconProps) {
+export function PencilIcon({ size = 16, className = '', ...props }: Readonly<IconProps>) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -342,7 +386,7 @@ export function PencilIcon({ size = 16, className = '', ...props }: IconProps) {
   );
 }
 
-export function CopyIcon({ size = 16, className = '', ...props }: IconProps) {
+export function CopyIcon({ size = 16, className = '', ...props }: Readonly<IconProps>) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -363,7 +407,7 @@ export function CopyIcon({ size = 16, className = '', ...props }: IconProps) {
   );
 }
 
-export function ChevronUpIcon({ size = 16, className = '', ...props }: IconProps) {
+export function ChevronUpIcon({ size = 16, className = '', ...props }: Readonly<IconProps>) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -383,7 +427,7 @@ export function ChevronUpIcon({ size = 16, className = '', ...props }: IconProps
   );
 }
 
-export function SocketIcon({ size = 16, className = '', ...props }: IconProps) {
+export function SocketIcon({ size = 16, className = '', ...props }: Readonly<IconProps>) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -403,7 +447,7 @@ export function SocketIcon({ size = 16, className = '', ...props }: IconProps) {
   );
 }
 
-export function SaveIcon({ size = 16, className = '', ...props }: IconProps) {
+export function SaveIcon({ size = 16, className = '', ...props }: Readonly<IconProps>) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -425,7 +469,28 @@ export function SaveIcon({ size = 16, className = '', ...props }: IconProps) {
   );
 }
 
-export function BackIcon({ size = 16, className = '', ...props }: IconProps) {
+export function GripIcon({ size = 16, className = '', ...props }: Readonly<IconProps>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="currentColor"
+      aria-hidden="true"
+      className={className}
+      {...props}
+    >
+      <circle cx="9" cy="6" r="1.5" />
+      <circle cx="15" cy="6" r="1.5" />
+      <circle cx="9" cy="12" r="1.5" />
+      <circle cx="15" cy="12" r="1.5" />
+      <circle cx="9" cy="18" r="1.5" />
+      <circle cx="15" cy="18" r="1.5" />
+    </svg>
+  );
+}
+
+export function BackIcon({ size = 16, className = '', ...props }: Readonly<IconProps>) {
   return (
     <svg
       viewBox="0 0 24 24"

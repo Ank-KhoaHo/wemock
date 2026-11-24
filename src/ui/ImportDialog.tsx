@@ -5,6 +5,7 @@ import { importMockFile } from '../core/mockFileImport';
 import { detectOpenApi, importOpenApi, openApiSummaryText, parseSpecText } from '../core/openapiImport';
 import type { Project, Scenario } from '../core/types';
 import { newId } from '../shared/ids';
+import { Dialog } from './Dialog';
 import { FileIcon, ImportIcon, XIcon } from './icons';
 
 export interface PendingImport {
@@ -72,7 +73,7 @@ export function ImportDialog({
   onImportAdd,
   onImportReplace,
   onCreateProjectFromImport,
-}: ImportDialogProps): React.JSX.Element | null {
+}: Readonly<ImportDialogProps>): React.JSX.Element | null {
   const [pendingImport, setPendingImport] = useState<PendingImport | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [choice, setChoice] = useState<'add' | 'replace'>('add');
@@ -91,18 +92,7 @@ export function ImportDialog({
   };
 
   useEffect(() => {
-    if (!isOpen) {
-      reset();
-      return;
-    }
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        handleClose();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    if (!isOpen) reset();
   }, [isOpen]);
 
   const processFile = async (file: File) => {
@@ -253,166 +243,145 @@ export function ImportDialog({
     }
   };
 
+  const hasFooter = Boolean(pendingImport || importError);
+
   return (
-    <div
-      className="scrim"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) handleClose();
-      }}
+    <Dialog
+      title={pendingImport ? `Import ${pendingImport.fileName}` : 'Import'}
+      onClose={handleClose}
+      testId="import-dialog"
+      className="import-dialog"
+      headerAction={
+        <button type="button" className="ibtn" aria-label="Close" onClick={handleClose}>
+          <XIcon size={16} />
+        </button>
+      }
+      footer={
+        hasFooter && (
+          <>
+            <button type="button" data-testid="import-cancel" className="btn" onClick={handleClose}>
+              Cancel
+            </button>
+            {pendingImport && !importError && (
+              <button type="button" data-testid="import-confirm" className="btn blue" onClick={handleConfirm}>
+                <ImportIcon size={16} />
+                Import
+              </button>
+            )}
+          </>
+        )
+      }
     >
-      <div
-        className="dialog import-dialog"
-        role="dialog"
-        aria-modal="true"
-        data-testid="import-dialog"
-      >
-        <header>
-          <h2>{pendingImport ? `Import ${pendingImport.fileName}` : 'Import'}</h2>
-          <button
-            type="button"
-            className="ibtn"
-            aria-label="Close"
-            onClick={handleClose}
+      <input
+        type="file"
+        ref={fileInputRef}
+        data-testid="import"
+        accept=".json,.har,.yaml,.yml"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) processFile(f);
+          e.target.value = '';
+        }}
+      />
+
+      <div className="db">
+        {importError && (
+          <div
+            data-testid="import-error"
+            className="import-error-text"
+            style={{ color: 'var(--danger)', marginBottom: 12 }}
           >
-            <XIcon size={16} />
-          </button>
-        </header>
+            {importError}
+          </div>
+        )}
 
-        <input
-          type="file"
-          ref={fileInputRef}
-          data-testid="import"
-          accept=".json,.har,.yaml,.yml"
-          style={{ display: 'none' }}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) processFile(f);
-            e.target.value = '';
-          }}
-        />
-
-        <div className="db">
-          {importError && (
-            <div
-              data-testid="import-error"
-              className="import-error-text"
-              style={{ color: 'var(--danger)', marginBottom: 12 }}
-            >
-              {importError}
-            </div>
-          )}
-
-          {pendingImport && !importError ? (
-            <>
-              <div data-testid="import-found" className="found">
-                <FileIcon size={22} className="ico" />
-                <div>
-                  <b>{pendingImport.fileName}: {pendingImport.summaryText}</b>
-                </div>
+        {pendingImport && !importError ? (
+          <>
+            <div data-testid="import-found" className="found">
+              <FileIcon size={22} className="ico" />
+              <div>
+                <b>{pendingImport.fileName}: {pendingImport.summaryText}</b>
               </div>
+            </div>
 
-              {pendingImport.kind === 'scenario' ? (
+            {pendingImport.kind === 'scenario' ? (
+              <label data-testid="import-add" className="radio">
+                <input
+                  type="radio"
+                  name="import-choice"
+                  value="add"
+                  checked={true}
+                  readOnly
+                />
+                Add as a new scenario
+              </label>
+            ) : (
+              <>
                 <label data-testid="import-add" className="radio">
                   <input
                     type="radio"
                     name="import-choice"
                     value="add"
-                    checked={true}
-                    readOnly
+                    checked={choice === 'add'}
+                    onChange={() => setChoice('add')}
                   />
-                  Add as a new scenario
+                  Add to what you have
                 </label>
-              ) : (
-                <>
-                  <label data-testid="import-add" className="radio">
-                    <input
-                      type="radio"
-                      name="import-choice"
-                      value="add"
-                      checked={choice === 'add'}
-                      onChange={() => setChoice('add')}
-                    />
-                    Add to what you have
-                  </label>
-                  <label data-testid="import-replace" className="radio danger">
-                    <input
-                      type="radio"
-                      name="import-choice"
-                      value="replace"
-                      checked={choice === 'replace'}
-                      onChange={() => setChoice('replace')}
-                    />
-                    Replace everything in {siteName}
-                  </label>
-                </>
-              )}
-            </>
-          ) : (
-            <div
-              data-testid="import-drop"
-              className="drop"
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const f = e.dataTransfer.files?.[0];
-                if (f) processFile(f);
-              }}
-            >
-              <ImportIcon size={28} className="ico" />
-              <div>
-                <b>Drop a file here</b> or
-              </div>
-              <div style={{ marginTop: 8 }}>
-                <button
-                  type="button"
-                  className="btn blue"
-                  // Keyboard users land inside the dialog, on its main action.
-                  autoFocus
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <FileIcon size={16} />
-                  Choose file
-                </button>
-              </div>
-              <div className="kinds">
-                <span>wemock export</span>
-                <span>HAR from Network</span>
-                <span>OpenAPI or Swagger</span>
-                <span>JSON mock file</span>
-              </div>
+                <label data-testid="import-replace" className="radio danger">
+                  <input
+                    type="radio"
+                    name="import-choice"
+                    value="replace"
+                    checked={choice === 'replace'}
+                    onChange={() => setChoice('replace')}
+                  />
+                  Replace everything in {siteName}
+                </label>
+              </>
+            )}
+          </>
+        ) : (
+          <div
+            data-testid="import-drop"
+            className="drop"
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const f = e.dataTransfer.files?.[0];
+              if (f) processFile(f);
+            }}
+          >
+            <ImportIcon size={28} className="ico" />
+            <div>
+              <b>Drop a file here</b> or
             </div>
-          )}
-        </div>
-
-        {(pendingImport || importError) && (
-          <footer>
-            <button
-              type="button"
-              data-testid="import-cancel"
-              className="btn"
-              onClick={handleClose}
-            >
-              Cancel
-            </button>
-            {pendingImport && !importError && (
+            <div style={{ marginTop: 8 }}>
               <button
                 type="button"
-                data-testid="import-confirm"
                 className="btn blue"
-                onClick={handleConfirm}
+                // Keyboard users land inside the dialog, on its main action.
+                autoFocus
+                onClick={() => fileInputRef.current?.click()}
               >
-                <ImportIcon size={16} />
-                Import
+                <FileIcon size={16} />
+                Choose file
               </button>
-            )}
-          </footer>
+            </div>
+            <div className="kinds">
+              <span>wemock export</span>
+              <span>HAR from Network</span>
+              <span>OpenAPI or Swagger</span>
+              <span>JSON mock file</span>
+            </div>
+          </div>
         )}
       </div>
-    </div>
+    </Dialog>
   );
 }
 

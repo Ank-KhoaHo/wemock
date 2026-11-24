@@ -33,7 +33,8 @@ Click a row to see its headers and body. The chips above the Log filter by type 
 3. Reload the page.
 
 The same call now gets the recorded answer, marked `MOCK`. The new mock is in the **Mocks** tab,
-in the active scenario, ready to edit.
+in the active scenario, ready to edit. Edits count once you press **Save** (or Ctrl+S); until then
+the title shows a dot, and leaving the mock asks whether to save, discard or stay.
 
 A call to another site keeps its host, for example `https://api.example.com/users`. That mock
 answers only that site, never a same-named path on another one.
