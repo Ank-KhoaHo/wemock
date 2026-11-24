@@ -287,11 +287,18 @@ def test_the_gate_says_whose_number_a_steps_limit_is():
     put its number back by hand, and nothing in the file said the line was its own.
 
     The paragraph's first sentence is held by its own words too. Reworded to say the
-    opposite, it left the one phrase this test looked for standing."""
+    opposite, it left the one phrase this test looked for standing.
+
+    Its middle sentence names no number. It named this template's own, which no test of a
+    project can hold: a project that wrote its own number there made the sentence false,
+    and heard nothing."""
     words = _the_gates_comments()
     assert "A step's limit is the project's own number." in words, (
         "the comments of scripts/check.py do not open the paragraph on a step's limit with whose number it is: "
         "`A step's limit is the project's own number.`")
+    assert "In the template, the `tests` step has a longer limit" in words, (
+        "the comments of scripts/check.py do not say `In the template, the `tests` step has a longer limit`: "
+        "the paragraph names no number, because in a project no test can hold the template's")
     assert "a project keeps its own number" in words, (
         "the comments of scripts/check.py do not say that a step's limit is the project's own: a project keeps "
         "its own number when it takes this file")
