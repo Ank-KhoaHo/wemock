@@ -1,5 +1,6 @@
 // The "never answers" check at the size real projects reach: a few hundred to a thousand mocks.
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { splitPattern } from './match';
 import { unreachableMocks } from './reachability';
 import type { Mock } from './types';
 
@@ -15,17 +16,22 @@ function mock(id: string, urlPattern: string, method: Mock['method'] = 'GET'): M
   };
 }
 
+// The real splitPattern, counted: how many times a pattern is read is the cost, and a count does
+// not depend on how busy the machine is. A time limit did: 150 ms failed twice under other work.
+vi.mock('./match', async (importOriginal) => {
+  const real = await importOriginal<typeof import('./match')>();
+  return { ...real, splitPattern: vi.fn(real.splitPattern) };
+});
+
 describe('unreachableMocks at scale', () => {
   const many = Array.from({ length: 900 }, (_, i) => mock(`i${i + 1}`, `/api/items/${i + 1}`));
 
-  it('checks 900 distinct mocks in well under a frame budget', () => {
-    unreachableMocks(many); // warm up
-    const t0 = performance.now();
+  it('reads each of 900 patterns once, not once for every pair', () => {
+    vi.mocked(splitPattern).mockClear();
     const result = unreachableMocks(many);
-    const ms = performance.now() - t0;
     expect(result.size).toBe(0);
-    // Before parsing each pattern once, this took about 600 ms on a desktop.
-    expect(ms).toBeLessThan(150);
+    // Read once per pair, as before the fix, it was about 809,000 reads and 600 ms on a desktop.
+    expect(vi.mocked(splitPattern)).toHaveBeenCalledTimes(900);
   });
 
   it('still finds a mock hidden by a wider one far above it, among 900', () => {
