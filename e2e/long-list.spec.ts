@@ -81,7 +81,10 @@ async function wheelTo(panel: Page, name: RegExp): Promise<{ x: number; y: numbe
   throw new Error(`50 wheel turns did not make ${name} clickable: top y = ${box?.y}, height = ${box?.height}`);
 }
 
+// Building and drawing a list this long takes a few seconds; on a machine busy with other work it passed
+// the default 30 s twice. These two tests prove the list scrolls, not how fast, so each has 90 s.
 test('the mouse wheel scrolls a list of 700 mocks to its last one, which then opens', async () => {
+  test.setTimeout(90_000);
   const panel = await openMocks();
   try {
     const box = await wheelTo(panel, /Item 700$/);
@@ -93,6 +96,7 @@ test('the mouse wheel scrolls a list of 700 mocks to its last one, which then op
 });
 
 test('the scenario after a 700-mock Default is reachable by the wheel too', async () => {
+  test.setTimeout(90_000);
   const panel = await openMocks();
   try {
     const box = await wheelTo(panel, /Item 9001$/);
