@@ -35,4 +35,4 @@ mocks.
 The red bin beside **Filter mocks** removes every mock and scenario for this site, after asking,
 with Undo.
 
-← [Checking your mocks](checking.md) · [Back to the guide](README.md)
+← [Checking your mocks](checking.md) · Next: [Limits](limits.md) →

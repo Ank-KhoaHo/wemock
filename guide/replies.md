@@ -53,6 +53,8 @@ return { id, name: `Product ${id}`, price: 4.5 };
 - The code runs in a sandboxed page with no access to your page or to wemock, and stops after
   1 second. Code that fails answers 500 with its error message.
 
+![A code mock: the reply reads req.params.id and answers 404 for unknown products](../.github/screens/2-code-mock.png)
+
 ## Change real
 
 Let the real call through, then change its answer: the status, headers, or JSON fields.

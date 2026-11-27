@@ -106,3 +106,29 @@ def test_every_readme_link_into_the_site_names_a_page_of_it():
     pages = {p.name for p in GUIDE.glob("*.md")}
     assert readme.count(SITE) >= 10, "too few links into the site were read: the check is vacuous"
     assert _site_link_problems(readme, pages) == []
+
+
+_PICTURE_RE = re.compile(r"!\[[^\]]*\]\(([^)\s]+)\)")
+
+
+def _picture_problems(page: Path) -> list[str]:
+    """Each picture a guide page shows is a file that exists, read from the page's own folder."""
+    return [f"{page.name} shows {target}, and there is no such file"
+            for target in _PICTURE_RE.findall(page.read_text(encoding="utf-8"))
+            if not target.startswith("http") and not (page.parent / target).is_file()]
+
+
+def test_a_picture_that_does_not_exist_is_found(tmp_path):
+    (tmp_path / "shot.png").write_bytes(b"")
+    page = tmp_path / "p.md"
+    page.write_text("![a](shot.png) ![b](missing.png) ![c](https://example.com/x.png)", encoding="utf-8")
+    assert _picture_problems(page) == ["p.md shows missing.png, and there is no such file"]
+
+
+def test_every_picture_in_the_guide_exists():
+    # The pictures are the README's screenshots, kept once in .github/screens/; GitHub and the
+    # site both read them from there.
+    pages = sorted(GUIDE.glob("*.md"))
+    shown = sum(len(_PICTURE_RE.findall(p.read_text(encoding="utf-8"))) for p in pages)
+    assert shown >= 5, f"only {shown} pictures were read from the guide: the check is vacuous"
+    assert [problem for page in pages for problem in _picture_problems(page)] == []

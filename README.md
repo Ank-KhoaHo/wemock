@@ -21,28 +21,8 @@ A mockingbird copies the calls of other birds. wemock copies your API's.
 
 **Add wemock from the [Chrome Web Store](https://chromewebstore.google.com/detail/wemock/meoiipgffocfcgafaakjkodmfmmfoggk).** It is free.
 
-Or load a release yourself:
-
-1. Download `wemock-<version>-chrome.zip` from the
-   [latest release](https://github.com/Ank-KhoaHo/wemock/releases/latest), and unzip it.
-2. Open `chrome://extensions` and turn on **Developer mode**.
-3. Choose **Load unpacked**, and pick the unzipped folder.
-
-Or build it from source:
-
-```
-npm ci
-npm run build
-```
-
-Then load `.output/chrome-mv3` the same way. → [Install, in full](https://ank-khoaho.github.io/wemock/install)
-
-**Then:** open your app on `localhost` (wemock is always on there), open DevTools, and pick the
-**wemock** tab. On any other site, click the wemock toolbar icon and switch it on for that site.
-
-**No app handy?** In the empty Mocks tab, click **Load the sample**: a small shop
-with every kind of mock, three scenarios and a SignalR hub. The **Sample** button at the top does
-the same at any time.
+Open your app on `localhost`, open DevTools, and pick the **wemock** tab. No app handy? In the empty Mocks
+tab, click **Load the sample**. → [Install](https://ank-khoaho.github.io/wemock/install), from a release or from source too
 
 ## How to use it
 
@@ -59,59 +39,7 @@ the same at any time.
 | Mock sockets | WebSocket timelines and replies, SignalR hubs | [Sockets](https://ank-khoaho.github.io/wemock/sockets) |
 | See which mock answered | Answered by in the Log, Console line, Log filters, Save as HAR | [Checking](https://ank-khoaho.github.io/wemock/checking) |
 
-Works with `fetch`, `XMLHttpRequest`, and libraries built on them (axios included). Every row,
-button and field works from the keyboard. React, axios, Angular `HttpClient` and a real
-ASP.NET Core SignalR hub are part of the tests.
-
-## Mock a call in three clicks
-
-Click a call in the Log. Click **Mock this**. Reload. The page now gets wemock's answer, and the
-Log marks it `MOCK` and names the mock that answered.
-
-<img src=".github/screens/1-log.png" alt="The wemock Log: real calls and mocked calls, with the details of one call">
-
-Mock a whole filtered list at once with **Save as scenario**. A call to another site keeps its
-host, so the mock answers only that site. → [Your first mock](https://ank-khoaho.github.io/wemock/first-mock)
-
-## Every state your backend rarely gives you
-
-The Default scenario always applies. Switch on "Checkout down" and checkout answers 503, while
-everything else keeps working. Switch back with one click.
-
-<img src=".github/screens/5-scenarios.png" alt="The Mocks list: Default and three scenarios, each with its own icons; Checkout down is active, and its mock answers 503">
-
-→ [Scenarios](https://ank-khoaho.github.io/wemock/scenarios)
-
-## When a fixed body is not enough, answer with code
-
-A few lines of JavaScript read the call's URL parameters, query, body and headers, and set the
-status. `/api/products/:id` answers each product by its id, and 404 past the end of the shop.
-The code runs in a sandbox, for at most one second.
-
-<img src=".github/screens/2-code-mock.png" alt="A code mock: the reply reads req.params.id and answers 404 for unknown products">
-
-Templates (`{{params.id}}`), sequences ("pending, pending, done") and **Change real** (let the
-real call through, then change one field) cover the cases in between. → [Replies](https://ank-khoaho.github.io/wemock/replies)
-
-## Know which mock answered
-
-Every call in the Log says who answered it: the real server, or a mock, by name and scenario.
-Click the name to open that mock.
-
-<img src=".github/screens/3-answered-by.png" alt="The Log: POST /api/checkout answered by the mock Checkout 503, from the scenario Checkout down">
-
-Each mocked call also writes one line to the page's Console. → [Checking your mocks](https://ank-khoaho.github.io/wemock/checking)
-
-## WebSocket and SignalR, with no server
-
-A socket mock sends messages on a timeline and answers what the client sends. For SignalR hubs
-wemock also speaks negotiate, the handshake and the pings, so `start()`, `on()`, `invoke()` and
-`stream()` work as with a real hub, errors included. Or record a real socket, then **Mock this
-socket**.
-
-<img src=".github/screens/4-signalr.png" alt="A SignalR socket mock: messages on connect, and a reply to Subscribe">
-
-→ [WebSocket and SignalR](https://ank-khoaho.github.io/wemock/sockets)
+**The whole guide, with pictures and search: [ank-khoaho.github.io/wemock](https://ank-khoaho.github.io/wemock/).**
 
 ## Status
 
@@ -119,19 +47,11 @@ Version 1.10.0, on the [Chrome Web Store](https://chromewebstore.google.com/deta
 
 ## Limits
 
-- Calls made by Service Workers and Web Workers are not seen. Calls from the page and from its
-  iframes on the same site are. Server-Sent Events can be mocked, but real ones are
-  not logged.
-- A real socket logs at most 200 messages. "Mock this socket" replays a plain socket's
-  messages on a timeline; it cannot tell which message answered which.
-- SignalR mocks speak the JSON hub protocol only, not MessagePack.
-- Mocked calls do not appear in DevTools' Network tab: they never leave the page. Use the
-  wemock log or the Console line.
-- Code replies run in a sandboxed extension page with no access to the page or to wemock,
-  and stop after 1 second. Code that fails answers status 500 with its error message.
-- A call made before wemock has loaded its mocks waits up to 200 ms, then goes through and is
-  marked `LATE`.
+- Calls made by Service Workers and Web Workers are not seen.
+- Mocked calls do not appear in DevTools' Network tab: they never leave the page.
 - Only Chrome (and Chromium browsers) for now.
+
+→ [All limits](https://ank-khoaho.github.io/wemock/limits)
 
 ## Alternatives
 
@@ -152,15 +72,7 @@ No. Mocks live in your browser (`chrome.storage.local`). wemock makes no network
 **Does it run on every site I visit?**
 No. Only on `localhost`, `127.0.0.1`, and the sites you switch on, one at a time.
 
-**Why does a mocked call not show in the Network tab?**
-It never leaves the page, so the network never sees it. The wemock Log and the Console line do.
-
-**Is code in a code mock safe?**
-It runs in a sandboxed extension page with no access to your page or to wemock, and stops after
-one second. wemock never downloads code.
-
-**Why a mockingbird?**
-It hears a call once and sings it back. That is the whole product.
+→ [More questions](https://ank-khoaho.github.io/wemock/faq)
 
 ## Documentation
 

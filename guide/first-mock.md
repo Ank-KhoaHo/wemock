@@ -26,6 +26,8 @@ Click a row to see its headers and body. The chips above the Log filter by type 
 - **Rec** (top right) pauses recording: no new rows.
 - The power button turns mocking off: every call goes to the server, until you turn it on again.
 
+![The wemock Log: real calls and mocked calls, with the details of one call](../.github/screens/1-log.png)
+
 ## Mock one call
 
 1. Click a call in the Log.

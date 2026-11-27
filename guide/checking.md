@@ -7,6 +7,8 @@ name to open that mock. A call marked `real` reached your server.
 
 The status, the headers and the body the page got are under it.
 
+![The Log: POST /api/checkout answered by the mock Checkout 503, from the scenario Checkout down](../.github/screens/3-answered-by.png)
+
 ## The Console line
 
 Each mocked call writes one line to the page's Console:

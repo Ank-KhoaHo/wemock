@@ -28,6 +28,8 @@ wemock also answers SignalR's `negotiate` call, the handshake and the pings, so 
 
   Then send more messages, each after a delay.
 
+![A SignalR socket mock: messages on connect, and a reply to Subscribe](../.github/screens/4-signalr.png)
+
 ## Record a real socket
 
 Real sockets appear in the Log, with their messages in both directions. Click one, then **Mock

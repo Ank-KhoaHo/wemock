@@ -12,6 +12,8 @@ own project, and each project has its own scenarios.
 So "Checkout down" needs only the one mock that fails checkout. Products, the cart and the user
 still come from Default.
 
+![The Mocks list: Default and three scenarios; Checkout down is active, and its mock answers 503](../.github/screens/5-scenarios.png)
+
 ## Switch
 
 In the **Mocks** tab, click a scenario's header to make it active; it turns blue and says

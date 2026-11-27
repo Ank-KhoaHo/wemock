@@ -13,6 +13,8 @@ One page per feature. Start at the top if you are new; jump in anywhere if you a
 | [WebSocket and SignalR](sockets.md) | mock sockets and SignalR hubs with no server |
 | [Checking your mocks](checking.md) | see which mock answers before you reload, and after |
 | [Import and export](import-export.md) | start from HAR, OpenAPI or a JSON mock file, and share your mocks |
+| [Limits](limits.md) | know what wemock cannot do before you rely on it |
+| [FAQ](faq.md) | privacy, which sites it runs on, and what it works with |
 
 Something missing or wrong? [Open an issue](https://github.com/Ank-KhoaHo/wemock/issues).
 
