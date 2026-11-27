@@ -101,6 +101,8 @@ STEPS: list[Step] = [
     Step(name="extension checks", command=[sys.executable, "scripts/extension_step.py", "checks"], timeout=60),
     Step(name="unit tests", command=[sys.executable, "scripts/extension_step.py", "unit"], timeout=600),
     Step(name="browser tests", command=[sys.executable, "scripts/extension_step.py", "browser"], timeout=1800),
+    # The documentation site, built from guide/. VitePress fails the build on a dead link.
+    Step(name="docs site", command=[sys.executable, "scripts/extension_step.py", "docs"], timeout=300),
 ]
 
 

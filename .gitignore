@@ -11,6 +11,9 @@ node_modules/
 .wxt/
 test-results/
 playwright-report/
+# The documentation site's build and cache; the docs workflow builds it again.
+guide/.vitepress/dist/
+guide/.vitepress/cache/
 # What scripts/build_release.py builds for a release; the release attaches it.
 /dist/
 

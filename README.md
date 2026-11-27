@@ -35,7 +35,7 @@ npm ci
 npm run build
 ```
 
-Then load `.output/chrome-mv3` the same way. → [Install, in full](guide/install.md)
+Then load `.output/chrome-mv3` the same way. → [Install, in full](https://ank-khoaho.github.io/wemock/install)
 
 **Then:** open your app on `localhost` (wemock is always on there), open DevTools, and pick the
 **wemock** tab. On any other site, click the wemock toolbar icon and switch it on for that site.
@@ -48,16 +48,16 @@ the same at any time.
 
 | You want to | wemock | Guide |
 |---|---|---|
-| Record, then replay | **Mock this** on one call, **Save as scenario** on a list | [First mock](guide/first-mock.md) |
-| Start from a file | Import HAR, OpenAPI 3, Swagger 2 (JSON or YAML) or JSON mock files | [Import and export](guide/import-export.md) |
-| Switch whole states | Scenarios over a Default, with Undo | [Scenarios](guide/scenarios.md) |
-| Match exactly | `:id`, `*rest`, `{optional}`, a host, a GraphQL operation, conditions on query, headers or body | [Matching](guide/matching.md) |
-| Answer anything | Any status 200-599, headers, delays, text or binary bodies | [Replies](guide/replies.md) |
-| Answer per call | Templates, sequences, code, Change real | [Replies](guide/replies.md) |
-| Stream an answer | Chunks over time, Server-Sent Events, `EventSource` | [Replies](guide/replies.md#stream) |
-| Change real calls | Add, change or remove request headers | [Request headers](guide/headers.md) |
-| Mock sockets | WebSocket timelines and replies, SignalR hubs | [Sockets](guide/sockets.md) |
-| See which mock answered | Answered by in the Log, Console line, Log filters, Save as HAR | [Checking](guide/checking.md) |
+| Record, then replay | **Mock this** on one call, **Save as scenario** on a list | [First mock](https://ank-khoaho.github.io/wemock/first-mock) |
+| Start from a file | Import HAR, OpenAPI 3, Swagger 2 (JSON or YAML) or JSON mock files | [Import and export](https://ank-khoaho.github.io/wemock/import-export) |
+| Switch whole states | Scenarios over a Default, with Undo | [Scenarios](https://ank-khoaho.github.io/wemock/scenarios) |
+| Match exactly | `:id`, `*rest`, `{optional}`, a host, a GraphQL operation, conditions on query, headers or body | [Matching](https://ank-khoaho.github.io/wemock/matching) |
+| Answer anything | Any status 200-599, headers, delays, text or binary bodies | [Replies](https://ank-khoaho.github.io/wemock/replies) |
+| Answer per call | Templates, sequences, code, Change real | [Replies](https://ank-khoaho.github.io/wemock/replies) |
+| Stream an answer | Chunks over time, Server-Sent Events, `EventSource` | [Replies](https://ank-khoaho.github.io/wemock/replies#stream) |
+| Change real calls | Add, change or remove request headers | [Request headers](https://ank-khoaho.github.io/wemock/headers) |
+| Mock sockets | WebSocket timelines and replies, SignalR hubs | [Sockets](https://ank-khoaho.github.io/wemock/sockets) |
+| See which mock answered | Answered by in the Log, Console line, Log filters, Save as HAR | [Checking](https://ank-khoaho.github.io/wemock/checking) |
 
 Works with `fetch`, `XMLHttpRequest`, and libraries built on them (axios included). Every row,
 button and field works from the keyboard. React, axios, Angular `HttpClient` and a real
@@ -71,7 +71,7 @@ Log marks it `MOCK` and names the mock that answered.
 <img src=".github/screens/1-log.png" alt="The wemock Log: real calls and mocked calls, with the details of one call">
 
 Mock a whole filtered list at once with **Save as scenario**. A call to another site keeps its
-host, so the mock answers only that site. → [Your first mock](guide/first-mock.md)
+host, so the mock answers only that site. → [Your first mock](https://ank-khoaho.github.io/wemock/first-mock)
 
 ## Every state your backend rarely gives you
 
@@ -80,7 +80,7 @@ everything else keeps working. Switch back with one click.
 
 <img src=".github/screens/5-scenarios.png" alt="The Mocks list: Default and three scenarios, each with its own icons; Checkout down is active, and its mock answers 503">
 
-→ [Scenarios](guide/scenarios.md)
+→ [Scenarios](https://ank-khoaho.github.io/wemock/scenarios)
 
 ## When a fixed body is not enough, answer with code
 
@@ -91,7 +91,7 @@ The code runs in a sandbox, for at most one second.
 <img src=".github/screens/2-code-mock.png" alt="A code mock: the reply reads req.params.id and answers 404 for unknown products">
 
 Templates (`{{params.id}}`), sequences ("pending, pending, done") and **Change real** (let the
-real call through, then change one field) cover the cases in between. → [Replies](guide/replies.md)
+real call through, then change one field) cover the cases in between. → [Replies](https://ank-khoaho.github.io/wemock/replies)
 
 ## Know which mock answered
 
@@ -100,7 +100,7 @@ Click the name to open that mock.
 
 <img src=".github/screens/3-answered-by.png" alt="The Log: POST /api/checkout answered by the mock Checkout 503, from the scenario Checkout down">
 
-Each mocked call also writes one line to the page's Console. → [Checking your mocks](guide/checking.md)
+Each mocked call also writes one line to the page's Console. → [Checking your mocks](https://ank-khoaho.github.io/wemock/checking)
 
 ## WebSocket and SignalR, with no server
 
@@ -111,7 +111,7 @@ socket**.
 
 <img src=".github/screens/4-signalr.png" alt="A SignalR socket mock: messages on connect, and a reply to Subscribe">
 
-→ [WebSocket and SignalR](guide/sockets.md)
+→ [WebSocket and SignalR](https://ank-khoaho.github.io/wemock/sockets)
 
 ## Status
 
@@ -166,7 +166,7 @@ It hears a call once and sings it back. That is the whole product.
 
 | File | What it holds |
 |---|---|
-| [guide/](guide/README.md) | how to use every feature, one page each |
+| [Documentation site](https://ank-khoaho.github.io/wemock/) | how to use every feature, one page each, with search |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | how to build and test it, and what gets rejected |
 | [SECURITY.md](SECURITY.md) | how to report a vulnerability, and what is not one |
 | [ROADMAP.md](ROADMAP.md) | direction, and the things deliberately not coming |

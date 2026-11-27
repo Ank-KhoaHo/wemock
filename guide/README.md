@@ -16,4 +16,4 @@ One page per feature. Start at the top if you are new; jump in anywhere if you a
 
 Something missing or wrong? [Open an issue](https://github.com/Ank-KhoaHo/wemock/issues).
 
-← [Back to the README](../README.md)
+← [Back to the README](https://github.com/Ank-KhoaHo/wemock#readme)

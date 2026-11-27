@@ -17,6 +17,8 @@
     "e2e": "playwright test",
     "lab": "bash lab/run.sh serve",
     "lab:test": "bash lab/run.sh test",
+    "docs:dev": "vitepress dev guide",
+    "docs:build": "vitepress build guide",
     "postinstall": "wxt prepare"
   },
   "dependencies": {
@@ -38,6 +40,7 @@
     "@wxt-dev/module-react": "1.2.2",
     "axios": "1.21.1",
     "typescript": "5.9.3",
+    "vitepress": "2.0.0-alpha.21",
     "vitest": "5.1.1",
     "wxt": "0.21.5"
   }

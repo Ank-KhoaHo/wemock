@@ -5,9 +5,11 @@
     python scripts/extension_step.py checks        reads what the build wrote; starts nothing
     python scripts/extension_step.py unit          npx vitest run
     python scripts/extension_step.py browser       npx playwright test
+    python scripts/extension_step.py docs          npm run --silent docs:build
 
-scripts/check.py runs these five, in that order, after the tests. The build comes before
-the checks and the tests because both read what it wrote.
+scripts/check.py runs these, in that order, after the tests. The build comes before the checks
+and the tests because both read what it wrote. `docs` builds the documentation site from guide/;
+VitePress fails that build on a dead link.
 
 WHAT THE STEPS MUST NEVER DO IS REPORT A PASS THAT IS NOT ONE. Three ways it happens:
 
@@ -60,11 +62,12 @@ COMMANDS: dict[str, list[str]] = {
     "build": ["npm", "run", "--silent", "build"],
     "unit": ["npx", "vitest", "run"],
     "browser": ["npx", "playwright", "test"],
+    "docs": ["npm", "run", "--silent", "docs:build"],
 }
 
 # Seconds. Each is below the limit scripts/check.py gives the same step, so that this
 # script is the one that stops, and it stops everything it started.
-LIMITS: dict[str, int] = {"typecheck": 240, "build": 540, "unit": 540, "browser": 1700}
+LIMITS: dict[str, int] = {"typecheck": 240, "build": 540, "unit": 540, "browser": 1700, "docs": 240}
 
 _SKIP_WORDS = {"unit": r"skipped|todo", "browser": r"skipped"}
 
@@ -229,7 +232,7 @@ def _run(command: list[str], limit: int) -> tuple[int | None, str]:
 def main(argv: list[str] | None = None) -> int:
     """Run one step. Returns 0 only when it passed: the gate reads the exit code."""
     parser = argparse.ArgumentParser(description="The gate's steps for a browser extension.")
-    parser.add_argument("step", choices=["typecheck", "build", "checks", "unit", "browser"])
+    parser.add_argument("step", choices=["typecheck", "build", "checks", "unit", "browser", "docs"])
     step = parser.parse_args(argv).step
 
     # The pack was installed and the extension was not created yet. That is a failure with
